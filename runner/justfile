@@ -1,0 +1,7 @@
+set positional-arguments
+set allow-duplicate-recipes
+
+mod env
+mod install
+mod uninstall
+mod bootstrap
