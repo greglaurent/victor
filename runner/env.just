@@ -1,23 +1,25 @@
-set-global:
-  #! /usr/bin/env bash
+mod utils
 
-  env_path="/etc/environment"
-  env_tmp=$(mktemp)
-  heredoc=$(mktemp)
-  body=$(mktemp)
-
-  touch "${env_path}"
-
-  cat <<EOT >> "${heredoc}"
-  JUST_UNSTABLE=1
-  TEST=true
-  EOT
-
-  tail -n +3 "${env_path}" | cat - "${heredoc}" | sort -u - > "${body}"
-  head -n 2 "${env_path}" | cat - "${body}" > "${env_tmp}"
-  cat "${env_tmp}" > "${env_path}"
-
-  rm -f "${env_tmp}" "${merge}" "${heredoc}"
+# set-global:
+#   #! /usr/bin/env bash
+# 
+#   env_path="/etc/environment"
+#   env_tmp=$(mktemp)
+#   heredoc=$(mktemp)
+#   body=$(mktemp)
+# 
+#   touch "${env_path}"
+# 
+#   cat <<EOT >> "${heredoc}"
+#   JUST_UNSTABLE=1
+#   TEST=true
+#   EOT
+# 
+#   tail -n +3 "${env_path}" | cat - "${heredoc}" | sort -u - > "${body}"
+#   head -n 2 "${env_path}" | cat - "${body}" > "${env_tmp}"
+#   cat "${env_tmp}" > "${env_path}"
+# 
+#   rm -f "${env_tmp}" "${merge}" "${heredoc}"
 
 set-profile:
   #! /usr/bin/env bash
@@ -28,7 +30,6 @@ set-profile:
   heredoc=$(mktemp)
   body=$(mktemp)
 
-  touch "${env_path}"
 
   # cat <<EOT >> "${heredoc}"
   # JUST_UNSTABLE=1

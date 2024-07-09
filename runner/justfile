@@ -2,6 +2,7 @@ set positional-arguments
 set allow-duplicate-recipes
 
 mod env
+mod utils
 mod install
 mod uninstall
 mod bootstrap
