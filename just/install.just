@@ -1,2 +1,0 @@
-b:
-  @echo 'install.b'
