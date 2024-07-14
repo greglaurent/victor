@@ -1,2 +1,2 @@
-b:
-  @echo 'uninstall.b'
+rust:
+  rustup self uninstall
