@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+HERE=$(cd $(dirname "${BASH_SOURCE[0]}") &>/dev/null && pwd)
+
+declare -A dirs
+declare -A files
+
+utils::path::map_dirs() {
+  local here="${HERE}"
+  local -a out
+
+  mapfile -t out < <(find "${here}" -maxdepth 1 -mindepth 1 -type d -printf '%f\n')
+  for o in "${out[@]}"; do
+    dirs["${o}"]="${o}"
+  done
+}
+
+utils::path::print_dirs() {
+  for d in "${!dirs[@]}"; do
+    printf 'DIR: %s' "${d}" >&2
+    printf "\n" >&2
+  done
+}
+
+utils::path::map_files() {
+  local -n ref="${1}"
+  local here="${HERE}"
+
+  for k in ${!ref[@]}; do
+    local -a out
+    local path="${here}/${k}"
+
+    mapfile -t out < <(find "${path}" -maxdepth 1 -mindepth 1 -executable -type f)
+    files["${k}"]=$out
+  done
+}
+
+utils::path::print_files() {
+  for f in "${!files[@]}"; do
+    printf 'FILE: %s' "${files[${f}]}" >&2
+    printf "\n" >&2
+  done
+}
