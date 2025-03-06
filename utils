@@ -2,42 +2,68 @@
 
 HERE=$(cd $(dirname "${BASH_SOURCE[0]}") &>/dev/null && pwd)
 
+DIR=""
+CMD=""
+
 declare -A dirs
-declare -A files
+
+utils::bootstrap() {
+  unset DIR
+  unset CMD
+
+  mkdir -p "${HERE}/repos" >&2
+
+  utils::path::map_dirs
+
+  #utils::path::print_lookup
+}
+
+utils::parse_args() {
+  local dir cmd
+  while (("$#")); do
+    [[ -z $DIR ]] && DIR="${1}" && shift && continue
+    [[ -z $CMD ]] && CMD="${1}" && shift && continue
+  done
+}
+
+utils::exec() {
+  local here="${HERE}"
+  local -n ref_dirs="dirs"
+
+  utils::parse_args "$@"
+  local -n ref_dir="DIR"
+  local -n ref_cmd="CMD"
+
+  local path="${dirs["${ref_dir}", "${ref_cmd}"]}"
+
+  echo "path: ${path}"
+  "${path}" >&1
+}
 
 utils::path::map_dirs() {
   local here="${HERE}"
-  local -a out
+  local -a out_d
+  local -a out_f
 
-  mapfile -t out < <(find "${here}" -maxdepth 1 -mindepth 1 -type d -printf '%f\n')
-  for o in "${out[@]}"; do
-    dirs["${o}"]="${o}"
+  mapfile -t out_d < <(find "${here}" -maxdepth 1 -mindepth 1 -type d -printf '%f\n')
+
+  for d in "${out_d[@]}"; do
+    local path="${here}/${d}"
+    mapfile -t out_f < <(find "${path}" -maxdepth 1 -mindepth 1 -executable -type f)
+
+    for f in "${out_f[@]}"; do
+      local key=$(basename "${f}")
+      dirs["${d}", "${key}"]="${f}"
+    done
   done
 }
 
-utils::path::print_dirs() {
-  for d in "${!dirs[@]}"; do
-    printf 'DIR: %s' "${d}" >&2
+utils::path::print_lookup() {
+  local -n ref="dirs"
+  for d in "${!ref[@]}"; do
+    printf 'KEY: %s' "${d}" >&2
     printf "\n" >&2
-  done
-}
-
-utils::path::map_files() {
-  local -n ref="${1}"
-  local here="${HERE}"
-
-  for k in ${!ref[@]}; do
-    local -a out
-    local path="${here}/${k}"
-
-    mapfile -t out < <(find "${path}" -maxdepth 1 -mindepth 1 -executable -type f)
-    files["${k}"]=$out
-  done
-}
-
-utils::path::print_files() {
-  for f in "${!files[@]}"; do
-    printf 'FILE: %s' "${files[${f}]}" >&2
+    printf 'VALUE: %s' "${ref["${d}"]}" >&2
     printf "\n" >&2
   done
 }
