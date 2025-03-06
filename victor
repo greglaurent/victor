@@ -41,12 +41,10 @@ source "${HERE}"/utils
 main() {
   utils::bootstrap
 
-  ./setup/fonts
+  utils::path::map_dirs && utils::path::map_files dirs
 
-  #utils::path::map_dirs && utils::path::map_files dirs
-
-  #utils::path::print_dirs
-  #utils::path::print_files
+  utils::path::print_dirs
+  utils::path::print_files
 }
 
 main
