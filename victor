@@ -34,7 +34,7 @@ source ./utils
 main() {
   utils::bootstrap
 
-  utils::path::print_lookup
+  #utils::path::print_lookup
 
   [[ ! -z ${@} ]] && utils::exec "${@}"
 }
