@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+arg="${1}"
+delete="--delete"
+
+[[ "${arg}" = "--force" ]] && delete="-D"
+
+git branch -vv | grep "gone" | awk '{print $1}' | xargs git branch "${delete}"

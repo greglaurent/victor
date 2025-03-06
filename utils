@@ -45,7 +45,8 @@ utils::path::map_dirs() {
   local -a out_d
   local -a out_f
 
-  mapfile -t out_d < <(find "${here}" -maxdepth 1 -mindepth 1 -type d -printf '%f\n')
+  # skip hidden directories
+  mapfile -t out_d < <(find "${here}" -maxdepth 1 -mindepth 1 -not -path '*/.*' -type d -printf '%f\n')
 
   for d in "${out_d[@]}"; do
     local path="${here}/${d}"
