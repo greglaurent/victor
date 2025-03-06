@@ -2,23 +2,42 @@
 
 HERE=$(cd $(dirname "${BASH_SOURCE[0]}") &>/dev/null && pwd)
 
+DIR=""
+CMD=""
+
 declare -A dirs
 
 utils::bootstrap() {
+  unset DIR
+  unset CMD
+
   mkdir -p "${HERE}/repos" >&2
 
   utils::path::map_dirs
+
+  #utils::path::print_lookup
+}
+
+utils::parse_args() {
+  local dir cmd
+  while (("$#")); do
+    [[ -z $DIR ]] && DIR="${1}" && shift && continue
+    [[ -z $CMD ]] && CMD="${1}" && shift && continue
+  done
 }
 
 utils::exec() {
   local here="${HERE}"
-  local -n ref="dirs"
-  local dir="${1}"
-  local cmd="${2}"
+  local -n ref_dirs="dirs"
 
-  local path="${ref["${dir}", "${cmd}"]}"
+  utils::parse_args "$@"
+  local -n ref_dir="DIR"
+  local -n ref_cmd="CMD"
 
-  $("${path}")
+  local path="${dirs["${ref_dir}", "${ref_cmd}"]}"
+
+  echo "path: ${path}"
+  "${path}" >&1
 }
 
 utils::path::map_dirs() {
