@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-paru -Sy --noconfirm neovim lazygit clang \
-  fzf ripgrep fd hererocks luarocks \
+paru -Sy --noconfirm lazygit clang \
+  hererocks luarocks \
   nodejs npm pnpm
 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y

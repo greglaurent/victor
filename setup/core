@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+paru -Sy --noconfirm wl-clipboard \
+  neovim \
+  fzf \
+  ripgrep \
+  fd

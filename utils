@@ -5,6 +5,10 @@ HERE=$(cd $(dirname "${BASH_SOURCE[0]}") &>/dev/null && pwd)
 declare -A dirs
 declare -A files
 
+utils::bootstrap() {
+  mkdir -p "${HERE}/repos" >&2
+}
+
 utils::path::map_dirs() {
   local here="${HERE}"
   local -a out
