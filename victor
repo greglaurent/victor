@@ -3,37 +3,15 @@
 # set HERE to bootstrap to call utils from anywhere
 HERE=$(cd $(dirname "${BASH_SOURCE[0]}") &>/dev/null && pwd)
 
-source "${HERE}"/utils
+[[ ! -f "${HERE}"/utils ]] &&
+  HERE="$(dirname "$(readlink -f "${0}")")"
 
-#args() {
-#  local opts="h"
-#  local OPTIND dir cmd
-#
-#  while getopts "${opts}" opt; do
-#    case "$opt" in
-#    h)
-#      echo "Usage: $0 [-v] [-n name]"
-#      exit 0
-#      ;;
-#    *)
-#      dir="${OPTARG}"
-#      cmd="${OPTARG}"
-#      ;;
-#    esac
-#  done
-#
-#  shift $((OPTIND - 1))
-#
-#  [ "${1:-}" = "--" ] && shift
-#
-#  echo "verbose=$verbose, dir=${dir}, Leftovers: $@"
-#
-#}
-
-#utils::path::print_lookup
+source "${HERE}"/utils >&2
 
 main() {
   utils::bootstrap
+
+  # TODO: PRINT HELP TEXT
 
   [[ ! -z ${@} ]] && utils::exec "${@}"
 }
