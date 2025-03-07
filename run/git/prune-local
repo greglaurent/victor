@@ -3,6 +3,8 @@
 delete="--delete"
 [[ "${1}" = "--force" ]] && delete="-D"
 
+git switch main
+
 git fetch origin --prune
 
 git branch -vv |
