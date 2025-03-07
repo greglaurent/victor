@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+#TODO: Set email and name with a config file or ENVs
+git config --global pull.ff only
