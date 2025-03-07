@@ -6,12 +6,16 @@ HERE=$(cd $(dirname "${BASH_SOURCE[0]}") &>/dev/null && pwd)
 [[ ! -f "${HERE}"/utils ]] &&
   HERE="$(dirname "$(readlink -f "${0}")")"
 
+# source utils to use HERE
 source "${HERE}"/utils >&2
+
+# source internal commands to use HERE
+for f in "${HERE}"/.internal/*; do
+  source $f >&2
+done
 
 main() {
   utils::bootstrap
-
-  #TODO: PRINT HELP TEXT
 
   [[ ! -z ${@} ]] && utils::exec "${@}"
 }

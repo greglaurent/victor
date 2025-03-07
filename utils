@@ -1,69 +1,103 @@
 #!/usr/bin/env bash
 
-DIR=""
-CMD=""
-ARG=""
-OPT=""
+ARG0=""
+ARG1=""
+ARG2=""
+ARG3=""
+ARG4=""
 
-declare -A dirs
+declare -A arg_map
 
 utils::bootstrap() {
-  unset DIR
-  unset CMD
-  unset ARG
-  unset OPT
+  unset ARG0
+  unset ARG1
+  unset ARG2
+  unset ARG3
+  unset ARG4
+
+  echo "[MSG]: Script from: ${HERE}"
 
   [[ ! -L "/usr/local/bin/victor" ]] &&
     {
-      ln -s "${HERE}/victor" /usr/local/bin >&2 ||
-        printf '\n%s\n\n' "[ERR]: Invalid persmissions. Run with sudo."
+      ln -s "${HERE}/victor" /usr/local/bin >&2 || {
+        printf '\n%s\n\n' "[WRN]: Invalid persmissions. Run with sudo to symlink as a bin."
+      }
     }
 
   mkdir -p "${HERE}/repos" >&2
 
-  utils::path::map_dirs
+  utils::path::arg_map
 
-  #utils::path::print_lookup
+  # utils::print_lookup
 }
 
 utils::parse_args() {
+  local skip=false
   while (("$#")); do
-    [[ -z $DIR ]] && DIR="${1}" && shift && continue
-    [[ -z $CMD ]] && CMD="${1}" && shift && continue
-    [[ -z $ARG ]] && ARG="${1}" && shift && continue
-    [[ -z $OPT ]] && OPT="${@}" && break
+    # identical match should be an internal cmd, honor left -> right
+    # skip if first command is not internal
+    if ! "${skip}"; then
+      [[ -n "${arg_map["${1}"]}" ]] && {
+        ARG0="${1}"
+        shift
+        [[ -z $ARG4 ]] && ARG4="${@}"
+        break
+      }
+    fi
+
+    # jump to processing external commands
+    skip=true
+
+    [[ -z $ARG1 ]] && ARG1="${1}" && shift && continue
+    [[ -z $ARG2 ]] && ARG2="${1}" && shift && continue
+    [[ -z $ARG3 ]] && ARG3="${1}" && shift && continue
+    [[ -z $ARG4 ]] && ARG4="${@}" && break
   done
 }
 
 utils::exec() {
   local here="${HERE}"
-  local -n ref_dirs="dirs"
+  local -n ref_arg_map="arg_map"
 
   utils::parse_args "$@"
-  local -n ref_dir="DIR"
-  local -n ref_cmd="CMD"
-  local -n ref_arg="ARG"
-  local -n ref_opt="OPT"
 
-  # debug prints
-  # echo "ref_dir: ${ref_dir}"
-  # echo "ref_cmd: ${ref_cmd}"
-  # echo "ref_arg: ${ref_arg}"
-  # echo "ref_opt: ${ref_opt}"
+  echo "0 : ${ARG0}"
+  echo "1 : ${ARG1}"
+  echo "2 : ${ARG2}"
+  echo "3 : ${ARG3}"
+  echo "4 : ${ARG4}"
+
+  local path ref_dir ref_cmd
+
+  # override if an internal command
+  [[ ! -z "${ARG0}" ]] &&
+    {
+      path="${arg_map["${ARG0}"]}"
+      source "${path}" >&2
+
+      "${ARG0}::exec" "${ARG4}" >&1
+
+      exit
+    }
+
+  path="${arg_map["${ARG1}", "${ARG2}"]}"
+  echo "${path}"
 
   # shift variables
   # if passed as `dir cmd arg` instead of `dir:cmd arg`
-  [[ ! -z "${ref_arg}" ]] && ref_dir="${DIR}:${CMD}" && ref_cmd="${ARG}"
-
-  local path="${dirs["${ref_dir}", "${ref_cmd}"]}"
+  [[ ! -z "${ARG3}" ]] && {
+    ref_dir="${ARG1}:${ARG2}"
+    ref_cmd="${ARG3}"
+    path="${arg_map["${ref_dir}", "${ref_cmd}"]}"
+  }
 
   printf '\n%s\n' "[RUN]: "${path}""
-  printf '%s\n\n' "[OPT]: "${ref_opt:=NULL}""
+  printf '%s\n\n' "[ARG4]: "${ref_opt:=NULL}""
 
-  "${path}" "${ref_opt}" >&1
+  "${path}" "${ARG4}" >&1
 }
 
-utils::path::map_dirs() {
+utils::path::arg_map() {
   local here="${HERE}"
   local -a out_d
   local -a out_f
@@ -71,24 +105,34 @@ utils::path::map_dirs() {
   # skip hidden directories
   mapfile -t out_d < <(find "${here}" -maxdepth 2 -mindepth 1 -not -path '*/.*' -type d -printf '%P\n')
 
+  local path
   for d in "${out_d[@]}"; do
-    local path="${here}/${d}"
+    path="${here}/${d}"
     mapfile -t out_f < <(find "${path}" -maxdepth 1 -mindepth 1 -executable -type f)
 
     local key_1=$(echo "${d}" | sed -r 's/\//:/g')
     for f in "${out_f[@]}"; do
       local key_2=$(basename "${f}")
-      dirs["${key_1}", "${key_2}"]="${f}"
+      arg_map["${key_1}", "${key_2}"]="${f}"
     done
   done
+
+  # map internal commands
+  path="${here}/.internal"
+  mapfile -t out_f < <(find "${path}" -maxdepth 1 -mindepth 1 -executable -type f)
+  for f in "${out_f[@]}"; do
+    local key_1=$(basename "${f}")
+    arg_map["${key_1}"]="${f}"
+  done
+
 }
 
-utils::path::print_lookup() {
-  local -n ref="dirs"
+utils::print_lookup() {
+  local -n ref="arg_map"
+
+  printf '\n%s\n' "##### ARG MAP #####" >&2
   for d in "${!ref[@]}"; do
-    printf 'KEY: %s' "${d}" >&2
-    printf "\n" >&2
-    printf 'VALUE: %s' "${ref["${d}"]}" >&2
-    printf "\n" >&2
+    printf '\n[KEY]: %s\n' "${d}" >&2
+    printf '[RUN]: %s\n\n' "${ref["${d}"]}" >&2
   done
 }
