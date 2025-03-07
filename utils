@@ -58,7 +58,7 @@ utils::exec() {
   local path="${dirs["${ref_dir}", "${ref_cmd}"]}"
 
   printf '\n%s\n' "[RUN]: "${path}""
-  printf '%s\n\n' "[OPT]: "${ref_opt}""
+  printf '%s\n\n' "[OPT]: "${ref_opt:=NULL}""
 
   "${path}" "${ref_opt}" >&1
 }
