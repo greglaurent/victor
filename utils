@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-HERE=$(cd $(dirname "${BASH_SOURCE[0]}") &>/dev/null && pwd)
-
 DIR=""
 CMD=""
 ARG=""
@@ -14,6 +12,12 @@ utils::bootstrap() {
   unset CMD
   unset ARG
   unset OPT
+
+  [[ ! -L "/usr/local/bin/victor" ]] &&
+    {
+      ln -s "${HERE}/victor" /usr/local/bin >&2 ||
+        printf '\n%s\n\n' "[ERR]: Invalid persmissions. Run with sudo."
+    }
 
   mkdir -p "${HERE}/repos" >&2
 

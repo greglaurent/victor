@@ -10,6 +10,6 @@ git branch -vv |
   awk '{print $1}' |
   xargs git branch "${delete}" >&2 ||
   {
-    printf '\n%s\n' "[WARN]: Use --force to delete branches." >&2 &&
-      printf '%s\n\n' "[WARN]: victor run git prune-local --force." >&2
+    printf '\n%s\n' "[WRN]: Use --force to delete branches." >&2 &&
+      printf '%s\n\n' "[WRN]: victor run git prune-local --force." >&2
   }
