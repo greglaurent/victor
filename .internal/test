@@ -1,3 +1,6 @@
 #!/usr/bin/env bash
 
-echo "internal file"
+test::exec() {
+  echo "RUNNING FROM INTERNAL"
+  echo "${HERE}"
+}
