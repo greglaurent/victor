@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
 
-#TODO: Set email and name with a config file or ENVs
+# TODO: Add arguments or read ENV vars
+# TODO: Add other default git configs
+
 git config --global pull.ff only
+git config --global user.name "Greg L"
+git config --global user.email "gregory.m.laurent@gmail.com"

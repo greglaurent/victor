@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 source utils
+
 path="${HERE}/repos/nerd-fonts"
 
 rm -rf "${path}" >&2

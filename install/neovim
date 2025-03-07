@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
-# get $HOME for any user
+#TODO: Add input arguments for USER
+
+# $HOME for any user
 home=$(getent passwd "${USER}" | cut -d: -f6)
 
 paru -Sy --noconfirm neovim lazygit clang \
