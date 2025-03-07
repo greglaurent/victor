@@ -1,6 +1,1 @@
 #!/usr/bin/env bash
-
-#TODO: Fix this
-
-git config --global user.email "gregory.m.laurent@gmail.com"
-git config --global user.name "Greg L"

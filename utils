@@ -45,18 +45,21 @@ utils::exec() {
   local -n ref_arg="ARG"
   local -n ref_opt="OPT"
 
-  echo "ref_dir: ${ref_dir}"
-  echo "ref_cmd: ${ref_cmd}"
-  echo "ref_arg: ${ref_arg}"
-  echo "ref_opt: ${ref_opt}"
+  # debug prints
+  # echo "ref_dir: ${ref_dir}"
+  # echo "ref_cmd: ${ref_cmd}"
+  # echo "ref_arg: ${ref_arg}"
+  # echo "ref_opt: ${ref_opt}"
 
   # shift variables
-  # if passed as -> dir cmd arg, instead of -> dir:cmd arg
+  # if passed as `dir cmd arg` instead of `dir:cmd arg`
   [[ ! -z "${ref_arg}" ]] && ref_dir="${DIR}:${CMD}" && ref_cmd="${ARG}"
 
   local path="${dirs["${ref_dir}", "${ref_cmd}"]}"
 
-  echo "path: ${path}"
+  printf '\n%s\n' "[RUN]: "${path}""
+  printf '%s\n\n' "[OPT]: "${ref_opt}""
+
   "${path}" "${ref_opt}" >&1
 }
 
