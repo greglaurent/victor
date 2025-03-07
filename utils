@@ -32,16 +32,22 @@ utils::bootstrap() {
 }
 
 utils::parse_args() {
+  local skip=false
   while (("$#")); do
-    # identical match should be an internal cmd
-    [[ -n "${arg_map["${1}"]}" ]] && {
-      ARG0="${1}"
-      shift
-      [[ -z $ARG4 ]] && ARG4="${@}"
-      break
-    }
+    # identical match should be an internal cmd, honor left -> right
+    # skip if first command is not internal
+    if ! "${skip}"; then
+      [[ -n "${arg_map["${1}"]}" ]] && {
+        ARG0="${1}"
+        shift
+        [[ -z $ARG4 ]] && ARG4="${@}"
+        break
+      }
+    fi
 
-    echo "external"
+    # jump to processing external commands
+    skip=true
+
     [[ -z $ARG1 ]] && ARG1="${1}" && shift && continue
     [[ -z $ARG2 ]] && ARG2="${1}" && shift && continue
     [[ -z $ARG3 ]] && ARG3="${1}" && shift && continue
@@ -55,13 +61,13 @@ utils::exec() {
 
   utils::parse_args "$@"
 
-  # echo "0 : ${ARG0}"
-  # echo "1 : ${ARG1}"
-  # echo "2 : ${ARG2}"
-  # echo "3 : ${ARG3}"
-  # echo "4 : ${ARG4}"
+  echo "0 : ${ARG0}"
+  echo "1 : ${ARG1}"
+  echo "2 : ${ARG2}"
+  echo "3 : ${ARG3}"
+  echo "4 : ${ARG4}"
 
-  local path
+  local path ref_dir ref_cmd
 
   # override if an internal command
   [[ ! -z "${ARG0}" ]] &&
@@ -74,12 +80,15 @@ utils::exec() {
       exit
     }
 
+  path="${arg_map["${ARG1}", "${ARG2}"]}"
+  echo "${path}"
+
   # shift variables
   # if passed as `dir cmd arg` instead of `dir:cmd arg`
   [[ ! -z "${ARG3}" ]] && {
     ref_dir="${ARG1}:${ARG2}"
     ref_cmd="${ARG3}"
-    path="${arg_map["${ARG0}", "${ARG2}"]}"
+    path="${arg_map["${ref_dir}", "${ref_cmd}"]}"
   }
 
   printf '\n%s\n' "[RUN]: "${path}""
