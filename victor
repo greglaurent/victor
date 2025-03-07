@@ -2,9 +2,8 @@
 
 # set HERE to bootstrap to call utils from anywhere
 HERE=$(cd $(dirname "${BASH_SOURCE[0]}") &>/dev/null && pwd)
-source "${HERE}"/utils
 
-source ./utils
+source "${HERE}"/utils
 
 #args() {
 #  local opts="h"
@@ -31,10 +30,10 @@ source ./utils
 #
 #}
 
+#utils::path::print_lookup
+
 main() {
   utils::bootstrap
-
-  #utils::path::print_lookup
 
   [[ ! -z ${@} ]] && utils::exec "${@}"
 }

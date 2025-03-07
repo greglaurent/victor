@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
 
-arg="${1}"
 delete="--delete"
+[[ "${1}" = "--force" ]] && delete="-D"
 
-[[ "${arg}" == "--force" ]] && delete="-D"
+git fetch origin --prune
 
-git branch -vv | grep "gone" | awk '{print $1}' | xargs git branch "${delete}" >&2
+git branch -vv |
+  grep "gone" |
+  awk '{print $1}' |
+  xargs git branch "${delete}" >&2 ||
+  {
+    printf '\n%s\n' "[WARN]: Use --force to delete branches." >&2 &&
+      printf '%s\n\n' "[WARN]: victor run git prune-local --force." >&2
+  }

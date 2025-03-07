@@ -5,6 +5,7 @@ HERE=$(cd $(dirname "${BASH_SOURCE[0]}") &>/dev/null && pwd)
 DIR=""
 CMD=""
 ARG=""
+OPT=""
 
 declare -A dirs
 
@@ -12,6 +13,7 @@ utils::bootstrap() {
   unset DIR
   unset CMD
   unset ARG
+  unset OPT
 
   mkdir -p "${HERE}/repos" >&2
 
@@ -25,6 +27,7 @@ utils::parse_args() {
     [[ -z $DIR ]] && DIR="${1}" && shift && continue
     [[ -z $CMD ]] && CMD="${1}" && shift && continue
     [[ -z $ARG ]] && ARG="${1}" && shift && continue
+    [[ -z $OPT ]] && OPT="${@}" && break
   done
 }
 
@@ -36,10 +39,12 @@ utils::exec() {
   local -n ref_dir="DIR"
   local -n ref_cmd="CMD"
   local -n ref_arg="ARG"
+  local -n ref_opt="OPT"
 
   echo "ref_dir: ${ref_dir}"
   echo "ref_cmd: ${ref_cmd}"
   echo "ref_arg: ${ref_arg}"
+  echo "ref_opt: ${ref_opt}"
 
   # shift variables
   # if passed as -> dir cmd arg, instead of -> dir:cmd arg
@@ -48,7 +53,7 @@ utils::exec() {
   local path="${dirs["${ref_dir}", "${ref_cmd}"]}"
 
   echo "path: ${path}"
-  "${path}" >&1
+  "${path}" "${ref_opt}" >&1
 }
 
 utils::path::map_dirs() {
