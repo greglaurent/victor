@@ -2,6 +2,7 @@
 
 # TODO: Add arguments or read ENV vars
 # TODO: Add other default git configs
+# TODO: SSH key config
 
 git config --global pull.ff only
 git config --global user.name "Greg L"

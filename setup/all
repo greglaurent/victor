@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-# TODO: Swap to using a runners command (folder)
-# TODO: Add command runner for setup
-
-core &
-fonts

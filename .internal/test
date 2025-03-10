@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-test::exec() {
-  echo "RUNNING FROM INTERNAL"
-  echo "${HERE}"
-}
+echo "RUNNING FROM INTERNAL"
+echo "run::test ${HERE}"
+echo "run::test ${ARG}"

@@ -1,3 +1,8 @@
 #!/usr/bin/env bash
 
-# TODO: Add command runner for install
+echo "${HERE}"
+
+# TODO: Swap to using a runners command (folder)
+# TODO: Add command runner for setup
+
+#cp "${HERE}"/resources/paru.conf /etc/paru.conf

@@ -4,7 +4,6 @@
 
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-# TODO: Change to use a utils func
 . "$HOME/.cargo/env"
 
 rustup toolchain install

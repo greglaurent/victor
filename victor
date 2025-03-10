@@ -3,18 +3,17 @@
 # set HERE to bootstrap to call utils from anywhere
 HERE=$(cd $(dirname "${BASH_SOURCE[0]}") &>/dev/null && pwd)
 
+# if called from /usr/local/bin symlink
 [[ ! -f "${HERE}"/utils ]] &&
   HERE="$(dirname "$(readlink -f "${0}")")"
+
+RESOURCES="${HERE}/setup/resources"
 
 # source utils to use HERE
 source "${HERE}"/utils >&2
 
-# source internal commands to use HERE
-for f in "${HERE}"/.internal/*; do
-  source $f >&2
-done
-
 main() {
+
   utils::bootstrap
 
   [[ ! -z ${@} ]] && utils::exec "${@}"

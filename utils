@@ -1,34 +1,67 @@
 #!/usr/bin/env bash
 
-ARG0=""
-ARG1=""
-ARG2=""
-ARG3=""
-ARG4=""
+# Arguments
+INT=""
+CMD=""
+SUB=""
+SCP=""
+ARG=""
 
 declare -A arg_map
 
 utils::bootstrap() {
-  unset ARG0
-  unset ARG1
-  unset ARG2
-  unset ARG3
-  unset ARG4
+  unset INT
+  unset CMD
+  unset SUB
+  unset SCP
+  unset ARG
 
-  echo "[MSG]: Script from: ${HERE}"
+  echo "[MSG] VICTOR running: ${HERE}"
 
   [[ ! -L "/usr/local/bin/victor" ]] &&
     {
       ln -s "${HERE}/victor" /usr/local/bin >&2 || {
-        printf '\n%s\n\n' "[WRN]: Invalid persmissions. Run with sudo to symlink as a bin."
+        printf '\n%s\n' "[WRN]: Invalid persmissions. Run with sudo to symlink as a bin."
       }
     }
 
-  mkdir -p "${HERE}/repos" >&2
+  utils::git
 
   utils::path::arg_map
 
-  # utils::print_lookup
+  _import_tools
+
+  process_ini_file "${HERE}/config.ini"
+}
+
+_import_tools() {
+  local here="${HERE}"
+  local dir="${here}/repos"
+
+  [[ ! -d "${dir}"/ini-file-parser ]] &&
+    git clone git@github.com:greglaurent/ini-file-parser.git "${dir}/ini-file-parser"
+
+  source ${dir}/ini-file-parser/src/ini-file-parser.sh
+}
+
+utils::user_home() {
+  # $HOME for any user
+  # TODO: update to take a variable
+  echo "$(getent passwd "${USER}" | cut -d: -f6)"
+}
+
+utils::git() {
+  is_installed=$(pacman -Qi git)
+  mkdir -p "${HERE}/repos" >&2
+
+  [[ ! "${is_installed}" ]] && {
+    printf '\n%s' "[WRN] Bootstrap requires git."
+    printf '\n%s' "[ACT] Pacman installing now."
+
+    pacman -Syy git
+
+    printf '\n\n%s' "[MSG] Git installed."
+  }
 }
 
 utils::parse_args() {
@@ -38,9 +71,9 @@ utils::parse_args() {
     # skip if first command is not internal
     if ! "${skip}"; then
       [[ -n "${arg_map["${1}"]}" ]] && {
-        ARG0="${1}"
+        INT="${1}"
         shift
-        [[ -z $ARG4 ]] && ARG4="${@}"
+        [[ -z $ARG ]] && ARG="${@}"
         break
       }
     fi
@@ -48,10 +81,11 @@ utils::parse_args() {
     # jump to processing external commands
     skip=true
 
-    [[ -z $ARG1 ]] && ARG1="${1}" && shift && continue
-    [[ -z $ARG2 ]] && ARG2="${1}" && shift && continue
-    [[ -z $ARG3 ]] && ARG3="${1}" && shift && continue
-    [[ -z $ARG4 ]] && ARG4="${@}" && break
+    # skip SCP and shift ARG, if only CMD SUB ARG
+    [[ -z $CMD ]] && CMD="${1}" && shift && continue
+    [[ -z $SUB ]] && SUB="${1}" && shift && continue
+    [[ -z $SCP ]] && [[ "${#}" > 1 ]] && SCP="${1}" && shift && continue
+    [[ -z $ARG ]] && ARG="${@}" && shift && break
   done
 }
 
@@ -62,40 +96,38 @@ utils::exec() {
   utils::parse_args "$@"
 
   # debug args
-  # echo "0 : ${ARG0}"
-  # echo "1 : ${ARG1}"
-  # echo "2 : ${ARG2}"
-  # echo "3 : ${ARG3}"
-  # echo "4 : ${ARG4}"
+  # echo "0 : ${INT}"
+  # echo "1 : ${CMD}"
+  # echo "2 : ${SUB}"
+  # echo "3 : ${SCP}"
+  # echo "4 : ${ARG}"
 
   local path ref_dir ref_cmd
 
   # override if an internal command
-  [[ ! -z "${ARG0}" ]] &&
+  [[ ! -z "${INT}" ]] &&
     {
-      path="${arg_map["${ARG0}"]}"
-      source "${path}" >&2
+      path="${arg_map["${INT}"]}"
+      #source "${path}" >&1
+      #"${INT}::exec" "${ARG}" >&1
+      # exit
+    } || {
+    path="${arg_map["${CMD}", "${SUB}"]}"
 
-      "${ARG0}::exec" "${ARG4}" >&1
-
-      exit
+    # shift variables
+    # if passed as `dir cmd arg` instead of `dir:cmd arg`
+    [[ ! -z "${SCP}" ]] && {
+      ref_dir="${CMD}:${SUB}"
+      ref_cmd="${SCP}"
+      path="${arg_map["${ref_dir}", "${ref_cmd}"]}"
     }
-
-  path="${arg_map["${ARG1}", "${ARG2}"]}"
-  echo "${path}"
-
-  # shift variables
-  # if passed as `dir cmd arg` instead of `dir:cmd arg`
-  [[ ! -z "${ARG3}" ]] && {
-    ref_dir="${ARG1}:${ARG2}"
-    ref_cmd="${ARG3}"
-    path="${arg_map["${ref_dir}", "${ref_cmd}"]}"
   }
 
-  printf '\n%s\n' "[RUN]: "${path}""
-  printf '%s\n\n' "[ARG4]: "${ref_opt:=NULL}""
+  printf '\n%s\n' "[RUN] "${path}""
+  printf '%s\n\n' "[ARG] "${ARG}""
 
-  "${path}" "${ARG4}" >&1
+  #"${path}" "${ARG}" >&1
+  source "${path}" >&1
 }
 
 utils::path::arg_map() {
@@ -125,15 +157,15 @@ utils::path::arg_map() {
     local key_1=$(basename "${f}")
     arg_map["${key_1}"]="${f}"
   done
-
 }
 
 utils::print_lookup() {
   local -n ref="arg_map"
 
-  printf '\n%s\n' "##### ARG MAP #####" >&2
+  printf '\n%s' "######## ARGUMENT MAP ########" >&2
+  printf '\n%s\n' "______________________________" >&2
   for d in "${!ref[@]}"; do
-    printf '\n[KEY]: %s\n' "${d}" >&2
-    printf '[RUN]: %s\n\n' "${ref["${d}"]}" >&2
+    printf '\n[KEY] %s' "${d}" >&2
+    printf '\n[VAL] %s\n' "${ref["${d}"]}" >&2
   done
 }
