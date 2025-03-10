@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
 
-ARG0=""
-ARG1=""
-ARG2=""
-ARG3=""
-ARG4=""
+# Arguments
+INT=""
+CMD=""
+SUB=""
+DIR=""
+ARG=""
 
 declare -A arg_map
 
 utils::bootstrap() {
-  unset ARG0
-  unset ARG1
-  unset ARG2
-  unset ARG3
-  unset ARG4
+  unset INT
+  unset CMD
+  unset SUB
+  unset DIR
+  unset ARG
 
   echo "[MSG] VICTOR running: ${HERE}"
 
@@ -29,6 +30,8 @@ utils::bootstrap() {
   utils::install_tools
 
   utils::path::arg_map
+
+  utils::print_lookup
 }
 
 utils::install_tools() {
@@ -47,7 +50,6 @@ utils::install_tools() {
 
 utils::git() {
   is_installed=$(pacman -Qi git)
-
   mkdir -p "${HERE}/repos" >&2
 
   [[ ! "${is_installed}" ]] && {
@@ -67,9 +69,9 @@ utils::parse_args() {
     # skip if first command is not internal
     if ! "${skip}"; then
       [[ -n "${arg_map["${1}"]}" ]] && {
-        ARG0="${1}"
+        INT="${1}"
         shift
-        [[ -z $ARG4 ]] && ARG4="${@}"
+        [[ -z $ARG ]] && ARG="${@}"
         break
       }
     fi
@@ -77,10 +79,10 @@ utils::parse_args() {
     # jump to processing external commands
     skip=true
 
-    [[ -z $ARG1 ]] && ARG1="${1}" && shift && continue
-    [[ -z $ARG2 ]] && ARG2="${1}" && shift && continue
-    [[ -z $ARG3 ]] && ARG3="${1}" && shift && continue
-    [[ -z $ARG4 ]] && ARG4="${@}" && break
+    [[ -z $CMD ]] && CMD="${1}" && shift && continue
+    [[ -z $SUB ]] && SUB="${1}" && shift && continue
+    [[ -z $DIR ]] && DIR="${1}" && shift && continue
+    [[ -z $ARG ]] && ARG="${@}" && break
   done
 }
 
@@ -91,40 +93,40 @@ utils::exec() {
   utils::parse_args "$@"
 
   # debug args
-  # echo "0 : ${ARG0}"
-  # echo "1 : ${ARG1}"
-  # echo "2 : ${ARG2}"
-  # echo "3 : ${ARG3}"
-  # echo "4 : ${ARG4}"
+  # echo "0 : ${INT}"
+  # echo "1 : ${CMD}"
+  # echo "2 : ${SUB}"
+  # echo "3 : ${DIR}"
+  # echo "4 : ${ARG}"
 
   local path ref_dir ref_cmd
 
   # override if an internal command
-  [[ ! -z "${ARG0}" ]] &&
+  [[ ! -z "${INT}" ]] &&
     {
-      path="${arg_map["${ARG0}"]}"
+      path="${arg_map["${INT}"]}"
       source "${path}" >&2
 
-      "${ARG0}::exec" "${ARG4}" >&1
+      "${INT}::exec" "${ARG}" >&1
 
       exit
     }
 
-  path="${arg_map["${ARG1}", "${ARG2}"]}"
+  path="${arg_map["${CMD}", "${SUB}"]}"
   echo "${path}"
 
   # shift variables
   # if passed as `dir cmd arg` instead of `dir:cmd arg`
-  [[ ! -z "${ARG3}" ]] && {
-    ref_dir="${ARG1}:${ARG2}"
-    ref_cmd="${ARG3}"
+  [[ ! -z "${DIR}" ]] && {
+    ref_dir="${CMD}:${SUB}"
+    ref_cmd="${DIR}"
     path="${arg_map["${ref_dir}", "${ref_cmd}"]}"
   }
 
   printf '\n%s\n' "[RUN]: "${path}""
-  printf '%s\n\n' "[ARG4]: "${ref_opt:=NULL}""
+  printf '%s\n\n' "[ARG]: "${ref_opt:=NULL}""
 
-  "${path}" "${ARG4}" >&1
+  "${path}" "${ARG}" >&1
 }
 
 utils::path::arg_map() {
@@ -159,9 +161,10 @@ utils::path::arg_map() {
 utils::print_lookup() {
   local -n ref="arg_map"
 
-  printf '\n%s\n' "##### ARG MAP #####" >&2
+  printf '\n%s' "######## ARGUMENT MAP ########" >&2
+  printf '\n%s\n' "______________________________" >&2
   for d in "${!ref[@]}"; do
-    printf '\n[KEY]: %s\n' "${d}" >&2
-    printf '[RUN]: %s\n\n' "${ref["${d}"]}" >&2
+    printf '\n[KEY]: %s' "${d}" >&2
+    printf '\n[RUN]: %s\n' "${ref["${d}"]}" >&2
   done
 }
