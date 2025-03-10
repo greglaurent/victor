@@ -15,20 +15,49 @@ utils::bootstrap() {
   unset ARG3
   unset ARG4
 
-  echo "[MSG]: Script from: ${HERE}"
+  echo "[MSG] VICTOR running: ${HERE}"
 
   [[ ! -L "/usr/local/bin/victor" ]] &&
     {
       ln -s "${HERE}/victor" /usr/local/bin >&2 || {
-        printf '\n%s\n\n' "[WRN]: Invalid persmissions. Run with sudo to symlink as a bin."
+        printf '\n%s\n' "[WRN]: Invalid persmissions. Run with sudo to symlink as a bin."
       }
     }
 
-  mkdir -p "${HERE}/repos" >&2
+  utils::git
+
+  utils::install_tools
 
   utils::path::arg_map
+}
 
-  # utils::print_lookup
+utils::install_tools() {
+  local here="${HERE}"
+  local dir="${here}/repos"
+
+  [[ ! -d "${dir}"/ini-file-parser ]] &&
+    git clone git@github.com:greglaurent/ini-file-parser.git "${dir}/ini-file-parser"
+
+  [[ ! -L "/usr/local/bin/ini-file-parser" ]] && {
+    ln -sf "${dir}/ini-file-parser/src/ini-file-parser.sh" "/usr/local/bin/ini-file-parser" >&2 || {
+      printf '\n%s\n\n' "[WRN]: Invalid persmissions. Run with sudo to symlink as a bin."
+    }
+  }
+}
+
+utils::git() {
+  is_installed=$(pacman -Qi git)
+
+  mkdir -p "${HERE}/repos" >&2
+
+  [[ ! "${is_installed}" ]] && {
+    printf '\n%s' "[WRN] Bootstrap requires git."
+    printf '\n%s' "[ACT] Pacman installing now."
+
+    pacman -Syy git
+
+    printf '\n\n%s' "[MSG] Git installed."
+  }
 }
 
 utils::parse_args() {
@@ -125,7 +154,6 @@ utils::path::arg_map() {
     local key_1=$(basename "${f}")
     arg_map["${key_1}"]="${f}"
   done
-
 }
 
 utils::print_lookup() {
