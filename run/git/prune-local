@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 arg="--delete"
-[[ "${1}" = "--force" ]] && arg="-D"
+
+[[ "${ARG}" = "--force" ]] && arg="-D"
 
 git switch main
 
