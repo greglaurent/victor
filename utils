@@ -44,6 +44,12 @@ _import_tools() {
   source ${dir}/ini-file-parser/src/ini-file-parser.sh
 }
 
+utils::user_home() {
+  # $HOME for any user
+  # TODO: update to take a variable
+  echo "$(getent passwd "${USER}" | cut -d: -f6)"
+}
+
 utils::git() {
   is_installed=$(pacman -Qi git)
   mkdir -p "${HERE}/repos" >&2

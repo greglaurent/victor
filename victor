@@ -7,6 +7,8 @@ HERE=$(cd $(dirname "${BASH_SOURCE[0]}") &>/dev/null && pwd)
 [[ ! -f "${HERE}"/utils ]] &&
   HERE="$(dirname "$(readlink -f "${0}")")"
 
+RESOURCES="${HERE}/setup/resources"
+
 # source utils to use HERE
 source "${HERE}"/utils >&2
 

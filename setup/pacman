@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+dir="${RESOURCES}/pacman"
+
+# cp "${dir}/pacman.conf"
+cp "${dir}/paru.conf" /etc/paru.conf
+
+pacman-key --init
+pacman-key --populate
+
+pacman -Syyu

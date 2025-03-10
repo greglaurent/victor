@@ -3,7 +3,7 @@
 #TODO: Add input arguments for USER
 
 # $HOME for any user
-home=$(getent passwd "${USER}" | cut -d: -f6)
+home=$(utils::user_home)
 
 paru -Sy --noconfirm neovim lazygit clang \
   hererocks luarocks \
