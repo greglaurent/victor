@@ -1,3 +1,5 @@
 #!/usr/bin/env bash
 
-echo "RUN: TEST FILE"
+echo "RUNNING TEST FILE"
+echo "${ARG}"
+echo "${HERE}"

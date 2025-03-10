@@ -4,7 +4,7 @@
 INT=""
 CMD=""
 SUB=""
-DIR=""
+SCP=""
 ARG=""
 
 declare -A arg_map
@@ -13,7 +13,7 @@ utils::bootstrap() {
   unset INT
   unset CMD
   unset SUB
-  unset DIR
+  unset SCP
   unset ARG
 
   echo "[MSG] VICTOR running: ${HERE}"
@@ -27,15 +27,11 @@ utils::bootstrap() {
 
   utils::git
 
-  _import_tools
-
   utils::path::arg_map
 
-  utils::print_lookup
+  _import_tools
 
-  process_ini_file "${HERE}"/config.ini
-
-  echo "$(get_value $section1_value1)"
+  process_ini_file "${HERE}/config.ini"
 }
 
 _import_tools() {
@@ -79,10 +75,11 @@ utils::parse_args() {
     # jump to processing external commands
     skip=true
 
+    # skip SCP and shift ARG, if only CMD SUB ARG
     [[ -z $CMD ]] && CMD="${1}" && shift && continue
     [[ -z $SUB ]] && SUB="${1}" && shift && continue
-    [[ -z $DIR ]] && DIR="${1}" && shift && continue
-    [[ -z $ARG ]] && ARG="${@}" && break
+    [[ -z $SCP ]] && [[ "${#}" > 1 ]] && SCP="${1}" && shift && continue
+    [[ -z $ARG ]] && ARG="${@}" && shift && break
   done
 }
 
@@ -96,7 +93,7 @@ utils::exec() {
   # echo "0 : ${INT}"
   # echo "1 : ${CMD}"
   # echo "2 : ${SUB}"
-  # echo "3 : ${DIR}"
+  # echo "3 : ${SCP}"
   # echo "4 : ${ARG}"
 
   local path ref_dir ref_cmd
@@ -105,28 +102,26 @@ utils::exec() {
   [[ ! -z "${INT}" ]] &&
     {
       path="${arg_map["${INT}"]}"
-      source "${path}" >&2
+      #source "${path}" >&1
+      #"${INT}::exec" "${ARG}" >&1
+      # exit
+    } || {
+    path="${arg_map["${CMD}", "${SUB}"]}"
 
-      "${INT}::exec" "${ARG}" >&1
-
-      exit
+    # shift variables
+    # if passed as `dir cmd arg` instead of `dir:cmd arg`
+    [[ ! -z "${SCP}" ]] && {
+      ref_dir="${CMD}:${SUB}"
+      ref_cmd="${SCP}"
+      path="${arg_map["${ref_dir}", "${ref_cmd}"]}"
     }
-
-  path="${arg_map["${CMD}", "${SUB}"]}"
-  echo "${path}"
-
-  # shift variables
-  # if passed as `dir cmd arg` instead of `dir:cmd arg`
-  [[ ! -z "${DIR}" ]] && {
-    ref_dir="${CMD}:${SUB}"
-    ref_cmd="${DIR}"
-    path="${arg_map["${ref_dir}", "${ref_cmd}"]}"
   }
 
-  printf '\n%s\n' "[RUN]: "${path}""
-  printf '%s\n\n' "[ARG]: "${ref_opt:=NULL}""
+  printf '\n%s\n' "[RUN] "${path}""
+  printf '%s\n\n' "[ARG] "${ARG}""
 
-  "${path}" "${ARG}" >&1
+  #"${path}" "${ARG}" >&1
+  source "${path}" >&1
 }
 
 utils::path::arg_map() {
@@ -164,7 +159,7 @@ utils::print_lookup() {
   printf '\n%s' "######## ARGUMENT MAP ########" >&2
   printf '\n%s\n' "______________________________" >&2
   for d in "${!ref[@]}"; do
-    printf '\n[KEY]: %s' "${d}" >&2
-    printf '\n[RUN]: %s\n' "${ref["${d}"]}" >&2
+    printf '\n[KEY] %s' "${d}" >&2
+    printf '\n[VAL] %s\n' "${ref["${d}"]}" >&2
   done
 }
