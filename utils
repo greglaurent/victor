@@ -32,6 +32,8 @@ utils::bootstrap() {
   _import_tools
 
   process_ini_file "${HERE}/config.ini"
+
+  # utils::print_lookup
 }
 
 _import_tools() {
@@ -116,10 +118,10 @@ utils::exec() {
 
     # shift variables
     # if passed as `dir cmd arg` instead of `dir:cmd arg`
-    [[ ! -z "${SCP}" ]] && {
+    [[ -z "${path}" ]] && {
       ref_dir="${CMD}:${SUB}"
       ref_cmd="${SCP}"
-      path="${arg_map["${ref_dir}", "${ref_cmd}"]}"
+      path="${arg_map["${ref_dir}", "${ref_cmd:-$ARG}"]}"
     }
   }
 
