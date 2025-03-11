@@ -4,8 +4,12 @@ dir="${RESOURCES}/timeshift"
 
 # systemctl edit --full grub-btrfsd
 
+# Grub-btrfs setup
 cp "${dir}/grub-btrfsd.service" /etc/systemd/system/grub-btrfsd.service
+grub-mkconfig -o /boot/grub/grub.cfg
+sudo systemctl enable --now grub-btrfsd
 
+# Timeshift setup
 cp "${dir}/timeshift-autosnap.conf" /etc/timeshift-autosnap.conf
 
 systemctl daemon-reload

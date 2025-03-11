@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+# TODO: Add missing core packages
+
+paru -Sy --noconfirm \
+  mesa \
+  lib32-mesa \
+  vulkan-radeon \
+  amd-ucode
