@@ -2,9 +2,23 @@
 
 # TODO: Add missing core packages
 
-paru -Sy --noconfirm neovim \
-  fd \
+paru -Sy --noconfirm \
+  linux-firmware \
+  dkms \
+  linux-headers \
   git \
+  fd \
   fzf \
   ripgrep \
-  wl-clipboard
+  neovim \
+  wl-clipboard \
+  grub-btrfs \
+  timeshift \
+  timeshift-autosnap \
+  yq \
+  python \
+  python-pip \
+  nodejs \
+  npm \
+  pnpm \
+  uv

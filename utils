@@ -29,14 +29,12 @@ utils::bootstrap() {
 
   utils::path::arg_map
 
-  _import_tools
-
-  process_ini_file "${HERE}/config.ini"
+  _base_tools
 
   # utils::print_lookup
 }
 
-_import_tools() {
+_base_tools() {
   local here="${HERE}"
   local dir="${here}/repos"
 
