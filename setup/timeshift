@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+dir="${RESOURCES}/timeshift"
+
+# systemctl edit --full grub-btrfsd
+
+cp "${dir}/grub-btrfsd.service" /etc/systemd/system/grub-btrfsd.service
+
+cp "${dir}/timeshift-autosnap.conf" /etc/timeshift-autosnap.conf
+
+systemctl daemon-reload
