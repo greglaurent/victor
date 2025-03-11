@@ -16,11 +16,11 @@ utils::bootstrap() {
   unset SCP
   unset ARG
 
-  echo "[MSG] VICTOR running: ${HERE}"
+  echo "[MSG] VICTOR is running: ${HERE}"
 
-  [[ ! -L "/usr/local/bin/victor" ]] &&
+  [[ ! -L "/usr/local/bin/vic" ]] &&
     {
-      ln -s "${HERE}/victor" /usr/local/bin >&2 || {
+      ln -s "${HERE}/victor" /usr/local/bin/vic >&2 || {
         printf '\n%s\n' "[WRN]: Invalid persmissions. Run with sudo to symlink as a bin."
       }
     }
