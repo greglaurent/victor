@@ -3,9 +3,14 @@
 # TODO: Add missing core packages
 
 paru -Sy --noconfirm \
-  linux-firmware \
   dkms \
+  linux-firmware \
   linux-headers \
+  mesa \
+  lib32-mesa \
+  vulkan-radeon \
+  amd-ucode \
+  lm_sensors \
   git \
   fd \
   fzf \
@@ -15,6 +20,7 @@ paru -Sy --noconfirm \
   grub-btrfs \
   timeshift \
   timeshift-autosnap \
+  inotify-tools \
   yq \
   python \
   python-pip \
