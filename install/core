@@ -13,10 +13,6 @@ paru -Sy --noconfirm \
   ripgrep \
   neovim \
   wl-clipboard \
-  grub-btrfs \
-  timeshift \
-  timeshift-autosnap \
-  inotify-tools \
   yq \
   python \
   python-pip \
