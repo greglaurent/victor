@@ -6,10 +6,6 @@ paru -Sy --noconfirm \
   dkms \
   linux-firmware \
   linux-headers \
-  mesa \
-  lib32-mesa \
-  vulkan-radeon \
-  amd-ucode \
   lm_sensors \
   git \
   fd \
