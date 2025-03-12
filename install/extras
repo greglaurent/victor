@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
 
 paru -Sy --noconfirm \
-  slack-desktop
+  ttf-ibm-plex \
+  ttf-jost \
+  flameshot \
+  obsidian \
+  obs-studio \
+  cameractrls \
+  inkscape \
+  vivaldi \
+  vivaldi-ffmpeg-codecs \
+  zen-browser-bin \
+  slack-desktop \
+  zoom
