@@ -44,6 +44,14 @@ _base_tools() {
   source ${dir}/ini-file-parser/src/ini-file-parser.sh
 }
 
+utils::is_cmd() {
+  local cmd=$(command -v "${1}") 2>&1 >/dev/null
+
+  [[ ! -z ${cmd} ]] && return 0
+
+  return 1
+}
+
 utils::is_root() {
   if [ "$(id -u)" -ne 0 ]; then
     printf '[ERR] This command must be run as root.' >&2
