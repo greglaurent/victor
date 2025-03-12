@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+utils::is_root
+
 dir="${RESOURCES}/pacman"
 
 # cp "${dir}/pacman.conf"

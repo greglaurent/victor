@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-echo "RUNNING TEST FILE"
-echo "${ARG}"
-echo "${HERE}"
+# utils::is_root
+
+utils::is_cmd fake_cmd && echo "is a command"

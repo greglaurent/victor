@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
 
-paru -Sy --noconfirm slack-desktop
+paru -Sy --noconfirm \
+  slack-desktop

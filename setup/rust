@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
 
 # TODO: Add input for non-default configuration
+utils::is_cmd cargo || {
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+  . "$HOME/.cargo/env"
 
-. "$HOME/.cargo/env"
+  rustup toolchain install
+  rustup toolchain install nightly
+}
 
-rustup toolchain install
+rustup update
+rustup toolchain update
+
+cargo install --locked bacon
+#cargo install --features "clipboard sound"

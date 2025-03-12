@@ -5,10 +5,6 @@
 # $HOME for any user
 home=$(utils::user_home)
 
-# paru -Sy --noconfirm neovim lazygit clang \
-#   hererocks luarocks \
-#   nodejs npm pnpm
-
 [[ -d ${home}/.config/nvim ]] && {
   mv "${home}"/.config/nvim{,.bak}
   mv "${home}"/.local/share/nvim{,.bak}
@@ -17,14 +13,11 @@ home=$(utils::user_home)
 }
 
 # git clone https://github.com/LazyVim/starter "${home}/.config/nvim"
+# rm -rf "${home}/.config/nvim/.git"
 
 git@github.com:greglaurent/nvim.git "${home}/.config/nvim"
 
-# rm -rf "${home}/.config/nvim/.git"
-
 # setup nodejs package managers
-#npm install -g neovim
-
 pnpm setup
 pnpm install -g neovim
 pnpm install -g @mermaid-js/mermaid-cli

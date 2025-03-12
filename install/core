@@ -14,18 +14,4 @@ paru -Sy --noconfirm \
   ripgrep \
   neovim \
   wl-clipboard \
-  lua \
-  luarocks \
-  yq \
-  python \
-  python-pip \
-  python-pynvim \
-  nodejs \
-  npm \
-  pnpm \
-  prettierd \
-  typescript \
-  typescript-language-server \
-  vscode-langservers-extracted \
-  tailwindcss-language-server \
-  uv
+  yq
