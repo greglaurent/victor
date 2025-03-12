@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 # TODO: Add input for non-default configuration
-
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 . "$HOME/.cargo/env"
