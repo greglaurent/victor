@@ -124,7 +124,9 @@ utils::exec() {
   }
 
   printf '\n%s\n' "[RUN] "${path}""
-  printf '%s\n\n' "[ARG] "${ARG}""
+
+  [[ -z "${ARG}" ]] &&
+    printf '%s\n\n' "[ARG] "${ARG}""
 
   #"${path}" "${ARG}" >&1
   source "${path}" >&1
