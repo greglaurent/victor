@@ -20,4 +20,9 @@ paru -Sy --noconfirm \
   nodejs \
   npm \
   pnpm \
+  prettierd \
+  typescript \
+  typescript-language-server \
+  vscode-langservers-extracted \
+  tailwindcss-language-server \
   uv
