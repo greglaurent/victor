@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-# TODO: Add missing core packages
-
 paru -Sy --noconfirm \
   grub-btrfs \
   timeshift \
