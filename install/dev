@@ -14,4 +14,9 @@ paru -Sy --noconfirm \
   typescript \
   typescript-language-server \
   vscode-langservers-extracted \
-  tailwindcss-language-server
+  tailwindcss-language-server \
+  visual-studio-code-bin
+
+. "${HERE}/setup/dev/git"
+. "${HERE}/setup/dev/rust"
+. "${HERE}/setup/dev/neovim"

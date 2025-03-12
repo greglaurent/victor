@@ -21,3 +21,4 @@ git@github.com:greglaurent/nvim.git "${home}/.config/nvim"
 pnpm setup
 pnpm install -g neovim
 pnpm install -g @mermaid-js/mermaid-cli
+
