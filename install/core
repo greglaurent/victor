@@ -5,6 +5,7 @@
 paru -Sy --noconfirm \
   dkms \
   linux-firmware \
+  mkinitcpio-firmware \
   linux-headers \
   lm_sensors \
   cups \
