@@ -5,3 +5,5 @@ paru -Sy --noconfirm \
   timeshift \
   timeshift-autosnap \
   inotify-tools
+
+. "${HERE}"/setup/bak

@@ -15,3 +15,4 @@ rustup toolchain update
 
 cargo install --locked bacon
 #cargo install --features "clipboard sound"
+

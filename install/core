@@ -15,3 +15,5 @@ paru -Sy --noconfirm \
   neovim \
   wl-clipboard \
   yq
+
+. "${HERE}/setup/nerd-fonts"
