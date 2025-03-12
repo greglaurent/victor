@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 
+#utils::is_root
+
 paru -Sy --noconfirm \
   grub-btrfs \
   timeshift \
   timeshift-autosnap \
   inotify-tools
 
-. "${HERE}"/setup/bak
+#. "${HERE}"/setup/bak
