@@ -15,6 +15,7 @@ paru -Sy --noconfirm \
   flatpak \
   fd \
   fzf \
+  lazygit \
   ripgrep \
   neovim \
   wl-clipboard \
