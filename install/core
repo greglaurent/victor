@@ -2,6 +2,8 @@
 
 # TODO: Add missing core packages
 
+utils::is_root
+
 paru -Sy --noconfirm \
   dkms \
   linux-firmware \
