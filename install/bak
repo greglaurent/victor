@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-utils::is_root
+#utils::is_root
 
 paru -Sy --noconfirm \
   grub-btrfs \
