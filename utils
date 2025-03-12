@@ -20,7 +20,7 @@ utils::bootstrap() {
 
   [[ ! -L "/usr/local/bin/vic" ]] &&
     {
-      ln -s "${HERE}/victor" /usr/local/bin/vic >&2 || {
+      ln -s "${HERE}/vic" /usr/local/bin/vic >&2 || {
         printf '\n%s\n' "[WRN]: Invalid persmissions. Run with sudo to symlink as a bin."
       }
     }
