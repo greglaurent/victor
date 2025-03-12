@@ -8,6 +8,7 @@ paru -Sy --noconfirm \
   linux-headers \
   lm_sensors \
   git \
+  flatpak \
   fd \
   fzf \
   ripgrep \
