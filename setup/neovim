@@ -5,9 +5,9 @@
 # $HOME for any user
 home=$(utils::user_home)
 
-paru -Sy --noconfirm neovim lazygit clang \
-  hererocks luarocks \
-  nodejs npm pnpm
+# paru -Sy --noconfirm neovim lazygit clang \
+#   hererocks luarocks \
+#   nodejs npm pnpm
 
 [[ -d ${home}/.config/nvim ]] && {
   mv "${home}"/.config/nvim{,.bak}
@@ -16,9 +16,11 @@ paru -Sy --noconfirm neovim lazygit clang \
   mv "${home}"/.cache/nvim{,.bak}
 }
 
-git clone https://github.com/LazyVim/starter "${home}/.config/nvim"
+# git clone https://github.com/LazyVim/starter "${home}/.config/nvim"
 
-rm -rf "${home}/.config/nvim/.git"
+git@github.com:greglaurent/nvim.git "${home}/.config/nvim"
+
+# rm -rf "${home}/.config/nvim/.git"
 
 # setup nodejs package managers
 #npm install -g neovim
