@@ -5,6 +5,6 @@ path="${HERE}/repos/nerd-fonts"
 rm -rf "${path}" >&2
 git clone --depth 1 https://github.com/ryanoasis/nerd-fonts.git "${path}"
 
-. "${path}"/install.sh
+${path}/install.sh
 
 fc-cache -f

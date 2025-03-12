@@ -17,6 +17,6 @@ paru -Sy --noconfirm \
   tailwindcss-language-server \
   visual-studio-code-bin
 
-. "${HERE}/setup/dev/git"
-. "${HERE}/setup/dev/rust"
-. "${HERE}/setup/dev/neovim"
+# . "${HERE}/setup/dev/git"
+# . "${HERE}/setup/dev/rust"
+# . "${HERE}/setup/dev/neovim"

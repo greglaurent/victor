@@ -22,5 +22,5 @@ paru -Sy --noconfirm \
   mpv \
   yq
 
-. "${HERE}/setup/nerd-fonts"
-. "${HERE}/setup/pacman"
+#. "${HERE}/setup/nerd-fonts"
+#. "${HERE}/setup/pacman"
