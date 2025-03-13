@@ -4,7 +4,7 @@
 
 utils::is_root
 
-paru -Sy --noconfirm \
+pacman -Sy --noconfirm \
   dkms \
   linux-firmware \
   mkinitcpio-firmware \
