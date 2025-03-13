@@ -2,7 +2,7 @@
 
 utils::is_root
 
-paru -Sy --noconfirm \
+pacman -Sy --noconfirm \
   mesa \
   lib32-mesa \
   vulkan-radeon \

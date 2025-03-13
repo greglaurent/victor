@@ -4,14 +4,18 @@ utils::is_root
 
 dir="${RESOURCES}/timeshift"
 
+# Grub-btrfs setup
 # systemctl edit --full grub-btrfsd
 
-# Grub-btrfs setup
 cp "${dir}/grub-btrfsd.service" /etc/systemd/system/grub-btrfsd.service
 grub-mkconfig -o /boot/grub/grub.cfg
+
 sudo systemctl enable --now grub-btrfsd
+systemctl enable --now cronie
 
 # Timeshift setup
 cp "${dir}/timeshift-autosnap.conf" /etc/timeshift-autosnap.conf
+
+grub-mkconfig
 
 systemctl daemon-reload
