@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 paru -Sy --noconfirm \
+  nushell \
   ttf-ibm-plex \
   ttf-jost \
   flameshot \

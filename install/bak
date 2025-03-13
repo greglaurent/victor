@@ -3,6 +3,7 @@
 #utils::is_root
 
 paru -Sy --noconfirm \
+  cronie \
   grub-btrfs \
   timeshift \
   timeshift-autosnap \
