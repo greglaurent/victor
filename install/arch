@@ -12,7 +12,8 @@ unpriv() {
 installation_date=$(date "+%Y-%m-%d %H:%M:%S")
 
 # Check if this is a VM
-virtualization=$(systemd-detect-virt)
+# virtualization=$(systemd-detect-virt)
+virtualization=none
 
 install_mode_selector() {
   install_mode=desktop
@@ -335,8 +336,8 @@ mount -o nodev,nosuid,noexec "${ESP}" /mnt/boot/efi
 output 'Installing the base system (it may take a while).'
 
 pacstrap /mnt apparmor base chrony efibootmgr firewalld grub grub-btrfs inotify-tools linux-firmware linux linux-lts dkms openssh \
-  mkinitcpio-firmware nano reflector snapper sudo zram-generator git curl \
-  lib32-mesa vulkan-radeon amd-ucode
+  nano reflector snapper sudo zram-generator git curl \
+  amd-ucode
 
 # if [ "${virtualization}" = 'none' ]; then
 #   CPU=$(grep vendor_id /proc/cpuinfo)
