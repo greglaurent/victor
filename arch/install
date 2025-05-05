@@ -345,9 +345,9 @@ mount -o nodev,nosuid,noexec "${ESP}" /mnt/boot/efi
 output 'Installing the base system (it may take a while).'
 
 pacstrap /mnt base base-devel linux linux-firmware linux-lts dkms \
-  grub grub-btrfs efibootmgr \
+  grub grub-btrfs efibootmgr zram-generator \
   snapper snap-pac \
-  apparmor reflector zram-generator chrony openssh \
+  apparmor reflector chrony openssh ufw \
   git curl nano neovim inotify-tools
 
 pacstrap /mnt
@@ -594,7 +594,7 @@ sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/g' /mnt/etc/sudoer
 ## Enable services
 systemctl enable apparmor --root=/mnt
 systemctl enable chronyd --root=/mnt
-systemctl enable firewalld --root=/mnt
+# systemctl enable firewalld --root=/mnt
 systemctl enable fstrim.timer --root=/mnt
 systemctl enable grub-btrfsd.service --root=/mnt
 systemctl enable reflector.timer --root=/mnt
