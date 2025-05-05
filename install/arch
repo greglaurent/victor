@@ -128,17 +128,25 @@ user_password_prompt() {
 }
 
 hostname_prompt() {
-  if [ "${install_mode}" = 'server' ]; then
-    output 'Enter your hostname:'
-    read -r hostname
+  output 'Enter your hostname:'
+  read -r hostname
 
-    if [ -z "${hostname}" ]; then
-      output 'You need to enter a hostname.'
-      hostname_prompt
-    fi
-  else
-    hostname='localhost'
+  if [ -z "${hostname}" ]; then
+    output 'You need to enter a hostname.'
+    hostname_prompt
   fi
+
+  # if [ "${install_mode}" = 'server' ]; then
+  #   output 'Enter your hostname:'
+  #   read -r hostname
+
+  #   if [ -z "${hostname}" ]; then
+  #     output 'You need to enter a hostname.'
+  #     hostname_prompt
+  #   fi
+  # else
+  #   hostname='localhost'
+  # fi
 }
 
 network_daemon_prompt() {
@@ -355,7 +363,7 @@ if [ "${network_daemon}" = 'networkmanager' ]; then
 fi
 
 # if [ "${install_mode}" = 'desktop' ]; then
-pacstrap /mnt flatpak plasma-meta pipewire-alsa pipewire-pulse pipewire-jack
+pacstrap /mnt flatpak plasma-meta sddm pipewire-alsa pipewire-pulse pipewire-jack
 #elif [ "${install_mode}" = 'server' ]; then
 #  pacstrap /mnt openssh unbound
 # fi
