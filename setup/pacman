@@ -2,7 +2,7 @@
 
 utils::is_root
 
-dir="${RESOURCES}/pacman"
+# dir="${RESOURCES}/pacman"
 
 # Added copy to install -- no longer needed
 #  cp "${dir}/pacman.conf" /etc/pacman.conf
@@ -10,6 +10,6 @@ dir="${RESOURCES}/pacman"
 pacman-key --init
 pacman-key --populate
 
-pacman -Syyu --no-confirm
+pacman -Syyu --noconfirm
 
 cp "${dir}/vconsole.conf" /etc/vconsole.conf

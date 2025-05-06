@@ -2,7 +2,7 @@
 
 utils::is_root
 
-pacman -Syyu
+vic setup pacman
 
 # Secure boot enrollment
 sbctl enroll-keys
@@ -15,8 +15,6 @@ ufw allow 443/tcp
 ufw default deny incoming
 ufw default allow outgoing
 ufw enable
-
-vic setup pacman
 
 # user="$(logname)"
 # sudo --user "${user}" bash <<HereTag
