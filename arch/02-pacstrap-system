@@ -11,7 +11,7 @@ pacstrap /mnt base base-devel linux linux-lts linux-headers linux-firmware dkms 
   networkmanager ufw openssh chrony reflector fail2ban \
   pipewire-alsa pipewire-pulse pipewire-jack \
   curl less fd cups nano vim man-pages man-db \
-  git inotify-tools neovim tmux
+  sbctl git inotify-tools neovim tmux
 
 if [ "${virtualization}" = 'none' ]; then
   CPU=$(grep vendor_id /proc/cpuinfo)
