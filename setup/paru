@@ -6,4 +6,6 @@ sudo pacman -S --needed base-devel
 git clone https://aur.archlinux.org/paru.git "${dir}"
 cd "${dir}"
 
-sudo --user $(whoami) makepkg -si
+sudo --user "${USER}" bash <<HereTag
+makepkg -si
+HereTag
