@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
 
 dir="${REPOS}/paru"
+utils::is_cmd paru || {
+  # sudo pacman -S --needed base-devel
+  [[ ! -d $dir ]] &&
+    git clone https://aur.archlinux.org/paru.git "${dir}"
 
-# sudo pacman -S --needed base-devel
-git clone https://aur.archlinux.org/paru.git "${dir}"
-cd "${dir}"
-
-makepkg -si
-
-# sudo --user "$(logname)" bash <<HereTag
-# makepkg -si
-# HereTag
+  cd "${dir}"
+  makepkg -si
+}
