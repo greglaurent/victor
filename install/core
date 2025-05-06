@@ -6,12 +6,14 @@ utils::is_root
 
 pacman -Sy --noconfirm \
   dkms \
+  linux \
+  linux-lts \
   linux-firmware \
-  mkinitcpio-firmware \
   linux-headers \
   lm_sensors \
   cups \
   git \
+  less \
   flatpak \
   fd \
   fzf \
@@ -24,6 +26,3 @@ pacman -Sy --noconfirm \
   vlc \
   mpv \
   yq
-
-#. "${HERE}/setup/nerd-fonts"
-#. "${HERE}/setup/pacman"

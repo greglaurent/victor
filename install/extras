@@ -5,6 +5,7 @@ paru -Sy --noconfirm \
   ttf-ibm-plex \
   ttf-jost \
   flameshot \
+  mkinitcpio-firmware \
   obsidian \
   obs-studio \
   cameractrls \

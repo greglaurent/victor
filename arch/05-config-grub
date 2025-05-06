@@ -1,0 +1,37 @@
+#! /usr/bin/env bash
+
+### PARTIAL SCRIPT ######
+### REQUIRES PROMPTS ####
+
+## Configure /etc/mkinitcpio.conf
+output 'Configuring /etc/mkinitcpio for ZSTD compression and LUKS hook.'
+sed -i 's/#COMPRESSION="zstd"/COMPRESSION="zstd"/g' /mnt/etc/mkinitcpio.conf
+sed -i 's/^MODULES=.*/MODULES=(btrfs)/g' /mnt/etc/mkinitcpio.conf
+if [ "${use_luks}" = '1' ]; then
+  sed -i 's/^HOOKS=.*/HOOKS=(systemd autodetect microcode modconf keyboard sd-vconsole block sd-encrypt)/g' /mnt/etc/mkinitcpio.conf
+else
+  sed -i 's/^HOOKS=.*/HOOKS=(systemd autodetect microcode modconf keyboard sd-vconsole block)/g' /mnt/etc/mkinitcpio.conf
+fi
+
+## Enable LUKS in GRUB and setting the UUID of the LUKS container
+if [ "${use_luks}" = '1' ]; then
+  sed -i 's/#GRUB_ENABLE_CRYPTODISK=.*/GRUB_ENABLE_CRYPTODISK=y/g' /mnt/etc/default/grub
+fi
+
+## Do not preload part_msdos
+sed -i 's/ part_msdos//g' /mnt/etc/default/grub
+
+## Ensure correct GRUB settings
+echo '' >>/mnt/etc/default/grub
+echo '# Default to linux
+GRUB_DEFAULT="1>2"
+
+# Booting with BTRFS subvolume
+GRUB_BTRFS_OVERRIDE_BOOT_PARTITION_DETECTION=true' >>/mnt/etc/default/grub
+
+## Disable root subvol pinning
+## This is **extremely** important, as snapper expects to be able to set the default btrfs subvol
+# shellcheck disable=SC2016
+sed -i 's/rootflags=subvol=${rootsubvol}//g' /mnt/etc/grub.d/10_linux
+# shellcheck disable=SC2016
+sed -i 's/rootflags=subvol=${rootsubvol}//g' /mnt/etc/grub.d/20_linux_xen

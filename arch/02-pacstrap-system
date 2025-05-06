@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+### PARTIAL SCRIPT ######
+### REQUIRES PROMPTS ####
+
+output 'Installing the base system (it may take a while).'
+
+pacstrap /mnt base base-devel linux linux-lts linux-headers linux-firmware dkms \
+  grub grub-btrfs efibootmgr zram-generator lm_sensors fwupd \
+  snapper snap-pac apparmor \
+  networkmanager ufw openssh chrony reflector \
+  curl less fd cups nano vim man-pages man-db \
+  git inotify-tools neovim tmux
+
+if [ "${virtualization}" = 'none' ]; then
+  CPU=$(grep vendor_id /proc/cpuinfo)
+  if [[ "${CPU}" == *"AuthenticAMD"* ]]; then
+    microcode=amd-ucode
+  else
+    microcode=intel-ucode
+  fi
+
+  pacstrap /mnt "${microcode}"
+fi
+
+echo 'UriSchemes=file;https' | sudo tee -a /mnt/etc/fwupd/fwupd.conf
+
+# if [ "${install_mode}" = 'desktop' ]; then
+# pacstrap /mnt flatpak plasma-meta \
+#   sddm pipewire-alsa pipewire-pulse pipewire-jack zsh \
+#   flatpak fzf lazygit ripgrep wl-clipboard kitty wezterm \ 
+#   vlc mpv yq

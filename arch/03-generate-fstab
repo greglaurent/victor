@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+### PARTIAL SCRIPT ######
+### REQUIRES PROMPTS ####
+
+## Generate /etc/fstab
+output 'Generating a new fstab.'
+
+genfstab -U /mnt >>/mnt/etc/fstab
+sed -i 's#,subvolid=258,subvol=/@/.snapshots/1/snapshot,subvol=@/.snapshots/1/snapshot##g' /mnt/etc/fstab
+
+
