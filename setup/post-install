@@ -2,9 +2,6 @@
 
 utils::is_root
 
-# Register Victor
-$(. ./victor)
-
 # Secure boot enrollment
 sudo sbctl enroll-keys
 sudo sbctl sign /boot/efi/EFI/GRUB/grubx64.efi
@@ -17,9 +14,9 @@ sudo ufw default deny incoming
 sudo ufw default allow outgoing
 sudo ufw enable
 
-./victor setup pacman
-./victor setup dev git
-./victor setup dev rust
+vic setup pacman
+vic setup dev git
+vic setup dev rust
 
 pacman -Sy paru
 
