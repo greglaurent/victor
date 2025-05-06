@@ -17,8 +17,7 @@ sudo ufw enable
 vic setup pacman
 vic setup dev git
 vic setup dev rust
-
-pacman -Sy --noconfirm paru
+vic setup paru
 
 # pacman -Sy plasma-meta sddm \
 #   zsh flatpak fzf lazygit ripgrep wl-clipboard kitty wezterm \
