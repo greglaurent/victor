@@ -68,6 +68,7 @@ utils::user_home() {
 utils::git() {
   is_installed=$(pacman -Qi git)
   mkdir -p "${HERE}/repos" >&2
+  chown -R $(logname) "${HERE}/repos"
 
   [[ ! "${is_installed}" ]] && {
     printf '\n%s' "[WRN] Bootstrap requires git."

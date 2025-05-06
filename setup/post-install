@@ -14,10 +14,13 @@ sudo ufw default deny incoming
 sudo ufw default allow outgoing
 sudo ufw enable
 
-vic setup pacman
+sudo vic setup pacman
+
+sudo --user "$(logname)" bash <<HereTag
 vic setup dev git
 vic setup dev rust
 vic setup paru
+HereTag
 
 # pacman -Sy plasma-meta sddm \
 #   zsh flatpak fzf lazygit ripgrep wl-clipboard kitty wezterm \
