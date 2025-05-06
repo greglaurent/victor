@@ -2,6 +2,8 @@
 
 utils::is_root
 
+sudo pacman -Syyu
+
 # Secure boot enrollment
 sudo sbctl enroll-keys
 sudo sbctl sign /boot/efi/EFI/GRUB/grubx64.efi
