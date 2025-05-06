@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+sudo paru -S --noconfirm qemu virt-manager virt-viewer dnsmasq \
+  vde2 bridge-utils openbsd-netcat ebtables iptables-nft libguestfs
+
+sudo mkdir /etc/libvirt
+sudo echo "firewall_backend = \"iptables\"" | tee /etc/libvirt/network.conf >/dev/null
+
+sudo systemctl enable --now libvirtd
+sudo usermod -aG libvirt $(logname)
+sudo systemctl restart libvirtd
