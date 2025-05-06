@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-utils::is_root
-
 # TODO: Add input for non-default configuration
 utils::is_cmd cargo || {
   sudo pacman -Sy --noconfirm rustup
@@ -9,12 +7,16 @@ utils::is_cmd cargo || {
 
   # . "$HOME/.cargo/env"
 
-  rustup install stable
-  rustup default stable
+  user="$(logname)"
 
-  rustup toolchain install
-  rustup toolchain install nightly
-  rustup target add wasm32-unknown-unknown
+  sudo --user "${user}" bash <<HereTag
+rustup install stable
+rustup default stable
+
+rustup toolchain install
+rustup toolchain install nightly
+rustup target add wasm32-unknown-unknown
+HereTag
 }
 
 rustup toolchain update

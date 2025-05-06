@@ -17,13 +17,12 @@ sudo ufw default allow outgoing
 sudo ufw enable
 
 sudo vic setup pacman
+sudo vic setup dev rust
 
 user="$(logname)"
 sudo --user "${user}" bash <<HereTag
-
 echo "[MSG] VICTOR running post-install as: ${user}"
 vic setup dev git
-vic setup dev rust
 vic setup paru
 HereTag
 
