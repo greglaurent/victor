@@ -7,4 +7,4 @@
 git config --global pull.ff only
 git config --global user.name "Greg L"
 git config --global user.email "gregory.m.laurent@gmail.com"
-
+git config --global init.defaultBranch "main"
