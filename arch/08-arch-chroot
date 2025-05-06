@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+### PARTIAL SCRIPT ######
+### REQUIRES PROMPTS ####
+
+## Configuring the system
+arch-chroot /mnt /bin/bash -e <<EOF
+
+    # Setting up timezone
+    # Temporarily hardcoding here
+    ln -sf /usr/share/zoneinfo/America/Los_Angeles /etc/localtime
+
+    # Setting up clock
+    hwclock --systohc
+
+    # Generating locales
+    locale-gen
+
+    # Generating a new initramfs
+    chmod 600 /boot/initramfs-linux*
+    mkinitcpio -P
+
+    # Installing GRUB
+    grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --disable-shim-lock
+
+    # Creating grub config file
+    grub-mkconfig -o /boot/grub/grub.cfg
+
+    # Adding user with sudo privilege
+    useradd -c "$fullname" -m "$username"
+    usermod -aG wheel "$username"
+
+    if [ "${install_mode}" = 'desktop' ]; then
+        # Setting up dconf
+        dconf update
+    fi
+
+    # Snapper configuration
+    umount /.snapshots
+    rm -r /.snapshots
+    snapper --no-dbus -c root create-config /
+    btrfs subvolume delete /.snapshots
+    mkdir /.snapshots
+    mount -a
+    chmod 750 /.snapshots
+EOF
+
+## Set user password.
+[ -n "$username" ] && echo "Setting user password for ${username}." && echo -e "${user_password}\n${user_password}" | arch-chroot /mnt passwd "$username"
+
+## Give wheel user sudo access.
+sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/g' /mnt/etc/sudoers
+
+unpriv cp ./etc/pacman.conf | tee /mnt/etc/pacman.conf >/dev/null

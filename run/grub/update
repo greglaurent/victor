@@ -1,6 +1,6 @@
 #!/usr/env/bin bash
 
-set -eu
+utils::is_root
 
 sudo pacman -S --noconfirm sbctl
 sudo sbctl create-keys

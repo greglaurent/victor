@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+### PARTIAL SCRIPT ######
+### REQUIRES PROMPTS ####
+
+## TODO: FIX STATIC PATH ###
+
+## Setup unbound
+#if [ "${install_mode}" = 'server' ]; then
+#  unpriv curl -s ./etc/unbound/unbound.conf | tee /mnt/etc/unbound/unbound.conf >/dev/null
+#fi
+
+## Setup Networking
+unpriv cp -s ./etc/NetworkManager/conf.d/00-random-mac.conf | tee /mnt/etc/NetworkManager/conf.d/00-macrandomize.conf >/dev/null
+
+unpriv cp -s ./etc/NetworkManager/conf.d/01-transient-hostname.conf | tee /mnt/etc/NetworkManager/conf.d/01-transient-hostname.conf >/dev/null
+
+mkdir -p /mnt/etc/systemd/system/NetworkManager.service.d/
+unpriv curl -s ./usr/lib/systemd/system/NetworkManager.service.d/99-brace.conf | tee /mnt/etc/systemd/system/NetworkManager.service.d/99-brace.conf >/dev/null
+
+# if [ "${network_daemon}" = 'systemd-networkd' ]; then
+#   # arch-iso has working networking, booted does not
+#   cp -ap /etc/systemd/network/20* /mnt/etc/systemd/network/ >/dev/null
+# fi

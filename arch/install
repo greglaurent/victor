@@ -97,7 +97,6 @@ hostname_prompt() {
   fi
 }
 
-
 # Clear the TTY
 clear
 
@@ -114,169 +113,11 @@ source ./02-pacstrap-system
 source ./03-generate-fstab
 source ./04-set-locale
 source ./05-config-grub
-
-## Kernel hardening
-
-if [ "${use_luks}" = '1' ]; then
-  UUID=$(blkid -s UUID -o value "${cryptroot}")
-  sed -i "s#quiet#rd.luks.name=${UUID}=cryptroot root=${BTRFS} lsm=landlock,lockdown,yama,integrity,apparmor,bpf mitigations=auto,nosmt spectre_v2=on spectre_bhi=on spec_store_bypass_disable=on tsx=off kvm.nx_huge_pages=force nosmt=force l1d_flush=on spec_rstack_overflow=safe-ret gather_data_sampling=force reg_file_data_sampling=on random.trust_bootloader=off random.trust_cpu=off intel_iommu=on amd_iommu=force_isolation efi=disable_early_pci_dma iommu=force iommu.passthrough=0 iommu.strict=1 slab_nomerge init_on_alloc=1 init_on_free=1 pti=on vsyscall=none ia32_emulation=0 page_alloc.shuffle=1 randomize_kstack_offset=on debugfs=off lockdown=confidentiality module.sig_enforce=1#g" /mnt/etc/default/grub
-else
-  sed -i "s#quiet#root=${BTRFS} lsm=landlock,lockdown,yama,integrity,apparmor,bpf mitigations=auto,nosmt spectre_v2=on spectre_bhi=on spec_store_bypass_disable=on tsx=off kvm.nx_huge_pages=force nosmt=force l1d_flush=on spec_rstack_overflow=safe-ret gather_data_sampling=force reg_file_data_sampling=on random.trust_bootloader=off random.trust_cpu=off intel_iommu=on amd_iommu=force_isolation efi=disable_early_pci_dma iommu=force iommu.passthrough=0 iommu.strict=1 slab_nomerge init_on_alloc=1 init_on_free=1 pti=on vsyscall=none ia32_emulation=0 page_alloc.shuffle=1 randomize_kstack_offset=on debugfs=off lockdown=confidentiality module.sig_enforce=1#g" /mnt/etc/default/grub
-fi
-
-## Add keyfile to the initramfs to avoid double password
-if [ "${use_luks}" = '1' ]; then
-  dd bs=512 count=4 if=/dev/random of=/mnt/cryptkey/.root.key iflag=fullblock
-  chmod 000 /mnt/cryptkey/.root.key
-  echo -n "${luks_passphrase}" | cryptsetup luksAddKey /dev/disk/by-partlabel/rootfs /mnt/cryptkey/.root.key -d -
-  sed -i 's#FILES=()#FILES=(/cryptkey/.root.key)#g' /mnt/etc/mkinitcpio.conf
-  sed -i "s#module\.sig_enforce=1#module.sig_enforce=1 rd.luks.key=/cryptkey/.root.key#g" /mnt/etc/default/grub
-fi
-
-## Continue kernel hardening
-unpriv curl -s https://raw.githubusercontent.com/secureblue/secureblue/live/files/system/etc/modprobe.d/blacklist.conf | tee /mnt/etc/modprobe.d/blacklist.conf >/dev/null
-
-unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/sysctl.d/99-workstation.conf | tee /mnt/etc/sysctl.d/99-workstation.conf >/dev/null
-
-# if [ "${install_mode}" = 'server' ]; then
-#   unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/sysctl.d/99-server.conf | tee /mnt/etc/sysctl.d/99-server.conf >/dev/null
-# else
-# HERE
-#fi
-
-## Setup NTS
-unpriv curl -s https://raw.githubusercontent.com/GrapheneOS/infrastructure/refs/heads/main/etc/chrony.conf | tee /mnt/etc/chrony.conf >/dev/null
-mkdir -p /mnt/etc/sysconfig
-unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/sysconfig/chronyd | tee /mnt/etc/sysconfig/chronyd >/dev/null
-
-## Remove nullok from system-auth
-sed -i 's/nullok//g' /mnt/etc/pam.d/system-auth
-
-## Harden SSH
-## Arch annoyingly does not split openssh-server out so even desktop Arch will have the daemon
-
-unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/ssh/ssh_config.d/10-custom.conf | tee /mnt/etc/ssh/ssh_config.d/10-custom.conf >/dev/null
-unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/ssh/sshd_config.d/10-custom.conf | tee /mnt/etc/ssh/sshd_config.d/10-custom.conf >/dev/null
-sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /mnt/etc/ssh/sshd_config.d/10-custom.conf
-mkdir -p /mnt/etc/systemd/system/sshd.service.d/
-unpriv curl -s https://raw.githubusercontent.com/GrapheneOS/infrastructure/refs/heads/main/etc/systemd/system/sshd.service.d/override.conf | tee /mnt/etc/systemd/system/sshd.service.d/override.conf >/dev/null
-
-## Disable coredump
-# mkdir -p /mnt/etc/security/limits.d/
-# unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/security/limits.d/30-disable-coredump.conf | tee /mnt/etc/security/limits.d/30-disable-coredump.conf >/dev/null
-# mkdir -p /mnt/etc/systemd/coredump.conf.d
-# unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/systemd/coredump.conf.d/disable.conf | tee /mnt/etc/systemd/coredump.conf.d/disable.conf >/dev/null
- 
-# Setup dconf
-
-# if [ "${install_mode}" = 'desktop' ]; then
-#   # This doesn't actually take effect atm - need to investigate
-#
-#   mkdir -p /mnt/etc/dconf/db/local.d/locks
-#
-#   unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/dconf/db/local.d/locks/automount-disable | tee /mnt/etc/dconf/db/local.d/locks/automount-disable >/dev/null
-#   unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/dconf/db/local.d/locks/privacy | tee /mnt/etc/dconf/db/local.d/locks/privacy >/dev/null
-#
-#   unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/dconf/db/local.d/adw-gtk3-dark | tee /mnt/etc/dconf/db/local.d/adw-gtk3-dark >/dev/null
-#   unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/dconf/db/local.d/automount-disable | tee /mnt/etc/dconf/db/local.d/automount-disable >/dev/null
-#   unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/dconf/db/local.d/button-layout | tee /mnt/etc/dconf/db/local.d/button-layout >/dev/null
-#   unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/dconf/db/local.d/prefer-dark | tee /mnt/etc/dconf/db/local.d/prefer-dark >/dev/null
-#   unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/dconf/db/local.d/privacy | tee /mnt/etc/dconf/db/local.d/privacy >/dev/null
-#   unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/dconf/db/local.d/touchpad | tee /mnt/etc/dconf/db/local.d/touchpad >/dev/null
-# fi
-
-## ZRAM configuration
-unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/systemd/zram-generator.conf | tee /mnt/etc/systemd/zram-generator.conf >/dev/null
-
-## Setup unbound
-
-#if [ "${install_mode}" = 'server' ]; then
-#  unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Arch-Setup-Script/main/etc/unbound/unbound.conf | tee /mnt/etc/unbound/unbound.conf >/dev/null
-#fi
-
-## Setup Networking
-unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/NetworkManager/conf.d/00-macrandomize.conf | tee /mnt/etc/NetworkManager/conf.d/00-macrandomize.conf >/dev/null
-
-unpriv curl -s https://raw.githubusercontent.com/TommyTran732/Linux-Setup-Scripts/main/etc/NetworkManager/conf.d/01-transient-hostname.conf | tee /mnt/etc/NetworkManager/conf.d/01-transient-hostname.conf >/dev/null
-
-mkdir -p /mnt/etc/systemd/system/NetworkManager.service.d/
-unpriv curl -s https://gitlab.com/divested/brace/-/raw/master/brace/usr/lib/systemd/system/NetworkManager.service.d/99-brace.conf | tee /mnt/etc/systemd/system/NetworkManager.service.d/99-brace.conf >/dev/null
-
-# if [ "${network_daemon}" = 'systemd-networkd' ]; then
-#   # arch-iso has working networking, booted does not
-#   cp -ap /etc/systemd/network/20* /mnt/etc/systemd/network/ >/dev/null
-# fi
-
-## Configuring the system
-arch-chroot /mnt /bin/bash -e <<EOF
-
-    # Setting up timezone
-    # Temporarily hardcoding here
-    ln -sf /usr/share/zoneinfo/America/Los_Angeles /etc/localtime
-
-    # Setting up clock
-    hwclock --systohc
-
-    # Generating locales
-    locale-gen
-
-    # Generating a new initramfs
-    chmod 600 /boot/initramfs-linux*
-    mkinitcpio -P
-
-    # Installing GRUB
-    grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --disable-shim-lock
-
-    # Creating grub config file
-    grub-mkconfig -o /boot/grub/grub.cfg
-
-    # Adding user with sudo privilege
-    useradd -c "$fullname" -m "$username"
-    usermod -aG wheel "$username"
-
-    if [ "${install_mode}" = 'desktop' ]; then
-        # Setting up dconf
-        dconf update
-    fi
-
-    # Snapper configuration
-    umount /.snapshots
-    rm -r /.snapshots
-    snapper --no-dbus -c root create-config /
-    btrfs subvolume delete /.snapshots
-    mkdir /.snapshots
-    mount -a
-    chmod 750 /.snapshots
-EOF
-
-## Set user password.
-[ -n "$username" ] && echo "Setting user password for ${username}." && echo -e "${user_password}\n${user_password}" | arch-chroot /mnt passwd "$username"
-
-## Give wheel user sudo access.
-sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/g' /mnt/etc/sudoers
-
-## Enable services
-systemctl enable apparmor --root=/mnt
-systemctl enable chronyd --root=/mnt
-# systemctl enable firewalld --root=/mnt
-systemctl enable fstrim.timer --root=/mnt
-systemctl enable grub-btrfsd.service --root=/mnt
-systemctl enable reflector.timer --root=/mnt
-systemctl enable snapper-timeline.timer --root=/mnt
-systemctl enable snapper-cleanup.timer --root=/mnt
-systemctl enable systemd-oomd --root=/mnt
-systemctl disable systemd-timesyncd --root=/mnt
-systemctl enable NetworkManager --root=/mnt
-
-rm /mnt/etc/resolv.conf
-ln -s /run/systemd/resolve/stub-resolv.conf /mnt/etc/resolv.conf
-systemctl enable systemd-resolved --root=/mnt
-systemctl enable sshd --root=/mnt
-
-## Set umask to 077.
-sed -i 's/^UMASK.*/UMASK 077/g' /mnt/etc/login.defs
-sed -i 's/^HOME_MODE/#HOME_MODE/g' /mnt/etc/login.defs
-sed -i 's/umask 022/umask 077/g' /mnt/etc/bash.bashrc
+source ./06-config-security
+source ./07-config-network
+source ./08-arch-chroot
+source ./09-enable-systemctl
+source ./10-set-umask
 
 # Finish up
 echo "Done, you may now wish to reboot (further changes can be done by chrooting into /mnt)."
