@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
+utils::is_root
+
 # TODO: Add input for non-default configuration
 utils::is_cmd cargo || {
-  pacman -Sy --noconfirm rustup
+  sudo pacman -Sy --noconfirm rustup
   # curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
   # . "$HOME/.cargo/env"

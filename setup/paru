@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 dir="${REPOS}/paru"
+
 utils::is_cmd paru || {
   # sudo pacman -S --needed base-devel
   [[ ! -d $dir ]] &&
