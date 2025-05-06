@@ -18,7 +18,7 @@ vic setup pacman
 vic setup dev git
 vic setup dev rust
 
-pacman -Sy --no-confirm paru
+pacman -Sy --noconfirm paru
 
 # pacman -Sy plasma-meta sddm \
 #   zsh flatpak fzf lazygit ripgrep wl-clipboard kitty wezterm \

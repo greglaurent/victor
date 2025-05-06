@@ -2,7 +2,7 @@
 
 # TODO: Add input for non-default configuration
 utils::is_cmd cargo || {
-  pacman -Sy --no-confirm rustup
+  pacman -Sy --noconfirm rustup
   # curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
   # . "$HOME/.cargo/env"
