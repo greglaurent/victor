@@ -2,27 +2,27 @@
 
 utils::is_root
 
-sudo pacman -Syyu
+pacman -Syyu
 
 # Secure boot enrollment
-sudo sbctl enroll-keys
-sudo sbctl sign /boot/efi/EFI/GRUB/grubx64.efi
+sbctl enroll-keys
+sbctl sign /boot/efi/EFI/GRUB/grubx64.efi
 
 # Set firewall
-sudo ufw limit 22/tcp
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw enable
+ufw limit 22/tcp
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw default deny incoming
+ufw default allow outgoing
+ufw enable
 
-sudo vic setup pacman
-sudo vic setup dev rust
+vic setup pacman
 
 user="$(logname)"
 sudo --user "${user}" bash <<HereTag
 echo "[MSG] VICTOR running post-install as: ${user}"
 vic setup dev git
+vic setup dev rust
 vic setup paru
 HereTag
 
