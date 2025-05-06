@@ -18,13 +18,11 @@ ufw enable
 
 vic setup pacman
 
-user="$(logname)"
-sudo --user "${user}" bash <<HereTag
-echo "[MSG] VICTOR running post-install as: ${user}"
-vic setup dev git
-vic setup dev rust
-vic setup paru
-HereTag
+# user="$(logname)"
+# sudo --user "${user}" bash <<HereTag
+# echo "[MSG] VICTOR running post-install as: ${user}"
+# vic setup user-env
+# HereTag
 
 # pacman -Sy plasma-meta sddm \
 #   zsh flatpak fzf lazygit ripgrep wl-clipboard kitty wezterm \
