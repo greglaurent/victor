@@ -3,6 +3,9 @@
 ### PARTIAL SCRIPT ######
 ### REQUIRES PROMPTS ####
 
+mkdir -p /mnt/etc/xdg
+unpriv cat ./etc/xdg/user-dirs.defaults | tee /mnt/etc/xdg/user-dirs.defaults >/dev/null
+
 ## Configuring the system
 arch-chroot /mnt /bin/bash -e <<EOF
 
