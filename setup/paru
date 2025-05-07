@@ -11,3 +11,4 @@ utils::is_cmd paru || {
   makepkg -si
 
   sudo cp "${RESOURCES}/pacman/paru.conf" /etc/paru.conf
+}
