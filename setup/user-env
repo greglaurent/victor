@@ -3,11 +3,11 @@
 #TODO: ADD CHECK FOR GIT
 vic setup dev git
 
-utils::is_cmd cargo || { vic setup dev rust }
+utils::is_cmd cargo || { vic setup dev rust; }
 
 # REQUIRES PARU BELOW, LIKELY CLEAN INSTALL
-utils::is_cmd paru || { 
-  vic setup paru 
+utils::is_cmd paru || {
+  vic setup paru
   vic install desktop
   vic install extras
   vic setup fonts
