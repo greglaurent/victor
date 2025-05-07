@@ -10,8 +10,9 @@ pacstrap /mnt base base-devel linux linux-lts linux-headers linux-firmware dkms 
   snapper snap-pac apparmor \
   networkmanager iptables-nft ufw openssh chrony reflector fail2ban \
   pipewire-alsa pipewire-pulse pipewire-jack \
-  curl less fd cups nano vim man-pages man-db \
-  clang git inotify-tools neovim tmux
+  curl less cups nano vim man-pages man-db \
+  xdg-utils xdg-user-dirs \
+  cronie clang git inotify-tools neovim
 
 # sbctl
 
@@ -29,5 +30,5 @@ fi
 echo 'UriSchemes=file;https' | sudo tee -a /mnt/etc/fwupd/fwupd.conf
 
 #TODO: Figure out better desktop step
-pacstrap /mnt flatpak plasma-meta sddm zsh \
-  kitty wezterm
+# pacstrap /mnt flatpak plasma-meta sddm zsh \
+#   kitty wezterm

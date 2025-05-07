@@ -2,8 +2,11 @@
 
 utils::is_root
 
-pacman -Sy --noconfirm \
+pacman -S --noconfirm \
   mesa \
   lib32-mesa \
-  vulkan-radeon \
-  amd-ucode
+  xf86-video-amdgpu \
+  vulkan-radeon
+
+# amd-ucode
+# amdvlk

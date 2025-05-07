@@ -1,0 +1,8 @@
+#!/usr/local/env bash
+
+utils::is_cmd flatpak && {
+  vic setup flatpak bottles
+  vic setup flatpak flatseal
+  vic setup flatpak tidal
+  exit
+}

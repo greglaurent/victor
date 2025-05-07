@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-#TODO: ADD CHECK FOR GIT
 vic setup dev git
 
 utils::is_cmd cargo || { vic setup dev rust }
@@ -10,13 +9,9 @@ utils::is_cmd paru || {
   vic setup paru 
   vic install desktop
   vic install extras
-  vic setup fonts
+  vic setup flatpak all
 }
 
 vic setup dev langs
 
 vic setup dev neovim
-
-vic setup virt
-
-vic setup flatpak all

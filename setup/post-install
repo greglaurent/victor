@@ -4,15 +4,11 @@ utils::is_root
 
 vic setup pacman
 
+vic install amd
+
 # Secure boot enrollment
 # sbctl enroll-keys
 # sbctl sign /boot/efi/EFI/GRUB/grubx64.efi
-
-# Installed via pacstrap
-#vic install core
-
-vic install amd
-vic setup virt
 
 # Set firewall
 ufw limit 22/tcp

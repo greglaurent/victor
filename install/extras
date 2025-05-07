@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-paru -Sy --noconfirm \
+paru -S --noconfirm \
+  mkinitcpio-firmware \
   nushell \
   flameshot \
-  mkinitcpio-firmware \
   obsidian \
   obs-studio \
   cameractrls \
@@ -23,6 +23,8 @@ paru -Sy --noconfirm \
   fd \
   fzf \
   lazygit \
-  ripgrep \ 
+  ripgrep \
   snapper-gui \
-  cosmic
+  tmux \
+  kitty \
+  wezterm

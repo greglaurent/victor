@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+# pacstrap /mnt flatpak plasma-meta sddm zsh \
+#   kitty wezterm
+
+paru -S cosmic sddm

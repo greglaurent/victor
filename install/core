@@ -4,17 +4,10 @@
 
 utils::is_root
 
-pacman -Sy --noconfirm \
-  linux \
-  linux-lts \
-  linux-firmware \
-  linux-headers \
-  base \
-  base-devel \
-  dkms \
-  lm_sensors \
-  cups \
-  git \
-  less \
-  clang \
-  neovim
+pacman -S --noconfirm base base-devel linux linux-lts linux-headers linux-firmware dkms \
+  grub grub-btrfs efibootmgr zram-generator lm_sensors fwupd \
+  snapper snap-pac apparmor \
+  networkmanager iptables-nft ufw openssh chrony reflector fail2ban \
+  pipewire-alsa pipewire-pulse pipewire-jack \
+  curl less cups nano vim man-pages man-db \
+  cronie clang git inotify-tools neovim tmux
