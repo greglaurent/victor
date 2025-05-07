@@ -4,3 +4,5 @@
 #   kitty wezterm
 
 paru -S cosmic sddm
+
+sudo systemctl enable --now sddm
