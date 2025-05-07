@@ -1,5 +1,7 @@
 #!/usr/local/env bash
 
+#TODO: Make this smarter
+
 utils::is_cmd flatpak && {
   vic setup flatpak bottles
   vic setup flatpak discord

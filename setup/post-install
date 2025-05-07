@@ -18,4 +18,4 @@ ufw default deny incoming
 ufw default allow outgoing
 ufw enable
 
-snapper -c root create-config /
+# snapper -c root create-config /

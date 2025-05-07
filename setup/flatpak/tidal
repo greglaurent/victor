@@ -1,6 +1,6 @@
 #!/usr/local/env bash
 
 utils::is_cmd flatpak && {
-  flatpak install flathub com.mastermindzh.tidal-hifi
+  flatpak install -y flathub com.mastermindzh.tidal-hifi
   exit
 }

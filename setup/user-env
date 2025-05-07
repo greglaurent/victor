@@ -16,9 +16,8 @@ utils::is_cmd paru || {
   # Dev Setup
   vic setup dev langs
   vic setup dev neovim
-
-  # Virt Setup
-  vic setup virt
 }
 
-vic setup flatpak all
+# Requires desktop environment
+# vic setup virt
+# vic setup flatpak all

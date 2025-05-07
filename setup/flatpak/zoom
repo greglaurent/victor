@@ -1,6 +1,6 @@
 #!/usr/local/env bash
 
 utils::is_cmd flatpak && {
-  flatpak install flathub us.zoom.Zoom
+  flatpak install -y flathub us.zoom.Zoom
   exit
 }
