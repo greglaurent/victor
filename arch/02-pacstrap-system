@@ -8,10 +8,12 @@ output 'Installing the base system (it may take a while).'
 pacstrap /mnt base base-devel linux linux-lts linux-headers linux-firmware dkms \
   grub grub-btrfs efibootmgr zram-generator lm_sensors fwupd \
   snapper snap-pac apparmor \
-  networkmanager ufw openssh chrony reflector fail2ban \
+  networkmanager iptables-nft ufw openssh chrony reflector fail2ban \
   pipewire-alsa pipewire-pulse pipewire-jack \
   curl less fd cups nano vim man-pages man-db \
-  sbctl git inotify-tools neovim tmux
+  clang git inotify-tools neovim tmux
+
+# sbctl
 
 if [ "${virtualization}" = 'none' ]; then
   CPU=$(grep vendor_id /proc/cpuinfo)
@@ -28,4 +30,4 @@ echo 'UriSchemes=file;https' | sudo tee -a /mnt/etc/fwupd/fwupd.conf
 
 #TODO: Figure out better desktop step
 pacstrap /mnt flatpak plasma-meta sddm zsh \
-  kitty wezterm vlc mpv
+  kitty wezterm

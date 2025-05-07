@@ -3,4 +3,6 @@
 vic setup dev git
 vic setup dev rust
 vic setup paru
-vic setup virt
+vic setup fonts
+
+vic install extras

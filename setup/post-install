@@ -5,8 +5,14 @@ utils::is_root
 vic setup pacman
 
 # Secure boot enrollment
-sbctl enroll-keys
-sbctl sign /boot/efi/EFI/GRUB/grubx64.efi
+# sbctl enroll-keys
+# sbctl sign /boot/efi/EFI/GRUB/grubx64.efi
+
+# Installed via pacstrap
+#vic install core
+
+vic install amd
+vic setup virt
 
 # Set firewall
 ufw limit 22/tcp
@@ -15,19 +21,3 @@ ufw allow 443/tcp
 ufw default deny incoming
 ufw default allow outgoing
 ufw enable
-
-# user="$(logname)"
-# sudo --user "${user}" bash <<HereTag
-# echo "[MSG] VICTOR running post-install as: ${user}"
-# vic setup user-env
-# HereTag
-
-# pacman -Sy plasma-meta sddm \
-#   zsh flatpak fzf lazygit ripgrep wl-clipboard kitty wezterm \
-# vlc mpv yq
-#
-# pacman -Sy plasma-meta sddm \
-#   zsh fzf lazygit ripgrep wl-clipboard kitty wezterm \
-# vlc mpv yq
-#
-# systemctl enable sddm

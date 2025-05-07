@@ -5,24 +5,16 @@
 utils::is_root
 
 pacman -Sy --noconfirm \
-  dkms \
   linux \
   linux-lts \
   linux-firmware \
   linux-headers \
+  base \
+  base-devel \
+  dkms \
   lm_sensors \
   cups \
   git \
   less \
-  flatpak \
-  fd \
-  fzf \
-  lazygit \
-  ripgrep \
-  neovim \
-  wl-clipboard \
-  kitty \
-  wezterm \
-  vlc \
-  mpv \
-  yq
+  clang \
+  neovim

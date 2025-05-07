@@ -2,8 +2,6 @@
 
 paru -Sy --noconfirm \
   nushell \
-  ttf-ibm-plex \
-  ttf-jost \
   flameshot \
   mkinitcpio-firmware \
   obsidian \
@@ -13,6 +11,18 @@ paru -Sy --noconfirm \
   vivaldi \
   vivaldi-ffmpeg-codecs \
   zen-browser-bin \
-  cachyos-gaming-meta \
   slack-desktop \
-  zoom
+  zoom \
+  wl-clipboard \
+  kitty \
+  wezterm \
+  vlc \
+  mpv \
+  yq \
+  flatpak \
+  fd \
+  fzf \
+  lazygit \
+  ripgrep \ 
+  snapper-gui \
+  cosmic
