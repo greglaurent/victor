@@ -11,12 +11,12 @@
 #fi
 
 ## Setup Networking
-unpriv cat ./etc/NetworkManager/conf.d/00-random-mac.conf | tee /mnt/etc/NetworkManager/conf.d/00-macrandomize.conf >/dev/null
+unpriv cat ./etc/NetworkManager/conf.d/00-random-mac.conf | tee /mnt/etc/NetworkManager/conf.d/00-random-mac.conf >/dev/null
 
-unpriv cat ./etc/NetworkManager/conf.d/01-transient-hostname.conf | tee /mnt/etc/NetworkManager/conf.d/01-transient-hostname.conf >/dev/null
+unpriv cat ./etc/NetworkManager/conf.d/01-hostname-mode.conf | tee /mnt/etc/NetworkManager/conf.d/01-hostname-mode.conf >/dev/null
 
-mkdir -p /mnt/etc/systemd/system/NetworkManager.service.d/
-unpriv cat ./usr/lib/systemd/system/NetworkManager.service.d/99-brace.conf | tee /mnt/etc/systemd/system/NetworkManager.service.d/99-brace.conf >/dev/null
+mkdir -p /mnt/etc/sysctl.d/
+unpriv cat ./etc/sysctl.d/99-workstation.conf | tee /mnt/etc/sysctl.d/99-workstation.conf >/dev/null
 
 # if [ "${network_daemon}" = 'systemd-networkd' ]; then
 #   # arch-iso has working networking, booted does not
