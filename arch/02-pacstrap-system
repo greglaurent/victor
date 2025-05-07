@@ -12,7 +12,7 @@ pacstrap /mnt base base-devel linux linux-lts linux-headers linux-firmware dkms 
   networkmanager iptables-nft ufw openssh chrony reflector fail2ban bind nfs-utils wpa_supplicant \
   cups cups-filters cups-pdf \
   pipewire-alsa pipewire-pulse pipewire-jack alsa-firmware alsa-plugins alsa-utils \
-  curl perl less nano vim man-pages man-db wget diffutils logrotate cronie clang git inotify-tools neovim \
+  tree curl perl less nano vim man-pages man-db wget diffutils logrotate cronie clang git inotify-tools neovim \
   xdg-utils xdg-user-dirs
 
 # sbctl
@@ -28,7 +28,9 @@ if [ "${virtualization}" = 'none' ]; then
   pacstrap /mnt "${microcode}"
 fi
 
-echo 'UriSchemes=file;https' | sudo tee -a /mnt/etc/fwupd/fwupd.conf
+unpriv cat ./etc/fwupd/fwupd.conf | tee /mnt/etc/fwupd/fwupd.conf >/dev/null
+
+# echo 'UriSchemes=file;https' | sudo tee -a /mnt/etc/fwupd/fwupd.conf
 
 #TODO: Figure out better desktop step
 # pacstrap /mnt flatpak plasma-meta sddm zsh \

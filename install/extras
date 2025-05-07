@@ -81,6 +81,8 @@ paru -S --noconfirm \
   texinfo \
   tealdeer \
   tmux \
+  udisks2 \
+  udisks2-btrfs \
   unrar \
   unzip \
   upower \
