@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+home="$(utils::user_home)"
+path="${home}/.bashrc"
+
+# js/ts
+paru -S --noconfirm nodejs npm pnpm bun-bin typescript
+
+pnpm setup
+source "${path}"
+
+# python
+paru -S --noconfirm python python-uv pyright
+
+# dotnet
+paru -S --noconfirm dotnet-sdk dotnet-runtime aspnet-runtime
+
+pnpm install -g neovim
+pnpm install -g @mermaid-js/mermaid-cli
+
+#pnpm create rsbuild@latest
