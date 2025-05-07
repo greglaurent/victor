@@ -11,8 +11,6 @@ paru -S --noconfirm \
   vivaldi \
   vivaldi-ffmpeg-codecs \
   zen-browser-bin \
-  slack-desktop \
-  zoom \
   wl-clipboard \
   kitty \
   wezterm \

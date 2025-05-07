@@ -17,3 +17,5 @@ ufw allow 443/tcp
 ufw default deny incoming
 ufw default allow outgoing
 ufw enable
+
+snapper -c root create-config /

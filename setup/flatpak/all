@@ -2,7 +2,10 @@
 
 utils::is_cmd flatpak && {
   vic setup flatpak bottles
+  vic setup flatpak discord
   vic setup flatpak flatseal
+  vic setup flatpak slack
   vic setup flatpak tidal
+  vic setup flatpak zoom
   exit
 }

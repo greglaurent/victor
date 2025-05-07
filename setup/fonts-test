@@ -6,10 +6,10 @@ nf_path="${path}/nerd-fonts"
 gf_path="${path}/${gf}"
 
 # Nerd Fonts
-rm -rf "${nf_path}" >&2
-git clone --depth 1 https://github.com/ryanoasis/nerd-fonts.git "${nf_path}"
-
-"${nf_path}/install.sh"
+# rm -rf "${nf_path}" >&2
+# git clone --depth 1 https://github.com/ryanoasis/nerd-fonts.git "${nf_path}"
+#
+# "${nf_path}/install.sh"
 
 # Google Fonts
 wgeturl="https://github.com/google/fonts/archive/main.tar.gz"

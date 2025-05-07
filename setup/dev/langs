@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
 
-home="$(utils::user_home)"
-path="${home}/.bashrc"
-
 # js/ts
 paru -S --noconfirm nodejs npm pnpm bun-bin typescript
 
 pnpm setup
-source "${path}"
+source "${HOME}/.bashrc"
 
 # python
 paru -S --noconfirm python python-uv pyright

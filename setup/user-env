@@ -7,16 +7,18 @@ utils::is_cmd cargo || { vic setup dev rust; }
 
 # REQUIRES PARU BELOW, LIKELY CLEAN INSTALL
 utils::is_cmd paru || {
+  # Machine Setup
   vic setup paru
   vic install desktop
   vic install extras
   vic setup fonts
+
+  # Dev Setup
+  vic setup dev langs
+  vic setup dev neovim
+
+  # Virt Setup
+  vic setup virt
 }
-
-vic setup dev langs
-
-vic setup dev neovim
-
-vic setup virt
 
 vic setup flatpak all

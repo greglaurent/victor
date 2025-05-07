@@ -10,7 +10,7 @@ pacstrap /mnt base base-devel linux linux-lts linux-headers linux-firmware dkms 
   snapper snap-pac apparmor \
   networkmanager iptables-nft ufw openssh chrony reflector fail2ban \
   pipewire-alsa pipewire-pulse pipewire-jack \
-  curl less cups nano vim man-pages man-db \
+  curl less cups nano vim man-pages man-db wget \
   xdg-utils xdg-user-dirs \
   cronie clang git inotify-tools neovim
 

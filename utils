@@ -9,6 +9,13 @@ ARG=""
 
 declare -A arg_map
 
+utils::is_root() {
+  if [ "$(id -u)" -ne 0 ]; then
+    printf '[ERR] This command must be run as root.' >&2
+    exit 1
+  fi
+}
+
 utils::bootstrap() {
   unset INT
   unset CMD
@@ -18,8 +25,10 @@ utils::bootstrap() {
 
   echo "[MSG] VICTOR is running: ${HERE}"
 
-  [[ ! -L "/usr/local/bin/vic" ]] &&
+  [[ ! -L "/usr/local/bin/vic" ]] && [[ utils::is_root ]] &&
     {
+      pacman -Sy
+
       ln -s "${HERE}/vic" /usr/local/bin/vic >&2 || {
         printf '\n%s\n' "[WRN]: Invalid persmissions. Run with sudo to symlink as a bin."
       }
@@ -52,13 +61,6 @@ utils::is_cmd() {
   return 1
 }
 
-utils::is_root() {
-  if [ "$(id -u)" -ne 0 ]; then
-    printf '[ERR] This command must be run as root.' >&2
-    exit 1
-  fi
-}
-
 utils::user_home() {
   # $HOME for any user
   # TODO: update to take a variable
@@ -67,8 +69,11 @@ utils::user_home() {
 
 utils::git() {
   is_installed=$(pacman -Qi git)
-  mkdir -p "${HERE}/repos" >&2
-  chown -R $(logname):$(logname) "${HERE}/repos"
+  user="$(logname)"
+  #mkdir -p "${HERE}/repos" >&2
+  #chown -R $(logname):$(logname) "${HERE}/repos"
+
+  install -d -o "${user}" -g "${user}" -m 751 "${HERE}/repos"
 
   [[ ! "${is_installed}" ]] && {
     printf '\n%s' "[WRN] Bootstrap requires git."
