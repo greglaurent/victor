@@ -3,8 +3,8 @@
 utils::is_root
 
 vic setup pacman
-
 vic install amd
+vic run fwupd
 
 # Secure boot enrollment
 # sbctl enroll-keys

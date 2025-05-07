@@ -1,28 +1,104 @@
 #!/usr/bin/env bash
 
+#TODO: AccountsService
 paru -S --noconfirm \
-  mkinitcpio-firmware \
-  nushell \
+  accountsservice \
+  awesome-terminal-fonts \
+  btrfs-assistant \
+  bluedevil \
+  bluez-hid2hci \
+  bluez-libs \
+  bluez-utils \
+  bridge-utils \
+  cameractrls \
+  cpupower \
+  crash \
+  dmidecode \
+  efitools \
+  egl-wayland \
+  ethtool \
+  fd \
   flameshot \
+  flatpak \
+  foomatic-db \
+  foomatic-db-engine \
+  foomatic-db-gutenprint-ppds \
+  foomatic-db-nonfree \
+  foomatic-db-nonfree-ppds \
+  foomatic-db-ppds \
+  fsarchiver \
+  fzf \
+  gstreamer \
+  graphicsmagick \
+  gutenprint \
+  hplip \
+  hwdetect \
+  hwinfo \
+  imagemagick \
+  inetutils \
+  inkscape \
+  just \
+  kitty \
+  lazygit \
+  libdvdcss \
+  libgsf \
+  libguestfs \
+  libopenraw \
+  libwnck3 \
+  lsb-release \
+  lsscsi \
+  mdadm \
+  meld \
+  mkinitcpio \
+  mkinitcpio-firmware \
+  modemmanager \
+  mpv \
+  mtools \
+  netctl \
+  networkmanager-openvpn \
+  nss-mdns \
+  nushell \
   obsidian \
   obs-studio \
-  cameractrls \
-  inkscape \
+  openbsd-netcat \
+  pacman-contrib \
+  pastel \
+  pavucontrol \
+  plocate \
+  plymouth \
+  poppler \
+  power-profiles-daemon \
+  pv \
+  ripgrep \
+  rsync \
+  rtkit \
+  s-nail \
+  sddm-kcm \
+  smartmontools \
+  snapper-gui \
+  sof-firmware \
+  splix \
+  texinfo \
+  tealdeer \
+  tmux \
+  unrar \
+  unzip \
+  upower \
+  usb_modeswitch \
+  usbutils \
   vivaldi \
   vivaldi-ffmpeg-codecs \
-  zen-browser-bin \
-  wl-clipboard \
-  kitty \
-  wezterm \
   vlc \
-  mpv \
+  wezterm \
+  wezterm \
+  which \
+  wireless-regdb \
+  wireplumber \
+  wl-clipboard \
+  xdg-desktop-portal \
+  xf86-input-libinput \
+  xl2tpd \
   yq \
-  flatpak \
-  fd \
-  fzf \
-  lazygit \
-  ripgrep \
-  snapper-gui \
-  tmux \
-  kitty \
-  wezterm
+  zen-browser-bin
+
+# rebuild-detector \

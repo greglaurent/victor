@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-# TODO: Add missing core packages
-
 utils::is_root
 
 pacman -S --noconfirm base base-devel linux linux-lts linux-headers linux-firmware dkms \
-  grub grub-btrfs efibootmgr zram-generator lm_sensors fwupd \
+  btrfs-progs e2fsprogs dosfstools xfsprogs nilfs-utils zram-generator lm_sensors fwupd dmraid device-mapper \
+  grub grub-btrfs efibootmgr \
   snapper snap-pac apparmor \
-  networkmanager iptables-nft ufw openssh chrony reflector fail2ban \
-  pipewire-alsa pipewire-pulse pipewire-jack \
-  curl less cups nano vim man-pages man-db \
-  cronie clang git inotify-tools neovim tmux
+  networkmanager iptables-nft ufw openssh chrony reflector fail2ban bind nfs-utils wpa_supplicant \
+  cups cups-filters cups-pdf \
+  pipewire-alsa pipewire-pulse pipewire-jack alsa-firmware alsa-plugins alsa-utils \
+  curl perl less nano vim man-pages man-db wget diffutils logrotate cronie clang git inotify-tools neovim \
+  xdg-utils xdg-user-dirs

@@ -5,8 +5,11 @@ utils::is_root
 pacman -S --noconfirm \
   mesa \
   lib32-mesa \
+  opencl-rusticl-mesa \
+  lib32-opencl-rusticl-mesa \
   xf86-video-amdgpu \
-  vulkan-radeon
+  vulkan-radeon \
+  lib32-vulkan-radeon
 
 # amd-ucode
 # amdvlk

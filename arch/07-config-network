@@ -15,6 +15,8 @@ unpriv cat ./etc/NetworkManager/conf.d/00-random-mac.conf | tee /mnt/etc/Network
 
 unpriv cat ./etc/NetworkManager/conf.d/01-hostname-mode.conf | tee /mnt/etc/NetworkManager/conf.d/01-hostname-mode.conf >/dev/null
 
+unpriv cat ./etc/named.conf | tee /mnt/etc/named.conf >/dev/null
+
 mkdir -p /mnt/etc/sysctl.d/
 unpriv cat ./etc/sysctl.d/99-workstation.conf | tee /mnt/etc/sysctl.d/99-workstation.conf >/dev/null
 

@@ -12,7 +12,14 @@ paru -S --noconfirm python python-uv pyright
 # dotnet
 paru -S --noconfirm dotnet-sdk dotnet-runtime aspnet-runtime
 
+# lua
+paru -s --noconfirm lua luarocks
+
+# bash
+paru -s --noconfirm bash-completion shellcheck-bin
+
+# postscript
+paru -S --noconfirm ghostscript
+
 pnpm install -g neovim
 pnpm install -g @mermaid-js/mermaid-cli
-
-#pnpm create rsbuild@latest

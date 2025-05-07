@@ -1,4 +1,3 @@
 #!/usr/bin/env bash
 
-#TODO: BETTER UPDATE
-paru -Syyu
+utils::is_cmd fake_cmd && echo "is a command"

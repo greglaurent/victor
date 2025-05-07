@@ -15,6 +15,7 @@ systemctl enable snapper-cleanup.timer --root=/mnt
 systemctl enable systemd-oomd --root=/mnt
 systemctl disable systemd-timesyncd --root=/mnt
 systemctl enable NetworkManager --root=/mnt
+systemctl enable named.service --root=/mnt
 
 rm /mnt/etc/resolv.conf
 ln -s /run/systemd/resolve/stub-resolv.conf /mnt/etc/resolv.conf

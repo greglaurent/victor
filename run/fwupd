@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+utils::is_root
+
+utils::is_cmd fwupdmgr && {
+  fwupdmgr get-devices
+  fwupdmgr refresh
+  fwupdmgr get-updates
+  fwupdmgr update
+}
