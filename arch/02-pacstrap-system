@@ -13,7 +13,7 @@ pacstrap /mnt base base-devel linux linux-lts linux-headers linux-firmware dkms 
   cups cups-filters cups-pdf \
   pipewire-alsa pipewire-pulse pipewire-jack alsa-firmware alsa-plugins alsa-utils \
   tree curl perl less nano vim man-pages man-db wget diffutils logrotate cronie clang git inotify-tools neovim \
-  xdg-utils xdg-user-dirs accountsservice
+  plymouth xdg-utils xdg-user-dirs accountsservice
 
 # sbctl
 
