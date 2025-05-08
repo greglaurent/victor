@@ -114,7 +114,7 @@ umount /mnt
 output 'Mounting the newly created subvolumes.'
 mount -o ssd,noatime,compress=zstd "${BTRFS}" /mnt
 mkdir -p /mnt/{boot,root,home,.snapshots,srv,tmp,var/log,var/crash,var/cache,var/tmp,var/spool,var/lib/libvirt/images,var/lib/machines}
-mkdir -p /mnt/{var/lib/AccountsService}
+mkdir -p /mnt/var/lib/AccountsService
 #mkdir -p /mnt/{var/lib/gdm,var/lib/AccountsService}
 
 if [ "${use_luks}" = '1' ]; then
