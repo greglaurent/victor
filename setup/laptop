@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+utils::is_root && {
+  # Battery
+  paru -S --noconfirm tlp tlpui tlp-rdw
+
+  systemctl mask systemd-rfkill.service
+  systemctl mask systemd-rfkill.socket
+
+  cp "${RESOURCES}/etc/tlp.conf" /etc/tlp.conf
+
+  systemctl enable --now tlp.service
+  systemctl enable --now NetworkManager-dispatcher.service
+}
