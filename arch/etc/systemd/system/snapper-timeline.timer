@@ -1,3 +1,9 @@
+[Unit]
+Description=Clean btrfs snapshots via snapper
+
 [Timer]
 OnCalendar=
 OnCalendar=*:0/15
+
+[Install]
+WantedBy=timers.target
