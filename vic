@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 
 # set HERE to bootstrap to call utils from anywhere
-HERE=$(cd $(dirname "${BASH_SOURCE[0]}") &>/dev/null && pwd)
+HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 
 # if called from /usr/local/bin symlink
 [[ ! -f "${HERE}"/utils ]] &&
   HERE="$(dirname "$(readlink -f "${0}")")"
 
-RESOURCES="${HERE}/setup/resources"
+export RESOURCES="${HERE}/setup/resources"
+export REPOS="${HERE}/repos"
 
 # source utils to use HERE
 source "${HERE}"/utils >&2
@@ -16,7 +17,8 @@ main() {
 
   utils::bootstrap
 
-  [[ ! -z ${@} ]] && utils::exec "${@}"
+  # [[ ! -z ${@} ]] && utils::exec "${@}"
+  [[ -n ${*} ]] && utils::exec "${@}"
 }
 
 main "${@}"

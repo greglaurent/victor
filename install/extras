@@ -1,17 +1,112 @@
 #!/usr/bin/env bash
 
-paru -Sy --noconfirm \
-  nushell \
-  ttf-ibm-plex \
-  ttf-jost \
+#TODO: AccountsService
+paru -S --noconfirm \
+  accountsservice \
+  awesome-terminal-fonts \
+  btrfs-assistant \
+  bluedevil \
+  bluez-hid2hci \
+  bluez-libs \
+  bluez-utils \
+  bridge-utils \
+  cameractrls \
+  cpupower \
+  crash \
+  dmidecode \
+  efitools \
+  egl-wayland \
+  ethtool \
+  fd \
   flameshot \
+  flatpak \
+  foomatic-db \
+  foomatic-db-engine \
+  foomatic-db-gutenprint-ppds \
+  foomatic-db-nonfree \
+  foomatic-db-nonfree-ppds \
+  foomatic-db-ppds \
+  fsarchiver \
+  fzf \
+  gstreamer \
+  graphicsmagick \
+  gutenprint \
+  hplip \
+  hwdetect \
+  hwinfo \
+  imagemagick \
+  inetutils \
+  inkscape \
+  just \
+  kitty \
+  lazygit \
+  libdvdcss \
+  libgsf \
+  libguestfs \
+  libopenraw \
+  libwnck3 \
+  lsb-release \
+  lsscsi \
+  mdadm \
+  meld \
+  mkinitcpio \
+  mkinitcpio-firmware \
+  modemmanager \
+  mpv \
+  mtools \
+  netctl \
+  networkmanager-openvpn \
+  nss-mdns \
+  nushell \
   obsidian \
   obs-studio \
-  cameractrls \
-  inkscape \
+  openbsd-netcat \
+  pacman-contrib \
+  pastel \
+  pavucontrol \
+  plocate \
+  plymouth \
+  poppler \
+  power-profiles-daemon \
+  pv \
+  ripgrep \
+  rsync \
+  rtkit \
+  s-nail \
+  sddm-kcm \
+  smartmontools \
+  snapper-gui \
+  sof-firmware \
+  splix \
+  texinfo \
+  tealdeer \
+  tmux \
+  udisks2 \
+  udisks2-btrfs \
+  unrar \
+  unzip \
+  upower \
+  usb_modeswitch \
+  usbutils \
   vivaldi \
   vivaldi-ffmpeg-codecs \
+  vlc \
+  wezterm \
+  wezterm \
+  which \
+  wireless-regdb \
+  wireplumber \
+  wl-clipboard \
+  xdg-desktop-portal \
+  xf86-input-libinput \
+  xl2tpd \
+  yq \
   zen-browser-bin \
-  cachyos-gaming-meta \
-  slack-desktop \
-  zoom
+  python3 \
+  gtk3 \
+  python-dbus \
+  python-gobject \
+  python-setuptools \
+  gtksourceview3
+
+# rebuild-detector \

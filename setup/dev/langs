@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+# js/ts
+paru -S --noconfirm nodejs npm pnpm bun-bin typescript
+
+# python
+paru -S --noconfirm python python-pip python-uv pyright python-pynvim
+
+# dotnet
+paru -S --noconfirm dotnet-sdk dotnet-runtime aspnet-runtime
+
+# go
+paru -S --noconfirm go
+
+# lua
+paru -S --noconfirm lua lua51 luarocks hererocks
+
+# shell
+paru -S --noconfirm bash-completion shellcheck-bin shfmt
+
+# postscript
+paru -S --noconfirm ghostscript
+
+# php
+paru -S --noconfirm php
+
+# java
+paru -S --noconfirm jdk-openjdk
+
+# TODO: Future shellcheck fix:
+# Run shellcheck with: shellcheck -x -P $HOME ./test.sh
+
+pnpm setup
+# shellcheck disable=SC1091
+source "${HOME}/.bashrc"
+
+pnpm install -g neovim
+pnpm install -g @mermaid-js/mermaid-cli

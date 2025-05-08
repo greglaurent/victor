@@ -9,6 +9,13 @@ ARG=""
 
 declare -A arg_map
 
+utils::is_root() {
+  if [ "$(id -u)" -ne 0 ]; then
+    printf '[ERR] This command must be run as root.' >&2
+    exit 1
+  fi
+}
+
 utils::bootstrap() {
   unset INT
   unset CMD
@@ -16,10 +23,12 @@ utils::bootstrap() {
   unset SCP
   unset ARG
 
-  echo "[MSG] VICTOR is running: ${HERE}"
+  echo "[MSG] VICTOR is running: ${HERE=?}"
 
-  [[ ! -L "/usr/local/bin/vic" ]] &&
+  [[ ! -L "/usr/local/bin/vic" ]] && utils::is_root &&
     {
+      pacman -Sy
+
       ln -s "${HERE}/vic" /usr/local/bin/vic >&2 || {
         printf '\n%s\n' "[WRN]: Invalid persmissions. Run with sudo to symlink as a bin."
       }
@@ -34,40 +43,37 @@ utils::bootstrap() {
   # utils::print_lookup
 }
 
-_base_tools() {
-  local here="${HERE}"
-  local dir="${here}/repos"
-
-  [[ ! -d "${dir}"/ini-file-parser ]] &&
-    git clone git@github.com:greglaurent/ini-file-parser.git "${dir}/ini-file-parser"
-
-  source ${dir}/ini-file-parser/src/ini-file-parser.sh
-}
+# _base_tools() {
+#   local here="${HERE}"
+#   local dir="${here}/repos"
+#
+#   [[ ! -d "${dir}"/ini-file-parser ]] &&
+#     git clone git@github.com:greglaurent/ini-file-parser.git "${dir}/ini-file-parser"
+#
+#   source ${dir}/ini-file-parser/src/ini-file-parser.sh
+# }
 
 utils::is_cmd() {
   local cmd=$(command -v "${1}") 2>&1 >/dev/null
 
-  [[ ! -z ${cmd} ]] && return 0
+  [[ -n ${cmd} ]] && return 0
 
   return 1
-}
-
-utils::is_root() {
-  if [ "$(id -u)" -ne 0 ]; then
-    printf '[ERR] This command must be run as root.' >&2
-    exit 1
-  fi
 }
 
 utils::user_home() {
   # $HOME for any user
   # TODO: update to take a variable
-  echo "$(getent passwd "${USER}" | cut -d: -f6)"
+  getent passwd "${USER}" | cut -d: -f6
 }
 
 utils::git() {
   is_installed=$(pacman -Qi git)
-  mkdir -p "${HERE}/repos" >&2
+  user="$(logname)"
+  #mkdir -p "${HERE}/repos" >&2
+  #chown -R $(logname):$(logname) "${HERE}/repos"
+
+  install -d -o "${user}" -g "${user}" -m 751 "${HERE}/repos"
 
   [[ ! "${is_installed}" ]] && {
     printf '\n%s' "[WRN] Bootstrap requires git."
@@ -88,7 +94,7 @@ utils::parse_args() {
       [[ -n "${arg_map["${1}"]}" ]] && {
         INT="${1}"
         shift
-        [[ -z $ARG ]] && ARG="${@}"
+        [[ -z $ARG ]] && ARG="${*}"
         break
       }
     fi
@@ -99,8 +105,8 @@ utils::parse_args() {
     # skip SCP and shift ARG, if only CMD SUB ARG
     [[ -z $CMD ]] && CMD="${1}" && shift && continue
     [[ -z $SUB ]] && SUB="${1}" && shift && continue
-    [[ -z $SCP ]] && [[ "${#}" > 1 ]] && SCP="${1}" && shift && continue
-    [[ -z $ARG ]] && ARG="${@}" && shift && break
+    [[ -z $SCP ]] && [[ "${#}" -gt 1 ]] && SCP="${1}" && shift && continue
+    [[ -z $ARG ]] && ARG="${*}" && shift && break
   done
 }
 
@@ -138,10 +144,10 @@ utils::exec() {
     }
   }
 
-  printf '\n%s\n' "[RUN] "${path}"" >&2
+  printf '\n%s\n' "[RUN] ${path}" >&2
 
   [[ ! -z "${ARG}" ]] &&
-    printf '%s\n\n' "[ARG] "${ARG}"" >&2 ||
+    printf '%s\n\n' "[ARG] ${ARG}" >&2 ||
     printf "\n" >&2
 
   #"${path}" "${ARG}" >&1

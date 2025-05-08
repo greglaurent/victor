@@ -4,12 +4,12 @@ utils::is_root
 
 dir="${RESOURCES}/pacman"
 
-# cp "${dir}/pacman.conf"
-cp "${dir}/paru.conf" /etc/paru.conf
+# Added copy to install -- no longer needed
+#  cp "${dir}/pacman.conf" /etc/pacman.conf
 
 pacman-key --init
 pacman-key --populate
 
-pacman -Syyu
+pacman -Syyu --noconfirm
 
 cp "${dir}/vconsole.conf" /etc/vconsole.conf

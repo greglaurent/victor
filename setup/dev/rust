@@ -1,17 +1,22 @@
 #!/usr/bin/env bash
 
-# TODO: Add input for non-default configuration
 utils::is_cmd cargo || {
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+  sudo pacman -S --noconfirm rustup
 
-  . "$HOME/.cargo/env"
+  rustup install stable
+  rustup default stable
 
   rustup toolchain install
   rustup toolchain install nightly
+  rustup target add wasm32-unknown-unknown
+
+  cargo install --locked bacon
+  # cargo install --features "clipboard sound"
+
+  curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 }
 
-rustup update
 rustup toolchain update
 
-cargo install --locked bacon
-#cargo install --features "clipboard sound"
+# curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+# . "$HOME/.cargo/env"

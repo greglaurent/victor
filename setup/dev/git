@@ -4,7 +4,13 @@
 # TODO: Add other default git configs
 # TODO: SSH key config
 
+email="gregory.m.laurent@gmail.com"
+
 git config --global pull.ff only
 git config --global user.name "Greg L"
-git config --global user.email "gregory.m.laurent@gmail.com"
+git config --global user.email "${email}"
+git config --global init.defaultBranch "main"
 
+ssh-keygen -t ed25519 -C "${email}"
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519

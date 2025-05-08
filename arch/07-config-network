@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+### PARTIAL SCRIPT ######
+### REQUIRES PROMPTS ####
+
+# TODO: Keep install network config
+
+## Setup unbound
+#if [ "${install_mode}" = 'server' ]; then
+#  unpriv curl -s ./etc/unbound/unbound.conf | tee /mnt/etc/unbound/unbound.conf >/dev/null
+#fi
+
+## Setup Networking
+unpriv cat ./etc/NetworkManager/conf.d/00-random-mac.conf | tee /mnt/etc/NetworkManager/conf.d/00-random-mac.conf >/dev/null
+
+unpriv cat ./etc/NetworkManager/conf.d/01-hostname-mode.conf | tee /mnt/etc/NetworkManager/conf.d/01-hostname-mode.conf >/dev/null
+
+unpriv cat ./etc/named.conf | tee /mnt/etc/named.conf >/dev/null
+
+# mkdir -p /mnt/etc/sysctl.d/
+# unpriv cat ./etc/sysctl.d/99-workstation.conf | tee /mnt/etc/sysctl.d/99-workstation.conf >/dev/null

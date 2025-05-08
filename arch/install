@@ -1,0 +1,125 @@
+#!/bin/bash
+
+set -eu
+
+# Check if this is a VM
+# virtualization=$(systemd-detect-virt)
+# virtualization=none
+#
+#network_daemon='networkmanager'
+
+installation_date=$(date "+%Y-%m-%d %H:%M:%S")
+install_mode=desktop
+use_luks=0
+locale=en_US
+kblayout=us
+
+output() {
+  printf '\e[1;34m%-6s\e[m\n' "${@}"
+}
+
+unpriv() {
+  sudo -u nobody "${@}"
+}
+
+luks_passphrase_prompt() {
+  if [ "${use_luks}" = '1' ]; then
+    output 'Enter your encryption passphrase (the passphrase will not be shown on the screen):'
+    read -r -s luks_passphrase
+
+    if [ -z "${luks_passphrase}" ]; then
+      output 'To use encryption, you need to enter a passphrase.'
+      luks_passphrase_prompt
+    fi
+
+    output 'Confirm your encryption passphrase (the passphrase will not be shown on the screen):'
+    read -r -s luks_passphrase2
+    if [ "${luks_passphrase}" != "${luks_passphrase2}" ]; then
+      output 'Passphrases do not match, please try again.'
+      luks_passphrase_prompt
+    fi
+  fi
+}
+
+disk_prompt() {
+  lsblk
+  output 'Please select the number of the corresponding disk (e.g. 1):'
+  select entry in $(lsblk -dpnoNAME | grep -P "/dev/nvme|sd|mmcblk|vd"); do
+    disk="${entry}"
+    output "Arch Linux will be installed on the following disk: ${disk}"
+    break
+  done
+}
+
+username_prompt() {
+  output 'Please enter the username:'
+  read -r username
+
+  if [ -z "${username}" ]; then
+    output 'Sorry, You need to enter a username.'
+    username_prompt
+  fi
+}
+
+user_password_prompt() {
+  output 'Enter your user password (the password will not be shown on the screen):'
+  read -r -s user_password
+
+  if [ -z "${user_password}" ]; then
+    output 'You need to enter a password.'
+    user_password_prompt
+  fi
+
+  output 'Confirm your user password (the password will not be shown on the screen):'
+  read -r -s user_password2
+  if [ "${user_password}" != "${user_password2}" ]; then
+    output 'Passwords do not match, please try again.'
+    user_password_prompt
+  fi
+}
+
+fullname_prompt() {
+  output 'Please enter the full name account:'
+  read -r fullname
+
+  if [ -z "${fullname}" ]; then
+    output 'Please enter the full name for the account.'
+    fullname_prompt
+  fi
+}
+
+hostname_prompt() {
+  output 'Enter your hostname:'
+  read -r hostname
+
+  if [ -z "${hostname}" ]; then
+    output 'You need to enter a hostname.'
+    hostname_prompt
+  fi
+}
+
+# Clear the TTY
+clear
+
+# Initial prompts
+luks_passphrase_prompt
+disk_prompt
+username_prompt
+fullname_prompt
+user_password_prompt
+hostname_prompt
+
+source ./01-format-disks
+source ./02-pacstrap-system
+source ./03-generate-fstab
+source ./04-set-locale
+source ./05-config-grub
+source ./06-config-security
+source ./07-config-network
+source ./08-arch-chroot
+source ./09-enable-systemctl
+# source ./10-set-umask
+
+# Finish up
+echo "Done, you may now wish to reboot (further changes can be done by chrooting into /mnt)."
+exit
