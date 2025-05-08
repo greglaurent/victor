@@ -17,16 +17,14 @@ pacstrap /mnt base base-devel linux linux-lts linux-headers linux-firmware dkms 
 
 # sbctl
 
-if [ "${virtualization:?}" = 'none' ]; then
-  CPU=$(grep vendor_id /proc/cpuinfo)
-  if [[ "${CPU}" == *"AuthenticAMD"* ]]; then
-    microcode=amd-ucode
-  else
-    microcode=intel-ucode
-  fi
-
-  pacstrap /mnt "${microcode}"
+CPU=$(grep vendor_id /proc/cpuinfo)
+if [[ "${CPU}" == *"AuthenticAMD"* ]]; then
+  microcode=amd-ucode
+else
+  microcode=intel-ucode
 fi
+
+pacstrap /mnt "${microcode}"
 
 unpriv cat ./etc/fwupd/fwupd.conf | tee /mnt/etc/fwupd/fwupd.conf >/dev/null
 unpriv cat ./etc/snapper/configs/config | tee /mnt/etc/snapper/configs/config >/dev/null

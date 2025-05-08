@@ -3,6 +3,6 @@
 # pacstrap /mnt flatpak plasma-meta sddm zsh \
 #   kitty wezterm
 
-paru -S --noconfirm cosmic sddm
+paru -S --noconfirm plasma cosmic sddm
 
 sudo systemctl enable sddm

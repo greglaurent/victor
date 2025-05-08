@@ -10,4 +10,4 @@ pacman -S --noconfirm base base-devel linux linux-lts linux-headers linux-firmwa
   cups cups-filters cups-pdf \
   pipewire-alsa pipewire-pulse pipewire-jack alsa-firmware alsa-plugins alsa-utils \
   tree curl perl less nano vim man-pages man-db wget diffutils logrotate cronie clang git inotify-tools neovim \
-  xdg-utils xdg-user-dirs
+  accountsservices xdg-utils xdg-user-dirs

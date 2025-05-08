@@ -2,14 +2,15 @@
 
 set -eu
 
-installation_date=$(date "+%Y-%m-%d %H:%M:%S")
-
 # Check if this is a VM
 # virtualization=$(systemd-detect-virt)
-virtualization=none
+# virtualization=none
+#
+#network_daemon='networkmanager'
+
+installation_date=$(date "+%Y-%m-%d %H:%M:%S")
 install_mode=desktop
 use_luks=0
-#network_daemon='networkmanager'
 locale=en_US
 kblayout=us
 
@@ -18,7 +19,7 @@ output() {
 }
 
 unpriv() {
-  sudo -u nobody "$@"
+  sudo -u nobody "${@}"
 }
 
 luks_passphrase_prompt() {
@@ -60,16 +61,6 @@ username_prompt() {
   fi
 }
 
-fullname_prompt() {
-  output 'Please enter the full name account:'
-  read -r fullname
-
-  if [ -z "${fullname}" ]; then
-    output 'Please enter the full name for the account.'
-    fullname_prompt
-  fi
-}
-
 user_password_prompt() {
   output 'Enter your user password (the password will not be shown on the screen):'
   read -r -s user_password
@@ -84,6 +75,16 @@ user_password_prompt() {
   if [ "${user_password}" != "${user_password2}" ]; then
     output 'Passwords do not match, please try again.'
     user_password_prompt
+  fi
+}
+
+fullname_prompt() {
+  output 'Please enter the full name account:'
+  read -r fullname
+
+  if [ -z "${fullname}" ]; then
+    output 'Please enter the full name for the account.'
+    fullname_prompt
   fi
 }
 
