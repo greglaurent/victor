@@ -57,6 +57,6 @@ sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/g' /mnt/etc/sudoer
 unpriv cat ./etc/pacman.conf | tee /mnt/etc/pacman.conf >/dev/null
 unpriv cat ./etc/modprobe.d/nobeep.conf | tee /mnt/etc/modprobe.d/nobeep.conf >/dev/null
 
-unpriv cat ./etc/snapper/configs/default | tee /mnt/etc/snapper/configs/default >/dev/null
+unpriv cat ./etc/snapper/configs/root | tee /mnt/etc/snapper/configs/root >/dev/null
 unpriv cat ./etc/systemd/system/snapper-cleanup.timer | tee /mnt/etc/systemd/system/snapper-cleanup.timer >/dev/null
 unpriv cat ./etc/systemd/system/snapper-timeline.timer | tee /mnt/etc/systemd/system/snapper-timeline.timer >/dev/null
