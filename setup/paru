@@ -7,7 +7,7 @@ utils::is_cmd paru || {
   [[ ! -d $dir ]] &&
     git clone https://aur.archlinux.org/paru.git "${dir}"
 
-  cd "${dir}"
+  cd "${dir}" || exit
   makepkg -si
 
   sudo cp "${RESOURCES}/pacman/paru.conf" /etc/paru.conf

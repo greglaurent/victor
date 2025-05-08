@@ -9,7 +9,7 @@ installation_date=$(date "+%Y-%m-%d %H:%M:%S")
 virtualization=none
 install_mode=desktop
 use_luks=0
-network_daemon='networkmanager'
+#network_daemon='networkmanager'
 locale=en_US
 kblayout=us
 

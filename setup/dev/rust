@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-# TODO: Add input for non-default configuration
 utils::is_cmd cargo || {
   sudo pacman -S --noconfirm rustup
 

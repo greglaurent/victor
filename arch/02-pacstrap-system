@@ -17,7 +17,7 @@ pacstrap /mnt base base-devel linux linux-lts linux-headers linux-firmware dkms 
 
 # sbctl
 
-if [ "${virtualization}" = 'none' ]; then
+if [ "${virtualization:?}" = 'none' ]; then
   CPU=$(grep vendor_id /proc/cpuinfo)
   if [[ "${CPU}" == *"AuthenticAMD"* ]]; then
     microcode=amd-ucode

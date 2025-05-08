@@ -23,9 +23,9 @@ utils::bootstrap() {
   unset SCP
   unset ARG
 
-  echo "[MSG] VICTOR is running: ${HERE}"
+  echo "[MSG] VICTOR is running: ${HERE=?}"
 
-  [[ ! -L "/usr/local/bin/vic" ]] && [[ utils::is_root ]] &&
+  [[ ! -L "/usr/local/bin/vic" ]] && utils::is_root &&
     {
       pacman -Sy
 
@@ -43,20 +43,20 @@ utils::bootstrap() {
   # utils::print_lookup
 }
 
-_base_tools() {
-  local here="${HERE}"
-  local dir="${here}/repos"
-
-  [[ ! -d "${dir}"/ini-file-parser ]] &&
-    git clone git@github.com:greglaurent/ini-file-parser.git "${dir}/ini-file-parser"
-
-  source ${dir}/ini-file-parser/src/ini-file-parser.sh
-}
+# _base_tools() {
+#   local here="${HERE}"
+#   local dir="${here}/repos"
+#
+#   [[ ! -d "${dir}"/ini-file-parser ]] &&
+#     git clone git@github.com:greglaurent/ini-file-parser.git "${dir}/ini-file-parser"
+#
+#   source ${dir}/ini-file-parser/src/ini-file-parser.sh
+# }
 
 utils::is_cmd() {
   local cmd=$(command -v "${1}") 2>&1 >/dev/null
 
-  [[ ! -z ${cmd} ]] && return 0
+  [[ -n ${cmd} ]] && return 0
 
   return 1
 }
@@ -64,7 +64,7 @@ utils::is_cmd() {
 utils::user_home() {
   # $HOME for any user
   # TODO: update to take a variable
-  echo "$(getent passwd "${USER}" | cut -d: -f6)"
+  getent passwd "${USER}" | cut -d: -f6
 }
 
 utils::git() {
@@ -94,7 +94,7 @@ utils::parse_args() {
       [[ -n "${arg_map["${1}"]}" ]] && {
         INT="${1}"
         shift
-        [[ -z $ARG ]] && ARG="${@}"
+        [[ -z $ARG ]] && ARG="${*}"
         break
       }
     fi
@@ -105,8 +105,8 @@ utils::parse_args() {
     # skip SCP and shift ARG, if only CMD SUB ARG
     [[ -z $CMD ]] && CMD="${1}" && shift && continue
     [[ -z $SUB ]] && SUB="${1}" && shift && continue
-    [[ -z $SCP ]] && [[ "${#}" > 1 ]] && SCP="${1}" && shift && continue
-    [[ -z $ARG ]] && ARG="${@}" && shift && break
+    [[ -z $SCP ]] && [[ "${#}" -gt 1 ]] && SCP="${1}" && shift && continue
+    [[ -z $ARG ]] && ARG="${*}" && shift && break
   done
 }
 
@@ -144,10 +144,10 @@ utils::exec() {
     }
   }
 
-  printf '\n%s\n' "[RUN] "${path}"" >&2
+  printf '\n%s\n' "[RUN] ${path}" >&2
 
   [[ ! -z "${ARG}" ]] &&
-    printf '%s\n\n' "[ARG] "${ARG}"" >&2 ||
+    printf '%s\n\n' "[ARG] ${ARG}" >&2 ||
     printf "\n" >&2
 
   #"${path}" "${ARG}" >&1

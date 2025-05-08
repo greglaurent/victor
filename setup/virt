@@ -7,5 +7,5 @@ paru -S --noconfirm qemu virt-manager virt-viewer dnsmasq \
 # sudo echo "firewall_backend = \"iptables\"" >>/etc/libvirt/network.conf >/dev/null
 
 #systemctl enable --now libvirtd
-usermod -aG libvirt $(logname)
+usermod -aG libvirt "$(logname)"
 systemctl enable --now libvirtd

@@ -101,6 +101,12 @@ paru -S --noconfirm \
   xf86-input-libinput \
   xl2tpd \
   yq \
-  zen-browser-bin
+  zen-browser-bin \
+  python3 \
+  gtk3 \
+  python-dbus \
+  python-gobject \
+  python-setuptools \
+  gtksourceview3
 
 # rebuild-detector \

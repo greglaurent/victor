@@ -1,3 +1,5 @@
+# shellcheck disable=SC2034
+# Unused variables set default XDG dirs
 XDG_DESKTOP_DIR=Desktop
 XDG_DOCUMENTS_DIR=Documents
 XDG_DOWNLOAD_DIR=Downloads

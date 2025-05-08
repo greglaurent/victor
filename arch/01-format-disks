@@ -3,16 +3,13 @@
 ### PARTIAL SCRIPT ######
 ### REQUIRES PROMPTS ####
 
-# Updating the live environment usually causes more problems than its worth, 
-# and quite often can't be done without remounting cowspace with more capacity
-
 pacman -Sy
 
 ## Installing curl
 pacman -S --noconfirm curl
 
 ## Wipe the disk
-sgdisk --zap-all "${disk}"
+sgdisk --zap-all "${disk:?}"
 
 ## Creating a new partition scheme
 output "Creating new partition scheme on ${disk}."
@@ -22,7 +19,7 @@ sgdisk -I -n 2:0:0 -c 2:'rootfs' "${disk}"
 
 ESP='/dev/disk/by-partlabel/ESP'
 
-if [ "${use_luks}" = '1' ]; then
+if [ "${use_luks:?}" = '1' ]; then
   cryptroot='/dev/disk/by-partlabel/rootfs'
 fi
 
@@ -37,7 +34,7 @@ mkfs.fat -F 32 -s 2 "${ESP}"
 ## Creating a LUKS Container for the root partition
 if [ "${use_luks}" = '1' ]; then
   output 'Creating LUKS Container for the root partition.'
-  echo -n "${luks_passphrase}" | cryptsetup luksFormat --pbkdf pbkdf2 "${cryptroot}" -d -
+  echo -n "${luks_passphrase:?}" | cryptsetup luksFormat --pbkdf pbkdf2 "${cryptroot}" -d -
   echo -n "${luks_passphrase}" | cryptsetup open "${cryptroot}" cryptroot -d -
   BTRFS='/dev/mapper/cryptroot'
 else
@@ -104,7 +101,7 @@ echo "<?xml version=\"1.0\"?>
 <snapshot>
   <type>single</type>
   <num>1</num>
-  <date>${installation_date}</date>
+  <date>${installation_date:?}</date>
   <description>First Root Filesystem</description>
   <cleanup>number</cleanup>
 </snapshot>" >/mnt/@/.snapshots/1/info.xml
@@ -143,7 +140,7 @@ mount -o ssd,noatime,compress=zstd,nodatacow,nodev,nosuid,noexec,subvol=@/var_li
 #   mount -o ssd,noatime,compress=zstd,nodatacow,nodev,nosuid,noexec,subvol=@/var_lib_AccountsService $BTRFS /mnt/var/lib/AccountsService
 # fi
 
-### The encryption is splitted as we do not want to include it in the backup with snap-pac.
+### The encryption is split; we do not want to include it in the backup with snap-pac.
 if [ "${use_luks}" = '1' ]; then
   mount -o ssd,noatime,compress=zstd,nodatacow,nodev,nosuid,noexec,subvol=@/cryptkey "${BTRFS}" /mnt/cryptkey
 fi

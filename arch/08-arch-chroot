@@ -30,10 +30,10 @@ arch-chroot /mnt /bin/bash -e <<EOF
     grub-mkconfig -o /boot/grub/grub.cfg
 
     # Adding user with sudo privilege
-    useradd -c "$fullname" -m "$username"
-    usermod -aG wheel,adm,ftp,games,http,log,rfkill,sys,systemd-journal,uucp "$username"
+    useradd -c "${fullname:?}" -m "${username}"
+    usermod -aG wheel,adm,ftp,games,http,log,rfkill,sys,systemd-journal,uucp "${username}"
 
-    if [ "${install_mode}" = 'desktop' ]; then
+    if [ "${install_mode:?}" = 'desktop' ]; then
         # Setting up dconf
         dconf update
     fi
@@ -49,7 +49,7 @@ arch-chroot /mnt /bin/bash -e <<EOF
 EOF
 
 ## Set user password.
-[ -n "$username" ] && echo "Setting user password for ${username}." && echo -e "${user_password}\n${user_password}" | arch-chroot /mnt passwd "$username"
+[ -n "${username}" ] && echo "Setting user password for ${username}." && echo -e "${user_password:=}\n${user_password}" | arch-chroot /mnt passwd "$username"
 
 ## Give wheel user sudo access.
 sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/g' /mnt/etc/sudoers
