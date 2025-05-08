@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# rust install here: ./rust
+
 # js/ts
 paru -S --noconfirm nodejs npm pnpm bun-bin typescript
 
@@ -31,8 +33,12 @@ paru -S --noconfirm jdk-openjdk
 # Run shellcheck with: shellcheck -x -P $HOME ./test.sh
 
 pnpm setup
+# ugly hack to skip first 10 lines of .bashrc
+# this is only an issue on first run
+eval "$(cat ~/.bashrc | tail -n +10)"
+
 # shellcheck disable=SC1091
-source "${HOME}/.bashrc"
+# source "${HOME}/.bashrc"
 
 pnpm install -g neovim
 pnpm install -g @mermaid-js/mermaid-cli
