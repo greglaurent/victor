@@ -15,7 +15,7 @@ utils::is_cmd paru || {
 
   # Dev Setup
   vic setup dev langs
-  vic setup dev neovim
+  # vic setup dev neovim
 }
 
 # Requires desktop environment
