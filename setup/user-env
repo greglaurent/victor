@@ -14,7 +14,7 @@ utils::is_cmd paru || {
   vic setup fonts
 
   # Dev Setup
-  vic setup dev langs
+  # vic setup dev langs
   # vic setup dev neovim
 }
 
