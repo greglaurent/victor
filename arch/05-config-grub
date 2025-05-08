@@ -3,6 +3,8 @@
 ### PARTIAL SCRIPT ######
 ### REQUIRES PROMPTS ####
 
+# TODO: Fix encrypted path
+
 ## Configure /etc/mkinitcpio.conf
 output 'Configuring /etc/mkinitcpio for ZSTD compression and LUKS hook.'
 sed -i 's/#COMPRESSION="zstd"/COMPRESSION="zstd"/g' /mnt/etc/mkinitcpio.conf
@@ -10,7 +12,7 @@ sed -i 's/^MODULES=.*/MODULES=(btrfs)/g' /mnt/etc/mkinitcpio.conf
 if [ "${use_luks:?}" = '1' ]; then
   sed -i 's/^HOOKS=.*/HOOKS=(systemd autodetect microcode modconf keyboard sd-vconsole block sd-encrypt)/g' /mnt/etc/mkinitcpio.conf
 else
-  sed -i 's/^HOOKS=.*/HOOKS=(systemd autodetect microcode modconf keyboard sd-vconsole block)/g' /mnt/etc/mkinitcpio.conf
+  sed -i 's/^HOOKS=.*/HOOKS=(base udev systemd autodetect microcode kms modconf block keyboard keymap consolefont plymouth filesystems)/g' /mnt/etc/mkinitcpio.conf
 fi
 
 ## Enable LUKS in GRUB and setting the UUID of the LUKS container
