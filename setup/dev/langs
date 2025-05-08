@@ -33,9 +33,7 @@ paru -S --noconfirm jdk-openjdk
 # Run shellcheck with: shellcheck -x -P $HOME ./test.sh
 
 pnpm setup
-# ugly hack to skip first 10 lines of .bashrc
-# this is only an issue on first run
-eval "$(cat ~/.bashrc | tail -n +10)"
+utils::source_bashrc
 
 # shellcheck disable=SC1091
 # source "${HOME}/.bashrc"

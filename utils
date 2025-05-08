@@ -85,6 +85,14 @@ utils::git() {
   }
 }
 
+utils::source_bashrc() {
+  # ugly hack to skip first 10 lines of .bashrc
+  # this happens when bashrc is updated in the
+  # same terminal session and exits early
+
+  eval "$(cat ~/.bashrc | tail -n +10)"
+}
+
 utils::parse_args() {
   local skip=false
   while (("$#")); do
