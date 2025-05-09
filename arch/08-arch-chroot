@@ -61,8 +61,7 @@ arch-chroot /mnt /bin/bash -e <<EOF
       mesa libva-mesa-driver xf86-video-amdgpu xf86-video-ati xf86-video-nouveau \
       vulkan-nouveau vulkan-radeon vulkan-intel \
       opencl-rusticl-mesa lib32-opencl-rusticl-mesa \
-      intel-gmmlib intel-media-driver libva-intel-driver \ 
-      gstreamer-vaapi
+      intel-gmmlib intel-media-driver libva-intel-driver
 
     # xf86-video-vmware
 EOF
