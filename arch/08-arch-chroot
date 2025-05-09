@@ -6,6 +6,13 @@
 mkdir -p /mnt/etc/xdg
 unpriv cat ./etc/xdg/user-dirs.defaults | tee /mnt/etc/xdg/user-dirs.defaults >/dev/null
 
+unpriv cat ./etc/pacman.conf | tee /mnt/etc/pacman.conf >/dev/null
+unpriv cat ./etc/modprobe.d/nobeep.conf | tee /mnt/etc/modprobe.d/nobeep.conf >/dev/null
+
+unpriv cat ./etc/snapper/configs/root | tee /mnt/etc/snapper/configs/root >/dev/null
+unpriv cat ./etc/systemd/system/snapper-cleanup.timer | tee /mnt/etc/systemd/system/snapper-cleanup.timer >/dev/null
+unpriv cat ./etc/systemd/system/snapper-timeline.timer | tee /mnt/etc/systemd/system/snapper-timeline.timer >/dev/null
+
 ## Configuring the system
 arch-chroot /mnt /bin/bash -e <<EOF
 
@@ -46,6 +53,17 @@ arch-chroot /mnt /bin/bash -e <<EOF
     mkdir /.snapshots
     mount -a
     chmod 750 /.snapshots
+
+    # Install multilib packages
+    # Sy to sync multi lib after updating pacman.conf
+    # Proprietary intel drivers skipped for now
+    pacman -Sy intel-media-driver libva-intel-driver \
+      mesa libva-mesa-driver xf86-video-amdgpu xf86-video-ati xf86-video-nouveau \
+      vulkan-nouveau vulkan-radeon vulkan-intel \
+      opencl-rusticl-mesa lib32-opencl-rusticl-mesa \
+      intel-gmmlib intel-media-driver libva-intel-driver
+
+    # xf86-video-vmware
 EOF
 
 ## Set user password.
@@ -53,10 +71,3 @@ EOF
 
 ## Give wheel user sudo access.
 sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/g' /mnt/etc/sudoers
-
-unpriv cat ./etc/pacman.conf | tee /mnt/etc/pacman.conf >/dev/null
-unpriv cat ./etc/modprobe.d/nobeep.conf | tee /mnt/etc/modprobe.d/nobeep.conf >/dev/null
-
-unpriv cat ./etc/snapper/configs/root | tee /mnt/etc/snapper/configs/root >/dev/null
-unpriv cat ./etc/systemd/system/snapper-cleanup.timer | tee /mnt/etc/systemd/system/snapper-cleanup.timer >/dev/null
-unpriv cat ./etc/systemd/system/snapper-timeline.timer | tee /mnt/etc/systemd/system/snapper-timeline.timer >/dev/null

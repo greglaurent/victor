@@ -6,12 +6,13 @@
 output 'Installing the base system (it may take a while).'
 
 pacstrap /mnt base base-devel linux linux-lts linux-headers linux-firmware dkms \
-  btrfs-progs e2fsprogs dosfstools xfsprogs nilfs-utils zram-generator lm_sensors fwupd dmraid device-mapper \
+  btrfs-progs e2fsprogs dosfstools xfsprogs nilfs-utils zram-generator \
+  acpi lm_sensors fwupd dmraid device-mapper ell \
   grub grub-btrfs efibootmgr \
   snapper snap-pac apparmor \
-  networkmanager iptables-nft ufw openssh chrony reflector fail2ban bind nfs-utils wpa_supplicant \
+  networkmanager iptables-nft ufw openssh chrony reflector fail2ban bind nfs-utils wpa_supplicant wireless_tools \
   cups cups-filters cups-pdf \
-  pipewire-alsa pipewire-pulse pipewire-jack alsa-firmware alsa-plugins alsa-utils \
+  pipewire-alsa pipewire-pulse pipewire-jack alsa-firmware alsa-plugins alsa-utils wireplumber gst-plugin-pipewire \
   tree curl perl less nano vim man-pages man-db wget diffutils logrotate cronie clang git inotify-tools neovim \
   plymouth xdg-utils xdg-user-dirs accountsservice
 

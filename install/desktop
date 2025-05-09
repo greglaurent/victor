@@ -3,6 +3,6 @@
 # pacstrap /mnt flatpak plasma-meta sddm zsh \
 #   kitty wezterm
 
-paru -S --noconfirm plasma cosmic sddm
+paru -S --noconfirm libappindicator-gtk3 libdbusmenu-glib libdbusmenu-gtk3 plasma-meta cosmic sddm
 
 sudo systemctl enable sddm
