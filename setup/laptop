@@ -2,6 +2,7 @@
 
 utils::is_root
 
+paru -R --noconfirm power-profiles-daemon
 paru -S --noconfirm tlp tlpui tlp-rdw
 
 systemctl mask systemd-rfkill.service

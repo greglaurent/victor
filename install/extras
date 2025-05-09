@@ -61,6 +61,7 @@ paru -S --noconfirm \
   obsidian \
   obs-studio \
   openbsd-netcat \
+  oh-my-zsh-git \
   pacman-contrib \
   pastel \
   pavucontrol \
