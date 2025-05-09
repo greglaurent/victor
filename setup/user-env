@@ -11,7 +11,7 @@ utils::is_cmd paru || {
   vic setup paru
   vic install desktop
   vic install extras
-  vic setup fonts
+  # vic setup fonts
 
   # Dev Setup
   # vic setup dev langs
