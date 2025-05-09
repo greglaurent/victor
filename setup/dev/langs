@@ -6,7 +6,7 @@
 paru -S --noconfirm nodejs npm pnpm bun-bin typescript
 
 # python
-paru -S --noconfirm python python-pip python-uv pyright python-pynvim
+paru -S --noconfirm python python-pip python-uv pyright python-pynvim ruff
 
 # dotnet
 paru -S --noconfirm dotnet-sdk dotnet-runtime aspnet-runtime
