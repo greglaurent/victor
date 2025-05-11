@@ -29,6 +29,7 @@ paru -S --noconfirm \
   fsarchiver \
   fzf \
   gstreamer \
+  gstreamer-vaapi \
   graphicsmagick \
   gutenprint \
   hplip \
