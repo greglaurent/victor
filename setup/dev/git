@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# TODO: Add prompt to y/n password
 # TODO: Add arguments or read ENV vars
 # TODO: Add other default git configs
 # TODO: SSH key config

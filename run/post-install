@@ -2,12 +2,10 @@
 
 utils::is_root
 
-# vic setup pacman
-# vic install amd
+pacman-key --init
+pacman-key --populate
 
-# Secure boot enrollment
-# sbctl enroll-keys
-# sbctl sign /boot/efi/EFI/GRUB/grubx64.efi
+pacman -Syyu --noconfirm
 
 # Set firewall
 ufw limit 22/tcp

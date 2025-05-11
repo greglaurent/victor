@@ -107,6 +107,12 @@ paru -S --noconfirm \
   python-dbus \
   python-gobject \
   python-setuptools \
-  gtksourceview3
+  gtksourceview3 \
+  pcsclite \
+  ccid \
+  opensc
+
+#TODO: Smart Cards
+#https://wiki.archlinux.org/title/Smartcards
 
 # rebuild-detector \

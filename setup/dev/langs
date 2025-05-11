@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-# rust install here: ./rust
+# Rust required early for paru;
+# rust installed from: ./rust
 
 # js/ts
 paru -S --noconfirm nodejs npm pnpm bun-bin typescript
@@ -34,9 +35,6 @@ paru -S --noconfirm jdk-openjdk
 
 pnpm setup
 utils::source_bashrc
-
-# shellcheck disable=SC1091
-# source "${HOME}/.bashrc"
 
 pnpm install -g neovim
 pnpm install -g @mermaid-js/mermaid-cli

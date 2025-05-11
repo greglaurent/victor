@@ -3,6 +3,11 @@
 ### PARTIAL SCRIPT ######
 ### REQUIRES PROMPTS ####
 
+unpriv cat ./etc/vconsole.conf | tee /mnt/vconsole.conf >/dev/null
+
+unpriv cat ./etc/fwupd/fwupd.conf | tee /mnt/etc/fwupd/fwupd.conf >/dev/null
+unpriv cat ./etc/snapper/configs/config | tee /mnt/etc/snapper/configs/config >/dev/null
+
 mkdir -p /mnt/etc/xdg
 unpriv cat ./etc/xdg/user-dirs.defaults | tee /mnt/etc/xdg/user-dirs.defaults >/dev/null
 

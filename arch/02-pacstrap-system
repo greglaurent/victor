@@ -26,12 +26,3 @@ else
 fi
 
 pacstrap /mnt "${microcode}"
-
-unpriv cat ./etc/fwupd/fwupd.conf | tee /mnt/etc/fwupd/fwupd.conf >/dev/null
-unpriv cat ./etc/snapper/configs/config | tee /mnt/etc/snapper/configs/config >/dev/null
-
-# echo 'UriSchemes=file;https' | sudo tee -a /mnt/etc/fwupd/fwupd.conf
-
-#TODO: Figure out better desktop step
-# pacstrap /mnt flatpak plasma-meta sddm zsh \
-#   kitty wezterm

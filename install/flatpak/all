@@ -1,6 +1,6 @@
 #!/usr/local/env bash
 
-#TODO: Make this smarter
+#TODO: Make this smarter, autodetect flatpak files
 
 utils::is_cmd flatpak && {
   vic setup flatpak bottles

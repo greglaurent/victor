@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
+#TODO: Prompt for y/n personal or default config
 #TODO: Personal Config
+#TODO: Error handling, check if { vic install extra } has run first
 
 mv ~/.config/nvim{,.bak}
 

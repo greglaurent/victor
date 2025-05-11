@@ -2,17 +2,19 @@
 
 set -eu
 
+# TODO: Virtualization and encryted root
+# TODO: Parameterized file
+# TODO: Prompts for locale, kblayout, timezone
+
 # Check if this is a VM
 # virtualization=$(systemd-detect-virt)
 # virtualization=none
-#
-#network_daemon='networkmanager'
 
-installation_date=$(date "+%Y-%m-%d %H:%M:%S")
-install_mode=desktop
 use_luks=0
-locale=en_US
 kblayout=us
+locale=en_US
+install_mode=desktop
+installation_date=$(date "+%Y-%m-%d %H:%M:%S")
 
 output() {
   printf '\e[1;34m%-6s\e[m\n' "${@}"
@@ -104,10 +106,10 @@ clear
 # Initial prompts
 luks_passphrase_prompt
 disk_prompt
+hostname_prompt
 username_prompt
 fullname_prompt
 user_password_prompt
-hostname_prompt
 
 source ./01-format-disks
 source ./02-pacstrap-system
@@ -118,7 +120,6 @@ source ./06-config-security
 source ./07-config-network
 source ./08-arch-chroot
 source ./09-enable-systemctl
-# source ./10-set-umask
 
 # Finish up
 echo "Done, you may now wish to reboot (further changes can be done by chrooting into /mnt)."

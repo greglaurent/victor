@@ -11,13 +11,12 @@ utils::is_cmd paru || {
   vic setup paru
   vic install desktop
   vic install extras
-  # vic setup fonts
 
+  # vic setup fonts
+  #
   # Dev Setup
   # vic setup dev langs
   # vic setup dev neovim
-}
 
-# Requires desktop environment
-# vic setup virt
-# vic setup flatpak all
+  vic setup flatpak all
+}

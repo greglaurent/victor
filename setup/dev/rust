@@ -18,5 +18,6 @@ utils::is_cmd cargo || {
 
 rustup toolchain update
 
+# Installing via pacman -- no need to curl nor update bashrc
 # curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 # . "$HOME/.cargo/env"

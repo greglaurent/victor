@@ -22,5 +22,5 @@ ln -s /run/systemd/resolve/stub-resolv.conf /mnt/etc/resolv.conf
 systemctl enable systemd-resolved --root=/mnt
 systemctl enable sshd --root=/mnt
 
-# zram-generator just needs this file to start
+# zram-generator just needs this file to start via systemd
 unpriv cat ./etc/systemd/zram-generator.conf | tee /mnt/etc/systemd/zram-generator.conf >/dev/null

@@ -3,3 +3,5 @@
 # utils::is_root
 
 utils::is_cmd fake_cmd && echo "is a command"
+
+#TODO: Add update script
