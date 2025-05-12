@@ -6,6 +6,7 @@ utils::is_cmd flatpak && {
   vic install flatpak bottles
   vic install flatpak discord
   vic install flatpak flatseal
+  vic install flatpak lutris
   vic install flatpak slack
   vic install flatpak tidal
   vic install flatpak zoom

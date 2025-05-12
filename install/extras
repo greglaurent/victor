@@ -6,6 +6,7 @@ paru -S --noconfirm \
   awesome-terminal-fonts \
   btrfs-assistant \
   bluedevil \
+  blueman \
   bluez-hid2hci \
   bluez-libs \
   bluez-utils \

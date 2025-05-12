@@ -12,7 +12,7 @@ pacstrap /mnt base base-devel linux linux-lts linux-headers linux-firmware dkms 
   snapper snap-pac apparmor \
   networkmanager iptables-nft ufw openssh chrony reflector fail2ban bind nfs-utils wpa_supplicant wireless_tools \
   cups cups-filters cups-pdf \
-  pipewire-alsa pipewire-pulse pipewire-jack alsa-firmware alsa-plugins alsa-utils wireplumber gst-plugin-pipewire \
+  pipewire lib32-pipewire pipewire-audio pipewire-alsa pipewire-pulse pipewire-jack alsa-firmware alsa-plugins alsa-utils wireplumber gst-plugin-pipewire \
   tree curl perl less nano vim man-pages man-db wget diffutils logrotate cronie clang git inotify-tools neovim \
   plymouth xdg-utils xdg-user-dirs accountsservice
 
