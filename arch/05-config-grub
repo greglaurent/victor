@@ -10,7 +10,7 @@ output 'Configuring /etc/mkinitcpio for ZSTD compression and LUKS hook.'
 unpriv cat ./etc/mkinitcpio.conf | tee /mnt/etc/mkinitcpio.conf >/dev/null
 
 unpriv cat ./etc/default/grub | tee /mnt/etc/default/grub >/dev/null
-sed -i 's|{{BTRFS}}|${BTRFS}|g' /mnt/etc/default/grub >/dev/null
+#sed -i 's|{{BTRFS}}|${BTRFS}|g' /mnt/etc/default/grub >/dev/null
 
 ## Disable root subvol pinning
 ## This is **extremely** important, as snapper expects to be able to set the default btrfs subvol
