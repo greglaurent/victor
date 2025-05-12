@@ -41,6 +41,8 @@ else
   BTRFS='/dev/disk/by-partlabel/rootfs'
 fi
 
+export "BTRFS=${BTRFS}"
+
 ## Formatting the partition as BTRFS
 output 'Formatting the rootfs as BTRFS.'
 mkfs.btrfs -f "${BTRFS}"
