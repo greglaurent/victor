@@ -3,7 +3,7 @@
 # pacstrap /mnt flatpak plasma-meta sddm zsh \
 #   kitty wezterm
 
-paru -S --noconfirm libappindicator-gtk3 libdbusmenu-glib libdbusmenu-gtk3 \
+paru -S --noconfirm libappindicator-gtk3 libdbusmenu-glib libdbusmenu-gtk3 packagekit-qt6 \
   plasma-meta sddm \
   cosmic
 #gnome gnome-xtra

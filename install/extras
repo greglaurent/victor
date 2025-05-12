@@ -63,6 +63,8 @@ paru -S --noconfirm \
   obs-studio \
   openbsd-netcat \
   pacman-contrib \
+  packagekit \
+  libpackagekit-glib \
   pastel \
   pavucontrol \
   plocate \
@@ -79,6 +81,7 @@ paru -S --noconfirm \
   snapper-gui \
   sof-firmware \
   splix \
+  system-config-printer \
   texinfo \
   tealdeer \
   tmux \
