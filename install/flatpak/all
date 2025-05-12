@@ -3,11 +3,11 @@
 #TODO: Make this smarter, autodetect flatpak files
 
 utils::is_cmd flatpak && {
-  vic setup flatpak bottles
-  vic setup flatpak discord
-  vic setup flatpak flatseal
-  vic setup flatpak slack
-  vic setup flatpak tidal
-  vic setup flatpak zoom
+  vic install flatpak bottles
+  vic install flatpak discord
+  vic install flatpak flatseal
+  vic install flatpak slack
+  vic install flatpak tidal
+  vic install flatpak zoom
   exit
 }
