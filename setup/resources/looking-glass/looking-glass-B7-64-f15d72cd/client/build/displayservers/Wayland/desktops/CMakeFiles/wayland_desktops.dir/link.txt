@@ -1,2 +1,0 @@
-/usr/bin/ar qc libwayland_desktops.a CMakeFiles/wayland_desktops.dir/__/__/__/src/wayland_desktops.c.o
-/usr/bin/ranlib libwayland_desktops.a

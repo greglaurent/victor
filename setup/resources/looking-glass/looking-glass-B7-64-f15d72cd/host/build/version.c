@@ -1,1 +1,0 @@
-const char * BUILD_VERSION = "B7-64-f15d72cd";

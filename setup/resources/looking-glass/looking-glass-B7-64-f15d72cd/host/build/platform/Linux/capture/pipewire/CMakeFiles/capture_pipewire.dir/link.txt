@@ -1,2 +1,0 @@
-/usr/bin/ar qc libcapture_pipewire.a CMakeFiles/capture_pipewire.dir/src/pipewire.c.o CMakeFiles/capture_pipewire.dir/src/portal.c.o
-/usr/bin/ranlib libcapture_pipewire.a

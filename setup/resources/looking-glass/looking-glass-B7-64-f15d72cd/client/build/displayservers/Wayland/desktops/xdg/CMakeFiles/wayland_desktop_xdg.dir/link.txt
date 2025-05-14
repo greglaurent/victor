@@ -1,2 +1,0 @@
-/usr/bin/ar qc libwayland_desktop_xdg.a CMakeFiles/wayland_desktop_xdg.dir/xdg.c.o
-/usr/bin/ranlib libwayland_desktop_xdg.a

@@ -1,2 +1,0 @@
-/usr/bin/ar qc librenderer_OpenGL.a CMakeFiles/renderer_OpenGL.dir/opengl.c.o "CMakeFiles/renderer_OpenGL.dir/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/repos/cimgui/imgui/backends/imgui_impl_opengl2.cpp.o"
-/usr/bin/ranlib librenderer_OpenGL.a

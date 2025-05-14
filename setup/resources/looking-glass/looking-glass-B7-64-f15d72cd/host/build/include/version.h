@@ -1,2 +1,0 @@
-#define LG_VERSION_STR "B7-64-f15d72cd"
-#define LG_CURRENT_YEAR 2025

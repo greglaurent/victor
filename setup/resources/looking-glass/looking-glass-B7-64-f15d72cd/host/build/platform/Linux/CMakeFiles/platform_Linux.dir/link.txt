@@ -1,2 +1,0 @@
-/usr/bin/ar qc libplatform_Linux.a CMakeFiles/platform_Linux.dir/src/platform.c.o
-/usr/bin/ranlib libplatform_Linux.a

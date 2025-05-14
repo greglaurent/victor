@@ -1,2 +1,0 @@
-/usr/bin/ar qc libaudiodev_PipeWire.a CMakeFiles/audiodev_PipeWire.dir/pipewire.c.o
-/usr/bin/ranlib libaudiodev_PipeWire.a
