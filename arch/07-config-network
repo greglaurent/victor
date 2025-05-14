@@ -11,6 +11,7 @@ unpriv cat ./etc/NetworkManager/conf.d/00-random-mac.conf | tee /mnt/etc/Network
 unpriv cat ./etc/NetworkManager/conf.d/01-hostname-mode.conf | tee /mnt/etc/NetworkManager/conf.d/01-hostname-mode.conf >/dev/null
 
 unpriv cat ./etc/named.conf | tee /mnt/etc/named.conf >/dev/null
+unpriv cat ./etc/systemd/resolved.conf | tee /mnt/etc/systemd/resolved.conf >/dev/null
 
 ## Setup unbound
 #if [ "${install_mode}" = 'server' ]; then

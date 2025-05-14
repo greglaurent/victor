@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+utils::is_root
+
+# EXAMPLE VFIO loading scripts
+
+# load_vfio.sh
+# "load_vfio.sh", belongs in /etc/libvirt/hooks/qemu.d/VM NAME/prepare/begin/
+
+## Load the config file
+source "/etc/libvirt/hooks/kvm.conf"
+
+## Remove NVIDIA modules
+rmmod nvidia_uvm
+rmmod nvidia_drm
+rmmod nvidia_modeset
+rmmod nvidia
+
+## Load vfio
+modprobe vfio
+modprobe vfio_iommu_type1
+modprobe vfio_pci
+
+## Unbind gpu from nvidia and bind to vfio
+virsh nodedev-detach $VIRSH_GPU_VIDEO
+virsh nodedev-detach $VIRSH_GPU_AUDIO
+
+# load_nvidia.sh
+# "load_nvidia.sh", belongs in /etc/libvirt/hooks/qemu.d/VM NAME/prepare/begin/
+
+## Load the config file
+source "/etc/libvirt/hooks/kvm.conf"
+
+## Unbind gpu from vfio and bind to nvidia
+virsh nodedev-reattach $VIRSH_GPU_VIDEO
+#virsh nodedev-reattach $VIRSH_GPU_AUDIO
+
+## Unload vfio
+modprobe -r vfio_pci
+modprobe -r vfio_iommu_type1
+modprobe -r vfio
+
+## Load NVIDIA modules
+modprobe nvidia
+modprobe nvidia_uvm
+modprobe nvidia_drm
+modprobe nvidia_modeset

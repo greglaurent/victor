@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
 
-paru -S --noconfirm qemu virt-manager virt-viewer dnsmasq \
-  vde2 bridge-utils openbsd-netcat ebtables iptables-nft libguestfs
+utils::is_root
 
-#TODO: Confirm firewall isn't an issue
-# sudo echo "firewall_backend = \"iptables\"" >>/etc/libvirt/network.conf >/dev/null
+paru -S --noconfirm qemu virt-manager virt-viewer dnsmasq qemu-desktop libvirt edk2-ovmf \
+  vde2 bridge-utils openbsd-netcat ebtables iptables-nft libguestfs swtpm
+
+# Required for looking-glass
+paru -S --noconfirm nsis
+
+sudo echo "firewall_backend = \"iptables\"" >>/etc/libvirt/network.conf >/dev/null
 
 #systemctl enable --now libvirtd
-usermod -aG libvirt "$(logname)"
+usermod -a -G libvirt "$(logname)"
+
 systemctl enable --now libvirtd
+
+virsh net-autostart default
+virsh net-start default

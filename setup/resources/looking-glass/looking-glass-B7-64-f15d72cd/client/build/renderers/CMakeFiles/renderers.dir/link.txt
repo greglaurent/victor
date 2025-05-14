@@ -1,0 +1,2 @@
+/usr/bin/ar qc librenderers.a CMakeFiles/renderers.dir/__/src/renderers.c.o
+/usr/bin/ranlib librenderers.a

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+utils::is_root
+
+gpu="0000:03:00.0"
+
+gpu_vd="$(cat /sys/bus/pci/devices/$gpu/vendor) $(cat /sys/bus/pci/devices/$gpu/device)"
+
+function bind_vfio {
+  echo "$gpu" >"/sys/bus/pci/devices/$gpu/driver/unbind"
+  echo "$gpu_vd" >/sys/bus/pci/drivers/vfio-pci/new_id
+
+  echo "Bound to VFIO"
+}
+
+bind_vfio

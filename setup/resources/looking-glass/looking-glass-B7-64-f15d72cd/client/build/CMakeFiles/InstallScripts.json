@@ -1,0 +1,27 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/resources/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/common/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/common/src/platform/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/common/src/platform/linux/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/LGMP/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/PureSpice/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/cimgui/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/displayservers/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/displayservers/Wayland/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/displayservers/Wayland/protocol/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/displayservers/Wayland/desktops/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/displayservers/Wayland/desktops/xdg/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/displayservers/Wayland/desktops/libdecor/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/displayservers/X11/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/renderers/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/renderers/EGL/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/renderers/OpenGL/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/audiodevs/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/audiodevs/PipeWire/cmake_install.cmake",
+		"/home/greg/Workspace/victor/setup/resources/looking-glass/looking-glass-B7-64-f15d72cd/client/build/audiodevs/PulseAudio/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

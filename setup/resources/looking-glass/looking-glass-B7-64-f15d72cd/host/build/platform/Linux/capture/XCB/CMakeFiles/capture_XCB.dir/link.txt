@@ -1,0 +1,2 @@
+/usr/bin/ar qc libcapture_XCB.a CMakeFiles/capture_XCB.dir/src/xcb.c.o
+/usr/bin/ranlib libcapture_XCB.a

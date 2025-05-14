@@ -1,0 +1,2 @@
+/usr/bin/ar qc libdisplayservers.a CMakeFiles/displayservers.dir/__/src/displayservers.c.o
+/usr/bin/ranlib libdisplayservers.a

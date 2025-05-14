@@ -13,6 +13,7 @@ unpriv cat ./etc/xdg/user-dirs.defaults | tee /mnt/etc/xdg/user-dirs.defaults >/
 
 unpriv cat ./etc/pacman.conf | tee /mnt/etc/pacman.conf >/dev/null
 unpriv cat ./etc/modprobe.d/nobeep.conf | tee /mnt/etc/modprobe.d/nobeep.conf >/dev/null
+unpriv cat ./etc/modprobe.d/vfio.conf | tee /mnt/etc/modprobe.d/vfio.conf >/dev/null
 
 unpriv cat ./etc/snapper/configs/root | tee /mnt/etc/snapper/configs/root >/dev/null
 unpriv cat ./etc/systemd/system/snapper-cleanup.timer | tee /mnt/etc/systemd/system/snapper-cleanup.timer >/dev/null

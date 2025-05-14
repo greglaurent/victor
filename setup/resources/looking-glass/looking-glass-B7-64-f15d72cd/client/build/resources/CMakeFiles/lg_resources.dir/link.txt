@@ -1,0 +1,2 @@
+/usr/bin/ar qc liblg_resources.a "lg-logo.svg.o" status/spice.svg.o status/recording.svg.o "no-input-cursor/16.xcur.o" "no-input-cursor/32.xcur.o"
+/usr/bin/ranlib liblg_resources.a
