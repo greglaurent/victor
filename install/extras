@@ -47,6 +47,8 @@ paru -S --noconfirm \
   libguestfs \
   libopenraw \
   libwnck3 \
+  lib32-pipewire \
+  linux-firmware-git \
   lsb-release \
   lsscsi \
   mdadm \
@@ -69,7 +71,6 @@ paru -S --noconfirm \
   pastel \
   pavucontrol \
   plocate \
-  plymouth \
   poppler \
   power-profiles-daemon \
   pv \
@@ -107,6 +108,7 @@ paru -S --noconfirm \
   xl2tpd \
   yq \
   zen-browser-bin \
+  zip \
   python3 \
   gtk3 \
   python-dbus \
