@@ -7,6 +7,8 @@ pacman-key --populate
 
 pacman -Syyu --noconfirm
 
+systemctl enable bluetooth.service
+
 # Set firewall
 ufw limit 22/tcp
 ufw allow 80/tcp

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 #TODO: AccountsService
-paru -S --noconfirm \
+yes | paru -S --noconfirm \
   accountsservice \
   awesome-terminal-fonts \
   btrfs-assistant \
