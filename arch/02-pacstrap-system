@@ -6,7 +6,7 @@
 output 'Installing the base system (it may take a while).'
 
 # Use linux-firmware-git for better passthrough
-pacstrap /mnt base base-devel linux linux-lts linux-headers dkms \
+pacstrap /mnt base base-devel linux linux-lts linux-headers linux-firmware dkms \
   btrfs-progs e2fsprogs dosfstools xfsprogs nilfs-utils zram-generator \
   acpi lm_sensors fwupd dmraid device-mapper ell \
   grub grub-btrfs efibootmgr \
