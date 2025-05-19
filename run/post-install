@@ -11,13 +11,14 @@ pacman -Syyu --noconfirm
 pacman -S packagekit libpackagekit-glib accountsservice flatpak poppler \
   gutenprint foomatic-db foomatic-db-engine foomatic-db-gutenprint-ppds \
   foomatic-db-nonfree foomatic-db-nonfree-ppds foomatic-db-ppds \
-  wireplumber pavucontrol \
   mpv vlc gstreamer gstreamer-vaapi \
   system-config-printer splix hplip \
   pastel imagemagick graphicsmagick \
   egl-wayland wl-clipboard gtk3 gtksourceview3 xdg-desktop-portal \
   power-profiles-daemon \
   python python-dbus python-gobject python-setuptools \
+  pipewire pipewire-audio pipewire-alsa pipewire-pulse pipewire-jack \
+  alsa-firmware alsa-plugins alsa-utils wireplumber gst-plugin-pipewire pavucontrol \
   s-nail fd fzf tmux yq ripgrep zsh
 
 # Set firewall

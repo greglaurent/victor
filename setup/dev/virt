@@ -11,7 +11,7 @@ paru -S --noconfirm qemu virt-manager virt-viewer dnsmasq qemu-desktop libvirt e
 # Required for looking-glass
 paru -S --noconfirm nsis
 
-sudo echo "firewall_backend = \"iptables\"" >>/etc/libvirt/network.conf >/dev/null
+sudo echo "firewall_backend = \"iptables\"" | tee /etc/libvirt/network.conf >/dev/null
 
 #systemctl enable --now libvirtd
 usermod -a -G libvirt "$(logname)"

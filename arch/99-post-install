@@ -3,4 +3,4 @@
 # TODO: Fix pathing
 
 # Last step -- copy vic into user home
-unpriv cd -r ../victor "/mnt/home/${username}/Workspace/."
+# unpriv cd -r ../../victor "/mnt/home/${username}/Workspace/."
