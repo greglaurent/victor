@@ -1,12 +1,5 @@
 #!/usr/bin/env bash
 
-# Arguments
-INT=""
-CMD=""
-SUB=""
-SCP=""
-ARG=""
-
 declare -A arg_map
 
 utils::is_root() {
@@ -40,7 +33,7 @@ utils::bootstrap() {
 
   #_base_tools
 
-  # utils::print_lookup
+  #utils::print_lookup
 }
 
 # _base_tools() {
@@ -67,11 +60,10 @@ utils::user_home() {
   getent passwd "${USER}" | cut -d: -f6
 }
 
+#TODO: Fix how this works
 utils::git() {
   is_installed=$(pacman -Qi git)
   user="$(logname)"
-  #mkdir -p "${HERE}/repos" >&2
-  #chown -R $(logname):$(logname) "${HERE}/repos"
 
   install -d -o "${user}" -g "${user}" -m 751 "${HERE}/repos"
 

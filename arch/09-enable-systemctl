@@ -17,6 +17,7 @@ systemctl enable named.service --root=/mnt
 systemctl enable snapper-timeline.timer --root=/mnt
 systemctl enable snapper-cleanup.timer --root=/mnt
 systemctl enable cups --root=/mnt
+systemctl enable bluetooth --root=/mnt
 
 rm /mnt/etc/resolv.conf
 ln -s /run/systemd/resolve/stub-resolv.conf /mnt/etc/resolv.conf

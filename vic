@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 
+# Arguments
+# Honored Left -> Right [INT] [CMD] [SUB] [SCP] [ARG]
+# ie: vic setup dev langs
+INT=""
+CMD=""
+SUB=""
+SCP=""
+ARG=""
+
 # set HERE to bootstrap to call utils from anywhere
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 

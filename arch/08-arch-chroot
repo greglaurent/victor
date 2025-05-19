@@ -60,16 +60,24 @@ arch-chroot /mnt /bin/bash -e <<EOF
     mount -a
     chmod 750 /.snapshots
 
-    # Install multilib packages
-    # Sy to sync multi lib after updating pacman.conf
-    # Proprietary intel drivers skipped for now
-    pacman -Sy intel-media-driver libva-intel-driver \
-      mesa libva-mesa-driver xf86-video-amdgpu xf86-video-ati xf86-video-nouveau \
-      vulkan-nouveau vulkan-radeon vulkan-intel \
-      opencl-rusticl-mesa lib32-opencl-rusticl-mesa \
-      intel-gmmlib intel-media-driver libva-intel-driver
-
-    # xf86-video-vmware
+   # Graphics
+   pacman -S intel-gmmlib intel-media-driver libva-intel-driver \
+     mesa libva-mesa-driver xf86-video-amdgpu xf86-video-ati xf86-video-nouveau \
+     vulkan-nouveau vulkan-radeon vulkan-intel \
+     opencl-rusticl-mesa lib32-opencl-rusticl-mesa \
+     xf86-input-libinput
+   
+   # Core + Extra
+   pacman -S bluez bluez-utils bluez-hid2hci bluez-libs \
+     dmidecode hwdetect hwinfo upower \
+     lsb-release rtkit smartmontools usb_modeswitch \
+     efitools fsarchiver mtools lsscsi mdadm meld udisks2 udisks2-btrfs usbutils \
+     bridge-utils ethtool inetutils netctl nss-mdns openbsd-netcat \
+     networkmanager-openvpn wireless-regdb \
+     pacman-contrib linux-tools-meta mkinitcpio mkinitcpio-utils sof-firmware \
+     libdvdcss libgsf libguestfs libopenraw libwnck3 xl2tpd \
+     tealdeer texinfo plocate pv rsync \
+     which unrar unzip zip
 EOF
 
 ## Set user password.

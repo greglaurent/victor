@@ -1,125 +1,36 @@
 #!/usr/bin/env bash
 
-#TODO: AccountsService
-yes | paru -S --noconfirm \
-  accountsservice \
-  awesome-terminal-fonts \
+# Extra utils
+paru -S --noconfirm \
+  mkinitcpio-firmware \
+  lib32-pipewire \
   btrfs-assistant \
-  bluedevil \
-  blueman \
-  bluez-hid2hci \
-  bluez-libs \
-  bluez-utils \
-  bridge-utils \
+  modemmanager
+
+# Extra apps
+paru -S --noconfirm \
+  awesome-terminal-fonts \
   cameractrls \
-  cpupower \
-  crash \
-  dmidecode \
-  efitools \
-  egl-wayland \
-  ethtool \
-  fd \
   flameshot \
-  flatpak \
-  foomatic-db \
-  foomatic-db-engine \
-  foomatic-db-gutenprint-ppds \
-  foomatic-db-nonfree \
-  foomatic-db-nonfree-ppds \
-  foomatic-db-ppds \
-  fsarchiver \
-  fzf \
-  gstreamer \
-  gstreamer-vaapi \
-  graphicsmagick \
-  gutenprint \
-  hplip \
-  hwdetect \
-  hwinfo \
-  imagemagick \
-  inetutils \
   inkscape \
   just \
   kitty \
   lazygit \
-  libdvdcss \
-  libgsf \
-  libguestfs \
-  libopenraw \
-  libwnck3 \
-  lib32-pipewire \
-  linux-firmware-git \
-  lsb-release \
-  lsscsi \
-  mdadm \
-  meld \
-  mkinitcpio \
-  mkinitcpio-firmware \
-  modemmanager \
-  mpv \
-  mtools \
-  netctl \
-  networkmanager-openvpn \
-  nss-mdns \
   nushell \
   obsidian \
   obs-studio \
-  openbsd-netcat \
-  pacman-contrib \
-  packagekit \
-  libpackagekit-glib \
-  pastel \
-  pavucontrol \
-  plocate \
-  poppler \
-  power-profiles-daemon \
-  pv \
-  ripgrep \
-  rsync \
-  rtkit \
-  s-nail \
-  sddm-kcm \
-  smartmontools \
   snapper-gui \
-  sof-firmware \
-  splix \
-  system-config-printer \
-  texinfo \
-  tealdeer \
-  tmux \
-  udisks2 \
-  udisks2-btrfs \
-  unrar \
-  unzip \
-  upower \
-  usb_modeswitch \
-  usbutils \
   vivaldi \
   vivaldi-ffmpeg-codecs \
-  vlc \
   wezterm \
-  wezterm \
-  which \
-  wireless-regdb \
-  wireplumber \
-  wl-clipboard \
-  xdg-desktop-portal \
-  xf86-input-libinput \
-  xl2tpd \
-  yq \
-  zen-browser-bin \
-  zip \
-  python3 \
-  gtk3 \
-  python-dbus \
-  python-gobject \
-  python-setuptools \
-  gtksourceview3 \
-  pcsclite \
-  ccid \
-  opensc
+  zen-browser-bin
+
+#TODO: AccountsService
 
 #TODO: Smart Cards
 #https://wiki.archlinux.org/title/Smartcards
+# pcsclite \
+# ccid \
+# opensc \
 
 # rebuild-detector \

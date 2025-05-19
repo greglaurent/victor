@@ -7,7 +7,18 @@ pacman-key --populate
 
 pacman -Syyu --noconfirm
 
-systemctl enable bluetooth.service
+# Desktop
+pacman -S packagekit libpackagekit-glib accountsservice flatpak poppler \
+  gutenprint foomatic-db foomatic-db-engine foomatic-db-gutenprint-ppds \
+  foomatic-db-nonfree foomatic-db-nonfree-ppds foomatic-db-ppds \
+  wireplumber pavucontrol \
+  mpv vlc gstreamer gstreamer-vaapi \
+  system-config-printer splix hplip \
+  pastel imagemagick graphicsmagick \
+  egl-wayland wl-clipboard gtk3 gtksourceview3 xdg-desktop-portal \
+  power-profiles-daemon \
+  python python-dbus python-gobject python-setuptools \
+  s-nail fd fzf tmux yq ripgrep zsh
 
 # Set firewall
 ufw limit 22/tcp

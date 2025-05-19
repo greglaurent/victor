@@ -120,6 +120,7 @@ source ./06-config-security
 source ./07-config-network
 source ./08-arch-chroot
 source ./09-enable-systemctl
+source ./99-post-install
 
 # Finish up
 echo "Done, you may now wish to reboot (further changes can be done by chrooting into /mnt)."

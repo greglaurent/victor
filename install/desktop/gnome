@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-paru -S --noconfirm gnome gnome-extra gnome-packagekit
+paru -S --noconfirm gnome gnome-extra gnome-packagekit blueman
 
 sudo systemctl enable gdm

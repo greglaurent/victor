@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-
-echo "RUNNING FROM INTERNAL"
-echo "run::test ${HERE}"
-echo "run::test ${ARG}"
