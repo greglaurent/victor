@@ -1,0 +1,9 @@
+#
+# This file is parsed by pam_env module
+#
+# Syntax: simple "KEY=VAL" pairs on separate lines
+KWIN_DRM_NO_AMS=1
+KWIN_DRM_FORCE_EGL_STREAMS=0
+KWIN_DRM_USE_MODIFIERS=1
+__GL_GSYNC_ALLOWED=0
+__GL_VRR_ALLOWED=0

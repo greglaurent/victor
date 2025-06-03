@@ -162,8 +162,10 @@ utils::path::arg_map() {
   local -a out_d
   local -a out_f
 
-  # skip hidden directories
-  mapfile -t out_d < <(find "${here}" -maxdepth 2 -mindepth 1 -not -path '*/.*' -type d -printf '%P\n')
+  # skip hidden directories, or _archive
+  mapfile -t out_d < <(find "${here}" -maxdepth 2 -mindepth 1 -not -path '*/.*' -not -name "_*" -type d -printf '%P\n')
+
+  # mapfile -t out_d < <(find "${here}" -maxdepth 2 -mindepth 1 -not -path '*/.*' -type d -printf '%P\n')
 
   local path
   for d in "${out_d[@]}"; do

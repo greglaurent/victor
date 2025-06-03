@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+sudo cp "${RESOURCES}"/etc/environment /etc/environment
+
 paru -S --noconfirm libappindicator-gtk3 libdbusmenu-glib libdbusmenu-gtk3 packagekit-qt6 \
   plasma-meta sddm sddm-kcm bluedevil \
   cosmic

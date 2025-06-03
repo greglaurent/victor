@@ -3,14 +3,15 @@
 # Arguments
 # Honored Left -> Right [INT] [CMD] [SUB] [SCP] [ARG]
 # ie: vic setup dev langs
-INT=""
-CMD=""
-SUB=""
-SCP=""
-ARG=""
+export INT=""
+export CMD=""
+export SUB=""
+export SCP=""
+export ARG=""
 
 # set HERE to bootstrap to call utils from anywhere
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+export HERE
 
 # if called from /usr/local/bin symlink
 [[ ! -f "${HERE}"/utils ]] &&
@@ -23,7 +24,6 @@ export REPOS="${HERE}/repos"
 source "${HERE}"/utils >&2
 
 main() {
-
   utils::bootstrap
 
   # [[ ! -z ${@} ]] && utils::exec "${@}"

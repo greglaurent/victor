@@ -2,11 +2,11 @@
 
 utils::is_root
 
-paru -R linux-firmware
+paru -R linux-firmware dkms
 
 paru -S --noconfirm qemu virt-manager virt-viewer dnsmasq qemu-desktop libvirt edk2-ovmf \
-  vde2 bridge-utils openbsd-netcat ebtables iptables-nft libguestfs swtpm \
-  linux-firmware-git
+  vde2 bridge-utils openbsd-netcat ebtables iptables-nft libguestfs swtpm mingw-w64-gcc \
+  spice-guest-tools \ linux-firmware-git \ dkms-git
 
 # Required for looking-glass
 paru -S --noconfirm nsis

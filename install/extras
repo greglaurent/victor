@@ -15,7 +15,12 @@ paru -S --noconfirm \
   inkscape \
   just \
   kitty \
+  pandoc-git \
+  latex-bin \
+  zathura \
+  zathura-pdf-mupdf \
   lazygit \
+  gparted \
   nushell \
   obsidian \
   obs-studio \
