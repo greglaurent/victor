@@ -1,0 +1,18 @@
+# Sudo security configuration
+
+# Require password for sudo
+Defaults passwd_timeout=0
+Defaults timestamp_timeout=15
+
+# Log sudo commands
+Defaults log_input, log_output
+Defaults logfile="/var/log/sudo.log"
+
+# Secure path
+Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# Don't allow shell escapes
+Defaults noexec
+
+# Require tty
+Defaults requiretty
