@@ -1,87 +1,868 @@
 #!/usr/bin/env bash
 
-### PARTIAL SCRIPT ######
-### REQUIRES PROMPTS ####
+# arch/08-arch-chroot
+# Final system configuration within chroot environment
 
-unpriv cat ./etc/vconsole.conf | tee /mnt/vconsole.conf >/dev/null
+set -euo pipefail
 
-unpriv cat ./etc/fwupd/fwupd.conf | tee /mnt/etc/fwupd/fwupd.conf >/dev/null
-unpriv cat ./etc/snapper/configs/config | tee /mnt/etc/snapper/configs/config >/dev/null
+# =====================================
+# CHROOT ENVIRONMENT VALIDATION
+# =====================================
 
-mkdir -p /mnt/etc/xdg
-unpriv cat ./etc/xdg/user-dirs.defaults | tee /mnt/etc/xdg/user-dirs.defaults >/dev/null
-
-unpriv cat ./etc/pacman.conf | tee /mnt/etc/pacman.conf >/dev/null
-unpriv cat ./etc/modprobe.d/nobeep.conf | tee /mnt/etc/modprobe.d/nobeep.conf >/dev/null
-unpriv cat ./etc/modprobe.d/vfio.conf | tee /mnt/etc/modprobe.d/vfio.conf >/dev/null
-
-unpriv cat ./etc/snapper/configs/root | tee /mnt/etc/snapper/configs/root >/dev/null
-unpriv cat ./etc/systemd/system/snapper-cleanup.timer | tee /mnt/etc/systemd/system/snapper-cleanup.timer >/dev/null
-unpriv cat ./etc/systemd/system/snapper-timeline.timer | tee /mnt/etc/systemd/system/snapper-timeline.timer >/dev/null
-
-## Configuring the system
-arch-chroot /mnt /bin/bash -e <<EOF
-
-    # Setting up timezone
-    # Temporarily hardcoding here
-    ln -sf /usr/share/zoneinfo/America/Los_Angeles /etc/localtime
-
-    # Setting up clock
-    hwclock --systohc
-
-    # Generating locales
-    locale-gen
-
-    # Generating a new initramfs
-    chmod 600 /boot/initramfs-linux*
-    mkinitcpio -P
-
-    # Installing GRUB
-    grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --disable-shim-lock
-
-    # Creating grub config file
-    grub-mkconfig -o /boot/grub/grub.cfg
-
-    # Adding user with sudo privilege
-    useradd -c "${fullname:?}" -m "${username}"
-    usermod -aG wheel,adm,ftp,games,http,log,rfkill,sys,systemd-journal,uucp "${username}"
-
-    if [ "${install_mode:?}" = 'desktop' ]; then
-        # Setting up dconf
-        dconf update
+validate_chroot_environment() {
+    output "Validating chroot environment..."
+    
+    # Verify we're in Arch Linux chroot
+    if [[ ! -f /etc/arch-release ]]; then
+        output "ERROR: Not running in Arch Linux chroot environment"
+        exit 1
     fi
+    
+    # Verify critical directories exist
+    local required_dirs=("/proc" "/sys" "/dev" "/boot" "/etc")
+    for dir in "${required_dirs[@]}"; do
+        if [[ ! -d "$dir" ]]; then
+            output "ERROR: Required directory missing in chroot: $dir"
+            exit 1
+        fi
+    done
+    
+    # Verify package manager is functional
+    if ! pacman -V &>/dev/null; then
+        output "ERROR: Package manager not functional in chroot"
+        exit 1
+    fi
+    
+    output "Chroot environment validated successfully"
+    return 0
+}
 
-    # Snapper configuration
-    umount /.snapshots
-    rm -r /.snapshots
-    snapper --no-dbus -c root create-config /
-    btrfs subvolume delete /.snapshots
-    mkdir /.snapshots
-    mount -a
+validate_required_variables() {
+    output "Validating required installation variables..."
+    
+    local required_vars=("timezone" "username" "fullname" "user_password" "locale" "install_mode")
+    local missing_vars=()
+    
+    for var in "${required_vars[@]}"; do
+        if [[ -z "${!var:-}" ]]; then
+            missing_vars+=("$var")
+        fi
+    done
+    
+    if [[ ${#missing_vars[@]} -gt 0 ]]; then
+        output "ERROR: Missing required variables: ${missing_vars[*]}"
+        exit 1
+    fi
+    
+    output "All required variables validated"
+    return 0
+}
+
+# =====================================
+# HARDWARE DETECTION
+# =====================================
+
+detect_cpu_vendor() {
+    local cpu_vendor
+    cpu_vendor=$(grep -m1 "vendor_id" /proc/cpuinfo | cut -d: -f2 | tr -d ' ' 2>/dev/null || echo "unknown")
+    
+    case "$cpu_vendor" in
+        "AuthenticAMD") echo "amd" ;;
+        "GenuineIntel") echo "intel" ;;
+        *) echo "unknown" ;;
+    esac
+}
+
+detect_gpu_hardware() {
+    local gpu_vendors=()
+    
+    # Detect Intel Graphics
+    if lspci | grep -qi "VGA.*Intel\|3D.*Intel\|Display.*Intel"; then
+        gpu_vendors+=("intel")
+    fi
+    
+    # Detect AMD Graphics
+    if lspci | grep -qi "VGA.*AMD\|VGA.*ATI\|3D.*AMD\|3D.*ATI\|Display.*AMD\|Display.*ATI"; then
+        gpu_vendors+=("amd")
+    fi
+    
+    # Detect NVIDIA Graphics
+    if lspci | grep -qi "VGA.*NVIDIA\|3D.*NVIDIA\|Display.*NVIDIA"; then
+        gpu_vendors+=("nvidia")
+    fi
+    
+    # If no discrete GPU found, default to mesa
+    if [[ ${#gpu_vendors[@]} -eq 0 ]]; then
+        gpu_vendors+=("mesa")
+    fi
+    
+    printf '%s ' "${gpu_vendors[@]}"
+}
+
+display_hardware_summary() {
+    local cpu_vendor gpu_vendors
+    cpu_vendor=$(detect_cpu_vendor)
+    gpu_vendors=($(detect_gpu_hardware))
+    
+    output ""
+    output "=== Hardware Detection Summary ==="
+    output "CPU Vendor: $cpu_vendor"
+    output "GPU Vendors: ${gpu_vendors[*]}"
+    output "Microcode Package: ${MICROCODE_PACKAGE:-"none detected"}"
+    output "=================================="
+    output ""
+}
+
+# =====================================
+# GRAPHICS DRIVER INSTALLATION
+# =====================================
+
+install_intel_graphics() {
+    output "  Installing Intel graphics drivers..."
+    
+    local intel_packages=(
+        "intel-gmmlib"
+        "intel-media-driver" 
+        "libva-intel-driver"
+        "vulkan-intel"
+        "mesa"
+    )
+    
+    if ! pacman -S --noconfirm "${intel_packages[@]}"; then
+        output "ERROR: Failed to install Intel graphics drivers"
+        return 1
+    fi
+    
+    output "    ✓ Intel graphics drivers installed"
+    return 0
+}
+
+install_amd_graphics() {
+    output "  Installing AMD graphics drivers..."
+    
+    local amd_packages=(
+        "xf86-video-amdgpu"
+        "vulkan-radeon"
+        "libva-mesa-driver"
+        "mesa"
+        "opencl-rusticl-mesa"
+    )
+    
+    if ! pacman -S --noconfirm "${amd_packages[@]}"; then
+        output "ERROR: Failed to install AMD graphics drivers"
+        return 1
+    fi
+    
+    output "    ✓ AMD graphics drivers installed"
+    return 0
+}
+
+install_nvidia_graphics() {
+    output "  Installing NVIDIA graphics drivers..."
+    
+    local nvidia_packages=(
+        "nvidia"
+        "nvidia-utils"
+        "nvidia-settings"
+        "opencl-nvidia"
+    )
+    
+    if ! pacman -S --noconfirm "${nvidia_packages[@]}"; then
+        output "ERROR: Failed to install NVIDIA graphics drivers"
+        return 1
+    fi
+    
+    # Add nvidia modules to mkinitcpio
+    sed -i 's/MODULES=(btrfs)/MODULES=(btrfs nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' /etc/mkinitcpio.conf
+    
+    output "    ✓ NVIDIA graphics drivers installed"
+    return 0
+}
+
+install_mesa_fallback() {
+    output "  Installing Mesa fallback drivers..."
+    
+    local mesa_packages=(
+        "mesa"
+        "xf86-video-vesa"
+    )
+    
+    if ! pacman -S --noconfirm "${mesa_packages[@]}"; then
+        output "ERROR: Failed to install Mesa fallback drivers"
+        return 1
+    fi
+    
+    output "    ✓ Mesa fallback drivers installed"
+    return 0
+}
+
+configure_graphics_drivers() {
+    output "Step 1/8: Configuring graphics drivers..."
+    
+    local detected_gpus
+    detected_gpus=($(detect_gpu_hardware))
+    
+    output "  Detected GPU vendors: ${detected_gpus[*]}"
+    
+    # Install drivers for each detected GPU vendor
+    for gpu in "${detected_gpus[@]}"; do
+        case "$gpu" in
+            "intel")
+                install_intel_graphics || return 1
+                ;;
+            "amd")
+                install_amd_graphics || return 1
+                ;;
+            "nvidia")
+                install_nvidia_graphics || return 1
+                ;;
+            "mesa")
+                install_mesa_fallback || return 1
+                ;;
+            *)
+                output "  WARNING: Unknown GPU vendor: $gpu"
+                ;;
+        esac
+    done
+    
+    # Always install common input and basic graphics packages
+    local common_packages=(
+        "xf86-input-libinput"
+        "libva-utils"
+        "vulkan-tools"
+    )
+    
+    if ! pacman -S --noconfirm "${common_packages[@]}"; then
+        output "ERROR: Failed to install common graphics packages"
+        return 1
+    fi
+    
+    output "  ✓ Graphics drivers configured for detected hardware"
+    return 0
+}
+
+# =====================================
+# SYSTEM CONFIGURATION
+# =====================================
+
+configure_timezone() {
+    output "Step 2/8: Configuring timezone..."
+    
+    local timezone_path="/usr/share/zoneinfo/${timezone:?}"
+    
+    # Verify timezone exists
+    if [[ ! -f "$timezone_path" ]]; then
+        output "ERROR: Invalid timezone: ${timezone}"
+        return 1
+    fi
+    
+    # Set timezone
+    if ! ln -sf "$timezone_path" /etc/localtime; then
+        output "ERROR: Failed to set timezone"
+        return 1
+    fi
+    
+    # Set hardware clock
+    if ! hwclock --systohc; then
+        output "ERROR: Failed to set hardware clock"
+        return 1
+    fi
+    
+    # Verify timezone was set correctly
+    local current_timezone
+    current_timezone=$(readlink /etc/localtime | sed 's|/usr/share/zoneinfo/||')
+    if [[ "$current_timezone" != "${timezone}" ]]; then
+        output "ERROR: Timezone not set correctly"
+        output "Expected: ${timezone}"
+        output "Current: $current_timezone"
+        return 1
+    fi
+    
+    output "  ✓ Timezone configured: ${timezone}"
+    return 0
+}
+
+generate_locales() {
+    output "Step 3/8: Generating locales..."
+    
+    # Verify locale.gen exists and contains our locale
+    if [[ ! -f /etc/locale.gen ]]; then
+        output "ERROR: /etc/locale.gen not found"
+        return 1
+    fi
+    
+    if ! grep -q "${locale:?}.UTF-8" /etc/locale.gen; then
+        output "ERROR: Locale ${locale}.UTF-8 not configured in locale.gen"
+        return 1
+    fi
+    
+    # Generate locales
+    if ! locale-gen; then
+        output "ERROR: Locale generation failed"
+        return 1
+    fi
+    
+    # Verify locale was generated
+    if ! locale -a | grep -q "${locale}.utf8"; then
+        output "ERROR: Locale ${locale} not available after generation"
+        return 1
+    fi
+    
+    output "  ✓ Locales generated successfully"
+    return 0
+}
+
+regenerate_initramfs() {
+    output "Step 4/8: Regenerating initramfs..."
+    
+    # Set proper permissions for initramfs files
+    chmod 600 /boot/initramfs-linux*
+    
+    # Regenerate initramfs with new configuration
+    if ! mkinitcpio -P; then
+        output "ERROR: Failed to regenerate initramfs"
+        return 1
+    fi
+    
+    # Verify initramfs files were created
+    local initramfs_files=("/boot/initramfs-linux.img" "/boot/initramfs-linux-lts.img")
+    for file in "${initramfs_files[@]}"; do
+        if [[ ! -s "$file" ]]; then
+            output "ERROR: Initramfs file missing or empty: $file"
+            return 1
+        fi
+    done
+    
+    output "  ✓ Initramfs regenerated with updated configuration"
+    return 0
+}
+
+install_limine_bootloader() {
+    output "Step 5/8: Installing Limine bootloader..."
+    
+    # Install Limine to ESP for UEFI
+    if ! limine bios-install /dev/disk/by-partlabel/ESP; then
+        output "ERROR: Failed to install Limine to ESP"
+        return 1
+    fi
+    
+    # Install Limine to disk for BIOS compatibility
+    local disk_device
+    disk_device=$(lsblk -no PKNAME /dev/disk/by-partlabel/ESP | head -n1)
+    if [[ -n "$disk_device" ]]; then
+        if ! limine bios-install "/dev/$disk_device"; then
+            output "ERROR: Failed to install Limine to disk"
+            return 1
+        fi
+    fi
+    
+    # Verify Limine configuration exists
+    if [[ ! -f /boot/limine.cfg ]]; then
+        output "ERROR: Limine configuration not found"
+        return 1
+    fi
+    
+    output "  ✓ Limine bootloader installed (UEFI + BIOS compatible)"
+    return 0
+}
+
+# =====================================
+# USER ACCOUNT MANAGEMENT
+# =====================================
+
+create_user_account() {
+    output "Step 6/8: Creating user account..."
+    
+    # Validate username format
+    if ! [[ "${username:?}" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
+        output "ERROR: Invalid username format: ${username}"
+        output "Username must start with letter/underscore, contain only lowercase letters, numbers, underscore, hyphen"
+        return 1
+    fi
+    
+    # Check if user already exists
+    if id "${username}" &>/dev/null; then
+        output "ERROR: User ${username} already exists"
+        return 1
+    fi
+    
+    # Create user with appropriate groups
+    local user_groups="wheel,adm,ftp,games,http,log,rfkill,sys,systemd-journal,uucp"
+    
+    if ! useradd -c "${fullname:?}" -m -G "$user_groups" "${username}"; then
+        output "ERROR: Failed to create user account"
+        return 1
+    fi
+    
+    # Verify user was created
+    if ! id "${username}" &>/dev/null; then
+        output "ERROR: User creation verification failed"
+        return 1
+    fi
+    
+    # Verify home directory was created
+    if [[ ! -d "/home/${username}" ]]; then
+        output "ERROR: User home directory not created"
+        return 1
+    fi
+    
+    output "  ✓ User account created: ${username}"
+    output "  ✓ Home directory: /home/${username}"
+    output "  ✓ Groups: $user_groups"
+    return 0
+}
+
+set_user_password() {
+    output "Setting user password..."
+    
+    # Set user password
+    if ! echo -e "${user_password:?}\n${user_password}" | passwd "${username:?}"; then
+        output "ERROR: Failed to set user password"
+        return 1
+    fi
+    
+    # Verify password was set (user should not be locked)
+    if passwd -S "${username}" | grep -q " L "; then
+        output "ERROR: User account is locked after password set"
+        return 1
+    fi
+    
+    output "  ✓ User password configured"
+    return 0
+}
+
+configure_sudo_access() {
+    output "Configuring sudo access..."
+    
+    # Enable wheel group sudo access
+    if ! sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/g' /etc/sudoers; then
+        output "ERROR: Failed to configure sudo access"
+        return 1
+    fi
+    
+    # Verify sudo configuration
+    if ! grep -q "^%wheel ALL=(ALL:ALL) ALL" /etc/sudoers; then
+        output "ERROR: Sudo configuration not applied correctly"
+        return 1
+    fi
+    
+    # Test sudo configuration syntax
+    if ! visudo -c; then
+        output "ERROR: Sudo configuration syntax error"
+        return 1
+    fi
+    
+    output "  ✓ Sudo access configured for wheel group"
+    return 0
+}
+
+# =====================================
+# ADDITIONAL SYSTEM PACKAGES
+# =====================================
+
+install_additional_packages() {
+    output "Step 7/8: Installing additional system packages..."
+    
+    # System utilities and hardware support
+    local system_packages=(
+        "bluez" "bluez-utils" "bluez-hid2hci" "bluez-libs"
+        "dmidecode" "hwdetect" "hwinfo" "upower"
+        "lsb-release" "rtkit" "smartmontools" "usb_modeswitch"
+        "efitools" "fsarchiver" "mtools" "lsscsi" "mdadm" "meld" 
+        "udisks2" "udisks2-btrfs" "usbutils"
+    )
+    
+    # Network utilities
+    local network_packages=(
+        "bridge-utils" "ethtool" "inetutils" "netctl" "nss-mdns" 
+        "openbsd-netcat" "networkmanager-openvpn" "wireless-regdb"
+    )
+    
+    # Development and admin tools
+    local dev_packages=(
+        "pacman-contrib" "linux-tools-meta" "mkinitcpio" "mkinitcpio-utils" 
+        "sof-firmware" "libdvdcss" "libgsf" "libguestfs" "libopenraw" 
+        "libwnck3" "xl2tpd" "tealdeer" "texinfo" "plocate" "pv" "rsync"
+        "which" "unrar" "unzip" "zip"
+    )
+    
+    # Install packages in groups for better error tracking
+    output "  Installing system utilities..."
+    if ! pacman -S --noconfirm "${system_packages[@]}"; then
+        output "ERROR: Failed to install system packages"
+        return 1
+    fi
+    
+    output "  Installing network utilities..."
+    if ! pacman -S --noconfirm "${network_packages[@]}"; then
+        output "ERROR: Failed to install network packages"
+        return 1
+    fi
+    
+    output "  Installing development tools..."
+    if ! pacman -S --noconfirm "${dev_packages[@]}"; then
+        output "ERROR: Failed to install development packages"
+        return 1
+    fi
+    
+    output "  ✓ Additional system packages installed"
+    return 0
+}
+
+# =====================================
+# DESKTOP ENVIRONMENT SUPPORT
+# =====================================
+
+configure_desktop_integration() {
+    if [[ "${install_mode:?}" == "desktop" ]]; then
+        output "Configuring desktop integration..."
+        
+        # Update dconf database
+        if command -v dconf &>/dev/null; then
+            dconf update
+            output "  ✓ dconf database updated"
+        fi
+        
+        # Create user directories
+        if command -v xdg-user-dirs-update &>/dev/null; then
+            sudo -u "${username:?}" xdg-user-dirs-update
+            output "  ✓ User directories configured"
+        fi
+    fi
+}
+
+# =====================================
+# SNAPPER CONFIGURATION
+# =====================================
+
+configure_snapper() {
+    output "Step 8/8: Configuring Snapper snapshots..."
+    
+    # Remove default snapshots subvolume (we manage this manually)
+    if mountpoint -q /.snapshots; then
+        umount /.snapshots
+    fi
+    
+    if [[ -d /.snapshots ]]; then
+        rm -rf /.snapshots
+    fi
+    
+    # Create snapper configuration
+    if ! snapper --no-dbus -c root create-config /; then
+        output "ERROR: Failed to create snapper configuration"
+        return 1
+    fi
+    
+    # Remove snapper's auto-created subvolume
+    if [[ -d /.snapshots ]]; then
+        btrfs subvolume delete /.snapshots
+    fi
+    
+    # Create snapshots directory and mount existing subvolume
+    mkdir -p /.snapshots
+    
+    # Remount all filesystems to ensure snapshots subvolume is available
+    if ! mount -a; then
+        output "ERROR: Failed to remount filesystems"
+        return 1
+    fi
+    
+    # Set proper permissions
     chmod 750 /.snapshots
+    
+    # Verify snapper configuration
+    if ! snapper -c root list &>/dev/null; then
+        output "ERROR: Snapper configuration verification failed"
+        return 1
+    fi
+    
+    output "  ✓ Snapper configured for BTRFS snapshots"
+    return 0
+}
 
-   # Graphics
-   pacman -S intel-gmmlib intel-media-driver libva-intel-driver \
-     mesa libva-mesa-driver xf86-video-amdgpu xf86-video-ati xf86-video-nouveau \
-     vulkan-nouveau vulkan-radeon vulkan-intel \
-     opencl-rusticl-mesa lib32-opencl-rusticl-mesa \
-     xf86-input-libinput
-   
-   # Core + Extra
-   pacman -S bluez bluez-utils bluez-hid2hci bluez-libs \
-     dmidecode hwdetect hwinfo upower \
-     lsb-release rtkit smartmontools usb_modeswitch \
-     efitools fsarchiver mtools lsscsi mdadm meld udisks2 udisks2-btrfs usbutils \
-     bridge-utils ethtool inetutils netctl nss-mdns openbsd-netcat \
-     networkmanager-openvpn wireless-regdb \
-     pacman-contrib linux-tools-meta mkinitcpio mkinitcpio-utils sof-firmware \
-     libdvdcss libgsf libguestfs libopenraw libwnck3 xl2tpd \
-     tealdeer texinfo plocate pv rsync \
-     which unrar unzip zip
-EOF
+# =====================================
+# SECURITY FRAMEWORK INTEGRATION
+# =====================================
 
-## Set user password.
-[ -n "${username}" ] && echo "Setting user password for ${username}." && echo -e "${user_password:?}\n${user_password}" | arch-chroot /mnt passwd "${username}"
+finalize_security_setup() {
+    output "Finalizing security framework integration..."
+    
+    # Set proper permissions on security-sensitive files
+    chmod 600 /etc/ssh/ssh_host_*_key 2>/dev/null || true
+    chmod 644 /etc/ssh/ssh_host_*_key.pub 2>/dev/null || true
+    
+    # Ensure AppArmor directories have proper permissions
+    if [[ -d /etc/apparmor.d ]]; then
+        find /etc/apparmor.d -type d -exec chmod 755 {} \;
+        find /etc/apparmor.d -name "*.conf" -exec chmod 644 {} \;
+    fi
+    
+    # Set secure permissions on audit configuration
+    if [[ -d /etc/audit ]]; then
+        chmod 750 /etc/audit
+        chmod 640 /etc/audit/rules.d/* 2>/dev/null || true
+    fi
+    
+    # Verify security configurations
+    local security_configs=(
+        "/etc/sysctl.d/99-developer-workstation.conf"
+        "/etc/ssh/sshd_config.d/10-security.conf"
+        "/etc/apparmor.d/local"
+    )
+    
+    for config in "${security_configs[@]}"; do
+        if [[ ! -e "$config" ]]; then
+            output "WARNING: Security configuration missing: $config"
+        fi
+    done
+    
+    output "  ✓ Security framework permissions configured"
+    return 0
+}
 
-## Give wheel user sudo access.
-sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/g' /mnt/etc/sudoers
+# =====================================
+# COMPREHENSIVE SYSTEM VALIDATION
+# =====================================
+
+validate_critical_files() {
+    output "Validating critical system files..."
+    
+    local critical_files=(
+        "/etc/locale.gen"
+        "/etc/locale.conf"
+        "/etc/hostname"
+        "/etc/hosts"
+        "/etc/fstab"
+        "/boot/limine.cfg"
+        "/etc/mkinitcpio.conf"
+        "/etc/passwd"
+        "/etc/group"
+        "/etc/sudoers"
+    )
+    
+    local missing_files=()
+    
+    for file in "${critical_files[@]}"; do
+        if [[ ! -f "$file" ]]; then
+            missing_files+=("$file")
+        elif [[ ! -s "$file" ]]; then
+            output "WARNING: Critical file is empty: $file"
+        fi
+    done
+    
+    if [[ ${#missing_files[@]} -gt 0 ]]; then
+        output "ERROR: Critical files missing: ${missing_files[*]}"
+        return 1
+    fi
+    
+    output "  ✓ All critical system files present"
+    return 0
+}
+
+validate_user_configuration() {
+    output "Validating user configuration..."
+    
+    # Check user exists and has proper groups
+    if ! id "${username:?}" &>/dev/null; then
+        output "ERROR: User ${username} does not exist"
+        return 1
+    fi
+    
+    # Check user is in wheel group
+    if ! groups "${username}" | grep -q "wheel"; then
+        output "ERROR: User ${username} not in wheel group"
+        return 1
+    fi
+    
+    # Check home directory exists
+    if [[ ! -d "/home/${username}" ]]; then
+        output "ERROR: User home directory missing"
+        return 1
+    fi
+    
+    # Check user can sudo
+    if ! sudo -u "${username}" sudo -n true 2>/dev/null; then
+        # This is expected to fail, but user should exist in sudoers
+        if ! sudo -l -U "${username}" &>/dev/null; then
+            output "ERROR: User ${username} not configured for sudo"
+            return 1
+        fi
+    fi
+    
+    output "  ✓ User configuration validated"
+    return 0
+}
+
+validate_bootloader_configuration() {
+    output "Validating bootloader configuration..."
+    
+    # Check Limine configuration exists
+    if [[ ! -f /boot/limine.cfg ]]; then
+        output "ERROR: Limine configuration missing"
+        return 1
+    fi
+    
+    # Check Limine configuration has required entries
+    local required_entries=("Arch Linux" "Arch Linux LTS")
+    for entry in "${required_entries[@]}"; do
+        if ! grep -q ":$entry" /boot/limine.cfg; then
+            output "ERROR: Limine configuration missing entry: $entry"
+            return 1
+        fi
+    done
+    
+    # Check kernel files exist
+    local kernel_files=("/boot/vmlinuz-linux" "/boot/vmlinuz-linux-lts" "/boot/initramfs-linux.img" "/boot/initramfs-linux-lts.img")
+    for file in "${kernel_files[@]}"; do
+        if [[ ! -f "$file" ]]; then
+            output "ERROR: Kernel file missing: $file"
+            return 1
+        fi
+    done
+    
+    output "  ✓ Bootloader configuration validated"
+    return 0
+}
+
+validate_network_configuration() {
+    output "Validating network configuration..."
+    
+    # Check NetworkManager configuration
+    if [[ ! -f /etc/NetworkManager/conf.d/security.conf ]]; then
+        output "ERROR: NetworkManager security configuration missing"
+        return 1
+    fi
+    
+    # Check unbound configuration
+    if [[ ! -f /etc/unbound/unbound.conf ]]; then
+        output "ERROR: Unbound configuration missing"
+        return 1
+    fi
+    
+    # Check systemd-resolved configuration
+    if [[ ! -f /etc/systemd/resolved.conf.d/unbound-integration.conf ]]; then
+        output "ERROR: systemd-resolved integration missing"
+        return 1
+    fi
+    
+    output "  ✓ Network configuration validated"
+    return 0
+}
+
+final_system_validation() {
+    output ""
+    output "=== Final System Validation ==="
+    
+    validate_critical_files || return 1
+    validate_user_configuration || return 1
+    validate_bootloader_configuration || return 1
+    validate_network_configuration || return 1
+    
+    output "=== Validation Complete ==="
+    output ""
+    return 0
+}
+
+# =====================================
+# INSTALLATION SUMMARY
+# =====================================
+
+display_installation_summary() {
+    output ""
+    output "=== Arch Linux Installation Summary ==="
+    output ""
+    
+    output "=== System Configuration ==="
+    output "Hostname: $(cat /etc/hostname)"
+    output "Timezone: $(readlink /etc/localtime | sed 's|/usr/share/zoneinfo/||')"
+    output "Locale: $(grep LANG /etc/locale.conf | cut -d= -f2)"
+    output "Install Mode: ${install_mode}"
+    output ""
+    
+    output "=== User Account ==="
+    output "Username: ${username}"
+    output "Full Name: ${fullname}"
+    output "Groups: $(groups ${username} | cut -d: -f2)"
+    output "Home Directory: /home/${username}"
+    output ""
+    
+    output "=== Hardware Support ==="
+    output "CPU: $(detect_cpu_vendor)"
+    output "GPU: $(detect_gpu_hardware)"
+    output "Microcode: ${MICROCODE_PACKAGE:-"none"}"
+    output ""
+    
+    output "=== Security Features ==="
+    output "  • Limine bootloader (modern, secure)"
+    output "  • AppArmor security framework prepared"
+    output "  • Unbound DNS resolver with DoT"
+    output "  • SSH hardening enabled"
+    output "  • Fail2ban intrusion prevention"
+    output "  • Network privacy (MAC randomization)"
+    output "  • BTRFS snapshots with Snapper"
+    output ""
+    
+    output "=== Post-Installation Steps ==="
+    output "1. Reboot into the new system"
+    output "2. Log in as: ${username}"
+    output "3. Deploy security profiles: vic setup security apparmor"
+    output "4. Configure firewall: ufw allow ssh && ufw enable"
+    output "5. Check system status: vic run system security-status"
+    output ""
+    
+    output "=== System Ready ==="
+    output "✓ Modern secure bootloader (Limine)"
+    output "✓ Enterprise-grade security foundation"
+    output "✓ Developer-friendly configuration"
+    output "✓ Hardware-optimized drivers"
+    output "✓ Comprehensive network security"
+    output "✓ Snapshot-based system recovery"
+    output "===================================="
+    output ""
+}
+
+# =====================================
+# MAIN CHROOT CONFIGURATION PROCESS
+# =====================================
+
+output "=== Chroot System Configuration ==="
+output "Finalizing Arch Linux installation with modern security"
+output ""
+
+# Pre-configuration validation
+validate_chroot_environment || exit 1
+validate_required_variables || exit 1
+
+# Display hardware detection summary
+display_hardware_summary
+
+# Main configuration steps
+configure_graphics_drivers || exit 1
+configure_timezone || exit 1
+generate_locales || exit 1
+regenerate_initramfs || exit 1
+install_limine_bootloader || exit 1
+create_user_account || exit 1
+set_user_password
+configure_sudo_access || exit 1
+install_additional_packages || exit 1
+configure_desktop_integration
+configure_snapper || exit 1
+finalize_security_setup || exit 1
+
+# Final validation
+final_system_validation || exit 1
+
+# Display summary
+display_installation_summary
+
+output "=== Chroot Configuration Complete ==="
+output "✓ Graphics drivers optimized for detected hardware"
+output "✓ System configuration validated and functional"
+output "✓ User account created with proper permissions"
+output "✓ Limine bootloader installed and configured"
+output "✓ Security framework prepared for deployment"
+output "✓ Network stack configured with privacy features"
+output "✓ Snapshot system ready for system recovery"
+output ""
+output "System ready for first boot!"
