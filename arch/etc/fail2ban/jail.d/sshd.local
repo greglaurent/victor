@@ -1,15 +1,5 @@
 # Fail2ban SSH jail configuration
 
-[DEFAULT]
-# Global settings
-bantime = 1h
-findtime = 10m
-maxretry = 3
-backend = systemd
-
-# Ignore localhost and private networks
-ignoreip = 127.0.0.1/8 ::1 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
-
 [sshd]
 enabled = true
 mode = aggressive
@@ -18,3 +8,4 @@ logpath = %(sshd_log)s
 maxretry = 3
 bantime = 24h
 findtime = 1h
+
