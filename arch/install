@@ -1,21 +1,134 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -eu
+set -euo pipefail
 
-# TODO: Virtualization and encryted root
-# TODO: Parameterized file
-# TODO: Prompts for locale, kblayout, timezone
+# =====================================
+# INSTALLATION CONFIGURATION
+# =====================================
+readonly DEFAULT_LOCALE="en_US"
+readonly DEFAULT_KBLAYOUT="us" 
+readonly DEFAULT_TIMEZONE="America/Los_Angeles"
+readonly DEFAULT_INSTALL_MODE="desktop"
+readonly SUPPORTED_LOCALES=("en_US" "en_GB" "de_DE" "fr_FR")
+readonly SUPPORTED_KEYBOARDS=("us" "uk" "de" "fr")
+readonly SUPPORTED_TIMEZONES=("America/Los_Angeles" "America/New_York" "America/Chicago" "America/Denver" "Europe/London" "Europe/Berlin" "Europe/Paris")
 
-# Check if this is a VM
-# virtualization=$(systemd-detect-virt)
-# virtualization=none
+# =====================================
+# ENVIRONMENT VARIABLE OVERRIDES
+# =====================================
+# Allow automation via environment variables
+use_luks=${USE_LUKS:-0}
+kblayout=${KBLAYOUT:-$DEFAULT_KBLAYOUT}
+locale=${LOCALE:-$DEFAULT_LOCALE}
+timezone=${TIMEZONE:-$DEFAULT_TIMEZONE}
+install_mode=${INSTALL_MODE:-$DEFAULT_INSTALL_MODE}
+hostname=${HOSTNAME:-""}
+username=${USERNAME:-""}
+fullname=${FULLNAME:-""}
+user_password=${USER_PASSWORD:-""}
+luks_passphrase=${LUKS_PASSPHRASE:-""}
 
-use_luks=0
-kblayout=us
-locale=en_US
-install_mode=desktop
 installation_date=$(date "+%Y-%m-%d %H:%M:%S")
 
+# =====================================
+# VICTOR TOOLS INTEGRATION
+# =====================================
+# Set up paths needed by installation scripts
+if [[ -n "${HERE:-}" ]]; then
+    # Running from Victor context
+    export HERE
+    export RESOURCES="${HERE}/setup/resources"
+    export REPOS="${HERE}/repos"
+else
+    # Detect current directory context
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [[ -f "$SCRIPT_DIR/../vic" ]]; then
+        # We're in arch/ subdirectory of Victor
+        export HERE="$(cd "$SCRIPT_DIR/.." && pwd)"
+        export RESOURCES="${HERE}/setup/resources"
+        export REPOS="${HERE}/repos"
+    else
+        # Standalone installation
+        export HERE="$SCRIPT_DIR"
+        export RESOURCES="$HERE/resources"
+        export REPOS="$HERE/repos"
+    fi
+fi
+
+# =====================================
+# VALIDATION FUNCTIONS
+# =====================================
+validate_installation_environment() {
+    output "Validating installation environment..."
+    
+    # Check if running in live environment
+    if [[ ! -d /run/archiso ]]; then
+        output "ERROR: This script must be run from an Arch Linux live environment"
+        exit 1
+    fi
+    
+    # Verify internet connectivity
+    if ! ping -c 1 archlinux.org &>/dev/null; then
+        output "ERROR: No internet connection detected"
+        output "Please configure networking before running the installation"
+        exit 1
+    fi
+    
+    # Check available disk space (minimum 20GB)
+    local available_space
+    available_space=$(df /tmp --output=avail -BG | tail -n1 | tr -d 'G')
+    if [[ $available_space -lt 2 ]]; then
+        output "WARNING: Low disk space in live environment (${available_space}GB)"
+        output "Consider using a larger live USB or cleaning /tmp"
+    fi
+    
+    # Validate working directory context
+    if [[ ! -f "01-format-disks" ]] || [[ ! -f "99-post-install" ]]; then
+        output "ERROR: Installation scripts not found in current directory"
+        output "Please run this script from the arch/ directory"
+        exit 1
+    fi
+    
+    # Check for required Victor context files (if available)
+    if [[ -n "${HERE:-}" ]] && [[ ! -f "${HERE}/vic" ]]; then
+        output "WARNING: Victor tools context not found at ${HERE}"
+        output "Post-installation Victor integration may not work correctly"
+    fi
+    
+    output "Installation environment validated"
+}
+
+validate_required_packages() {
+    output "Validating required packages availability..."
+    
+    # Update package database first
+    pacman -Sy --noconfirm
+    
+    # Core packages that must be available
+    local critical_packages=("base" "linux" "linux-firmware" "limine")
+    local security_packages=("apparmor" "audit" "ufw" "fail2ban")
+    local network_packages=("unbound" "bind" "networkmanager")
+    
+    local unavailable_packages=()
+    
+    for package in "${critical_packages[@]}" "${security_packages[@]}" "${network_packages[@]}"; do
+        if ! pacman -Si "$package" &>/dev/null; then
+            unavailable_packages+=("$package")
+        fi
+    done
+    
+    if [[ ${#unavailable_packages[@]} -gt 0 ]]; then
+        output "ERROR: Required packages not available:"
+        printf '  %s\n' "${unavailable_packages[@]}"
+        output ""
+        output "Please update your package database or check your mirrors:"
+        output "  pacman -Sy"
+        output "  reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist"
+        exit 1
+    fi
+    
+    output "All required packages are available"
+}
 output() {
   printf '\e[1;34m%-6s\e[m\n' "${@}"
 }
@@ -24,95 +137,342 @@ unpriv() {
   sudo -u nobody "${@}"
 }
 
+cleanup() {
+    if mountpoint -q /mnt 2>/dev/null; then
+        output "Cleaning up mounts..."
+        umount -R /mnt || true
+    fi
+}
+
+trap cleanup EXIT
+
+validate_hostname() {
+    local hostname="$1"
+    if [[ ! $hostname =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]]; then
+        output "Invalid hostname format. Use alphanumeric characters and hyphens only."
+        return 1
+    fi
+    return 0
+}
+
+validate_username() {
+    local username="$1"
+    if [[ ! $username =~ ^[a-z_]([a-z0-9_-]{0,31}|[a-z0-9_-]{0,30}\$)$ ]]; then
+        output "Invalid username format. Use lowercase letters, numbers, underscore, and hyphen only."
+        return 1
+    fi
+    return 0
+}
+
+is_in_array() {
+    local element="$1"
+    shift
+    local array=("$@")
+    for item in "${array[@]}"; do
+        [[ $item == "$element" ]] && return 0
+    done
+    return 1
+}
+
+# =====================================
+# INTERACTIVE PROMPTS
+# =====================================
 luks_passphrase_prompt() {
-  if [ "${use_luks}" = '1' ]; then
-    output 'Enter your encryption passphrase (the passphrase will not be shown on the screen):'
-    read -r -s luks_passphrase
+    if [[ $use_luks -eq 1 && -z $luks_passphrase ]]; then
+        output 'Enter your encryption passphrase (the passphrase will not be shown on the screen):'
+        read -r -s luks_passphrase
 
-    if [ -z "${luks_passphrase}" ]; then
-      output 'To use encryption, you need to enter a passphrase.'
-      luks_passphrase_prompt
-    fi
+        if [[ -z $luks_passphrase ]]; then
+            output 'To use encryption, you need to enter a passphrase.'
+            luks_passphrase_prompt
+            return
+        fi
 
-    output 'Confirm your encryption passphrase (the passphrase will not be shown on the screen):'
-    read -r -s luks_passphrase2
-    if [ "${luks_passphrase}" != "${luks_passphrase2}" ]; then
-      output 'Passphrases do not match, please try again.'
-      luks_passphrase_prompt
+        output 'Confirm your encryption passphrase (the passphrase will not be shown on the screen):'
+        read -r -s luks_passphrase2
+        if [[ $luks_passphrase != "$luks_passphrase2" ]]; then
+            output 'Passphrases do not match, please try again.'
+            luks_passphrase_prompt
+            return
+        fi
     fi
-  fi
 }
 
 disk_prompt() {
-  lsblk
-  output 'Please select the number of the corresponding disk (e.g. 1):'
-  select entry in $(lsblk -dpnoNAME | grep -P "/dev/nvme|sd|mmcblk|vd"); do
-    disk="${entry}"
-    output "Arch Linux will be installed on the following disk: ${disk}"
-    break
-  done
+    if [[ -n ${DISK:-} ]]; then
+        disk="$DISK"
+        output "Using disk from environment: ${disk}"
+        return
+    fi
+
+    output "Available disks:"
+    lsblk -d -o NAME,SIZE,TYPE,MODEL | grep -E "(nvme|sd|mmcblk|vd)" || {
+        output "No suitable disks found!"
+        exit 1
+    }
+    
+    output 'Please select the disk for installation:'
+    local disks=()
+    while IFS= read -r line; do
+        disks+=("$line")
+    done < <(lsblk -dpnoNAME | grep -P "/dev/(nvme|sd|mmcblk|vd)")
+    
+    if [[ ${#disks[@]} -eq 0 ]]; then
+        output "No suitable disks found!"
+        exit 1
+    fi
+    
+    select entry in "${disks[@]}"; do
+        if [[ -n $entry ]]; then
+            disk="$entry"
+            output "Selected disk: ${disk}"
+            
+            # Confirmation for destructive operation
+            output "WARNING: This will DESTROY all data on ${disk}!"
+            read -r -p "Type 'YES' to continue: " confirmation
+            if [[ $confirmation != "YES" ]]; then
+                output "Installation cancelled."
+                exit 1
+            fi
+            break
+        else
+            output "Invalid selection. Please try again."
+        fi
+    done
+}
+
+timezone_prompt() {
+    if [[ -n $timezone && $timezone != "$DEFAULT_TIMEZONE" ]]; then
+        output "Using timezone from environment: ${timezone}"
+        return
+    fi
+
+    output 'Select timezone:'
+    select tz in "${SUPPORTED_TIMEZONES[@]}" "Other"; do
+        if [[ $tz == "Other" ]]; then
+            output 'Enter timezone (e.g., America/Chicago):'
+            read -r custom_timezone
+            if [[ -f /usr/share/zoneinfo/$custom_timezone ]]; then
+                timezone="$custom_timezone"
+                break
+            else
+                output "Invalid timezone. Please try again."
+            fi
+        elif [[ -n $tz ]]; then
+            timezone="$tz"
+            break
+        else
+            output "Invalid selection. Please try again."
+        fi
+    done
 }
 
 username_prompt() {
-  output 'Please enter the username:'
-  read -r username
+    if [[ -n $username ]]; then
+        output "Using username from environment: ${username}"
+        return
+    fi
 
-  if [ -z "${username}" ]; then
-    output 'Sorry, You need to enter a username.'
-    username_prompt
-  fi
+    while true; do
+        output 'Please enter the username:'
+        read -r username
+
+        if [[ -z $username ]]; then
+            output 'You need to enter a username.'
+            continue
+        fi
+
+        if validate_username "$username"; then
+            break
+        fi
+    done
 }
 
 user_password_prompt() {
-  output 'Enter your user password (the password will not be shown on the screen):'
-  read -r -s user_password
+    if [[ -n $user_password ]]; then
+        output "Using password from environment variable."
+        return
+    fi
 
-  if [ -z "${user_password}" ]; then
-    output 'You need to enter a password.'
-    user_password_prompt
-  fi
+    while true; do
+        output 'Enter your user password (the password will not be shown on the screen):'
+        read -r -s user_password
 
-  output 'Confirm your user password (the password will not be shown on the screen):'
-  read -r -s user_password2
-  if [ "${user_password}" != "${user_password2}" ]; then
-    output 'Passwords do not match, please try again.'
-    user_password_prompt
-  fi
+        if [[ -z $user_password ]]; then
+            output 'You need to enter a password.'
+            continue
+        fi
+
+        output 'Confirm your user password (the password will not be shown on the screen):'
+        read -r -s user_password2
+        if [[ $user_password == "$user_password2" ]]; then
+            break
+        else
+            output 'Passwords do not match, please try again.'
+        fi
+    done
 }
 
 fullname_prompt() {
-  output 'Please enter the full name account:'
-  read -r fullname
+    if [[ -n $fullname ]]; then
+        output "Using full name from environment: ${fullname}"
+        return
+    fi
 
-  if [ -z "${fullname}" ]; then
-    output 'Please enter the full name for the account.'
-    fullname_prompt
-  fi
+    while true; do
+        output 'Please enter the full name for the account:'
+        read -r fullname
+
+        if [[ -n $fullname ]]; then
+            break
+        else
+            output 'Please enter the full name for the account.'
+        fi
+    done
 }
 
 hostname_prompt() {
-  output 'Enter your hostname:'
-  read -r hostname
+    if [[ -n $hostname ]]; then
+        output "Using hostname from environment: ${hostname}"
+        return
+    fi
 
-  if [ -z "${hostname}" ]; then
-    output 'You need to enter a hostname.'
-    hostname_prompt
-  fi
+    while true; do
+        output 'Enter your hostname:'
+        read -r hostname
+
+        if [[ -z $hostname ]]; then
+            output 'You need to enter a hostname.'
+            continue
+        fi
+
+        if validate_hostname "$hostname"; then
+            break
+        fi
+    done
 }
+
+locale_prompt() {
+    if [[ -n $locale && $locale != "$DEFAULT_LOCALE" ]]; then
+        output "Using locale from environment: ${locale}"
+        return
+    fi
+
+    output 'Select system locale:'
+    select loc in "${SUPPORTED_LOCALES[@]}"; do
+        if [[ -n $loc ]]; then
+            locale="$loc"
+            output "Selected locale: ${locale}"
+            break
+        else
+            output "Invalid selection. Please try again."
+        fi
+    done
+}
+
+keyboard_prompt() {
+    if [[ -n $kblayout && $kblayout != "$DEFAULT_KBLAYOUT" ]]; then
+        output "Using keyboard layout from environment: ${kblayout}"
+        return
+    fi
+
+    output 'Select keyboard layout:'
+    select kb in "${SUPPORTED_KEYBOARDS[@]}"; do
+        if [[ -n $kb ]]; then
+            kblayout="$kb"
+            output "Selected keyboard layout: ${kblayout}"
+            break
+        else
+            output "Invalid selection. Please try again."
+        fi
+    done
+}
+
+encryption_prompt() {
+    if [[ -n ${USE_LUKS:-} ]]; then
+        output "Using encryption setting from environment: $(( use_luks ? "enabled" : "disabled" ))"
+        return
+    fi
+
+    output 'Enable disk encryption? (y/N)'
+    read -r response
+    case "$response" in
+        [yY][eE][sS]|[yY]) 
+            use_luks=1
+            output "Disk encryption enabled."
+            ;;
+        *) 
+            use_luks=0
+            output "Disk encryption disabled."
+            ;;
+    esac
+}
+
+# =====================================
+# MAIN INSTALLATION FLOW
+# =====================================
 
 # Clear the TTY
 clear
 
-# Initial prompts
+output "=== Victor Arch Linux Installation ==="
+output "Installation mode: ${install_mode}"
+output "Date: ${installation_date}"
+echo
+
+# Check if running in live environment
+if [[ ! -d /run/archiso ]]; then
+    output "This script must be run from an Arch Linux live environment."
+    exit 1
+fi
+
+# Verify internet connectivity
+if ! ping -c 1 archlinux.org &>/dev/null; then
+    output "No internet connection detected. Please configure networking first."
+    exit 1
+fi
+
+# Interactive prompts (skip if environment variables are set)
+encryption_prompt
 luks_passphrase_prompt
 disk_prompt
 hostname_prompt
 username_prompt
-fullname_prompt
+fullname_prompt  
 user_password_prompt
+locale_prompt
+keyboard_prompt
+timezone_prompt
+
+# Export variables for subscripts
+export use_luks kblayout locale timezone install_mode installation_date
+export disk hostname username fullname user_password luks_passphrase
+
+# Display configuration summary
+output ""
+output "=== Installation Configuration ==="
+output "Disk: ${disk}"
+output "Hostname: ${hostname}"
+output "Username: ${username}"
+output "Full name: ${fullname}"
+output "Locale: ${locale}"
+output "Keyboard: ${kblayout}"
+output "Timezone: ${timezone}"
+output "Encryption: $(( use_luks ? "enabled" : "disabled" ))"
+output "Install mode: ${install_mode}"
+output ""
+
+read -r -p "Proceed with installation? (y/N): " confirm
+if [[ $confirm != [yY] ]]; then
+    output "Installation cancelled."
+    exit 0
+fi
+
+# Execute installation scripts
+output "Starting installation process..."
 
 source ./01-format-disks
-source ./02-pacstrap-system
+source ./02-pacstrap-system  
 source ./03-generate-fstab
 source ./04-set-locale
 source ./05-config-grub
@@ -123,5 +483,23 @@ source ./09-enable-systemctl
 source ./99-post-install
 
 # Finish up
-echo "Done, you may now wish to reboot (further changes can be done by chrooting into /mnt)."
-exit
+output ""
+output "=== Installation Complete ==="
+output "The system has been installed successfully."
+output "You may now reboot into your new Arch Linux system."
+output ""
+output "Post-installation steps:"
+output "1. Remove installation media"
+output "2. Reboot the system" 
+output "3. Log in with user: ${username}"
+if [[ $use_luks -eq 1 ]]; then
+    output "4. Enter disk encryption passphrase at boot"
+fi
+output ""
+
+read -r -p "Reboot now? (y/N): " reboot_confirm
+if [[ $reboot_confirm == [yY] ]]; then
+    reboot
+fi
+
+exit 0
