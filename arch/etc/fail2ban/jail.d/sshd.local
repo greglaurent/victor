@@ -8,4 +8,3 @@ logpath = %(sshd_log)s
 maxretry = 3
 bantime = 24h
 findtime = 1h
-
