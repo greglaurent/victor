@@ -13,7 +13,7 @@ set -euo pipefail
 readonly CRITICAL_SERVICES=(
     "systemd-resolved"
     "NetworkManager"
-    "chronyd"
+    "systemd-timesyncd"
     "systemd-oomd"
     "fstrim.timer"
 )
@@ -50,7 +50,7 @@ readonly SNAPSHOT_SERVICES=(
 
 # Services to disable (conflicting or unnecessary)
 readonly DISABLED_SERVICES=(
-    "systemd-timesyncd"  # Conflicts with chronyd
+    "chronyd"
 )
 
 # =====================================
