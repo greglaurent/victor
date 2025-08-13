@@ -314,6 +314,12 @@ setup_network_security() {
         output "ERROR: Failed to copy NetworkManager security configuration"
         return 1
     fi
+
+    # Copy time synchronization configuration  
+    if ! cp "$HERE/arch/etc/systemd/timesyncd.conf" "/mnt/etc/systemd/timesyncd.conf"; then
+        output "ERROR: Failed to copy timesyncd configuration"
+        return 1
+    fi
     
     # Set proper permissions
     chmod 644 "/mnt/etc/ufw/user.rules"
