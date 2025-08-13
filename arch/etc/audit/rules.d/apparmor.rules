@@ -1,0 +1,13 @@
+# AppArmor audit rules
+# Log AppArmor denials for security monitoring
+
+-a always,exclude -F msgtype=AVC
+-a always,exclude -F msgtype=USER_AVC
+-a always,exclude -F msgtype=SELINUX_ERR
+-a always,exclude -F msgtype=AML_DENY
+-a always,exclude -F msgtype=APPARMOR_AUDIT
+-a always,exclude -F msgtype=APPARMOR_ALLOWED
+-a always,exclude -F msgtype=APPARMOR_DENIED
+-a always,exclude -F msgtype=APPARMOR_HINT
+-a always,exclude -F msgtype=APPARMOR_STATUS
+-a always,exclude -F msgtype=APPARMOR_ERROR
