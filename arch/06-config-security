@@ -61,6 +61,44 @@ check_security_packages() {
     return 0
 }
 
+validate_config_templates() {
+    output "Validating security configuration templates..."
+    
+    local config_files=(
+        "$HERE/arch/etc/sysctl.d/99-developer-workstation.conf"
+        "$HERE/arch/etc/apparmor/parser.conf"
+        "$HERE/arch/etc/audit/rules.d/apparmor.rules"
+        "$HERE/arch/etc/ssh/ssh_config.d/10-security.conf"
+        "$HERE/arch/etc/ssh/sshd_config.d/10-security.conf"
+        "$HERE/arch/etc/issue.net"
+        "$HERE/arch/etc/fail2ban/jail.d/sshd.local"
+        "$HERE/arch/etc/fail2ban/fail2ban.local"
+        "$HERE/arch/etc/ufw/user.rules"
+        "$HERE/arch/etc/systemd/resolved.conf.d/security.conf"
+        "$HERE/arch/etc/NetworkManager/conf.d/security.conf"
+        "$HERE/arch/etc/sudoers.d/security"
+        "$HERE/arch/etc/systemd/system/service.d/hardening.conf"
+        "$HERE/arch/etc/aide.conf"
+    )
+    
+    local missing_files=()
+    
+    for config_file in "${config_files[@]}"; do
+        if [[ ! -f "$config_file" ]]; then
+            missing_files+=("$config_file")
+        fi
+    done
+    
+    if [[ ${#missing_files[@]} -gt 0 ]]; then
+        output "ERROR: Missing configuration templates:"
+        printf '  %s\n' "${missing_files[@]}"
+        return 1
+    fi
+    
+    output "All security configuration templates found"
+    return 0
+}
+
 # =====================================
 # SYSCTL SECURITY CONFIGURATION
 # =====================================
@@ -70,6 +108,7 @@ install_sysctl_security() {
     
     local sysctl_dir="/mnt/etc/sysctl.d"
     local sysctl_file="$sysctl_dir/$SYSCTL_CONFIG_NAME"
+    local template_file="$HERE/arch/etc/sysctl.d/$SYSCTL_CONFIG_NAME"
     
     # Create sysctl.d directory if it doesn't exist
     mkdir -p "$sysctl_dir"
@@ -77,113 +116,20 @@ install_sysctl_security() {
     # Remove any old problematic configurations
     rm -f "$sysctl_dir/99-workstation.conf"
     
-    # Install our developer-friendly sysctl configuration
-    cat > "$sysctl_file" << 'EOF'
-# /etc/sysctl.d/99-developer-workstation.conf
-# Security hardening optimized for development workstations
-# Balances security with virtualization, containers, and debugging needs
-
-# =====================================
-# MEMORY PROTECTION (Safe for dev work)
-# =====================================
-
-# Improve ASLR effectiveness for mmap
-vm.mmap_rnd_bits = 32
-vm.mmap_rnd_compat_bits = 16
-
-# Restrict userfaultfd to processes with CAP_SYS_PTRACE
-vm.unprivileged_userfaultfd = 0
-
-# =====================================
-# KERNEL INFORMATION PROTECTION
-# =====================================
-
-# Restrict dmesg to CAP_SYS_LOG
-kernel.dmesg_restrict = 1
-
-# Restrict access to /proc and kernel pointer info
-# Level 1 allows debugging own processes (developer-friendly)
-kernel.kptr_restrict = 1
-
-# Developer-friendly ptrace scope
-# 1 = restrict to same uid and CAP_SYS_PTRACE (allows debugging)
-kernel.yama.ptrace_scope = 1
-
-# =====================================
-# FILESYSTEM PROTECTION
-# =====================================
-
-# Enable filesystem protection sysctls
-fs.protected_regular = 2
-fs.protected_fifos = 2
-fs.protected_symlinks = 1
-fs.protected_hardlinks = 1
-
-# Disable core dumps (security)
-kernel.core_pattern = |/bin/false
-fs.suid_dumpable = 0
-
-# =====================================
-# NETWORK SECURITY (Dev-friendly)
-# =====================================
-
-# Basic IP spoofing mitigation
-net.ipv4.conf.all.rp_filter = 1
-net.ipv4.conf.default.rp_filter = 1
-
-# SYN flood protection
-net.ipv4.tcp_syncookies = 1
-
-# Protection against time-wait assassination attacks
-net.ipv4.tcp_rfc1337 = 1
-
-# Ignore bogus ICMP responses
-net.ipv4.icmp_ignore_bogus_error_responses = 1
-
-# Don't send ICMP redirects (we're not a router)
-net.ipv4.conf.all.send_redirects = 0
-net.ipv4.conf.default.send_redirects = 0
-
-# Don't accept ICMP redirects
-net.ipv4.conf.all.accept_redirects = 0
-net.ipv4.conf.default.accept_redirects = 0
-net.ipv6.conf.all.accept_redirects = 0
-net.ipv6.conf.default.accept_redirects = 0
-
-# Enable TCP timestamps
-net.ipv4.tcp_timestamps = 1
-
-# =====================================
-# CONTAINER/VIRTUALIZATION SUPPORT
-# =====================================
-
-# REQUIRED for Flatpak, containers, and user namespaces
-kernel.unprivileged_userns_clone = 1
-
-# Restrict eBPF to CAP_BPF
-kernel.unprivileged_bpf_disabled = 1
-net.core.bpf_jit_harden = 2
-
-# Enable IP forwarding for VM networking and containers
-net.ipv4.ip_forward = 1
-net.ipv6.conf.all.forwarding = 1
-
-# =====================================
-# PERFORMANCE TUNING
-# =====================================
-
-# Restrict performance events (security vs debugging balance)
-kernel.perf_event_paranoid = 2
-EOF
-
-    # Verify configuration was written correctly
+    # Copy configuration from template
+    if ! cp "$template_file" "$sysctl_file"; then
+        output "ERROR: Failed to copy sysctl configuration"
+        return 1
+    fi
+    
+    # Verify configuration was copied correctly
     if [[ ! -s "$sysctl_file" ]]; then
         output "ERROR: sysctl configuration file is empty"
         return 1
     fi
     
     if ! grep -q "kernel.yama.ptrace_scope = 1" "$sysctl_file"; then
-        output "ERROR: sysctl configuration not written correctly"
+        output "ERROR: sysctl configuration not copied correctly"
         return 1
     fi
     
@@ -205,36 +151,20 @@ setup_apparmor_foundation() {
     # Create AppArmor directory structure
     mkdir -p "$APPARMOR_CONFIG_DIR"/{local,abstractions/local,cache,profiles/extras}
     
-    # Create basic AppArmor configuration
-    cat > "/mnt/etc/apparmor/parser.conf" << 'EOF'
-# AppArmor parser configuration
-
-## Turn creating/updating of the cache on by default
-write-cache
-
-## Verify that cache is up to date
-cache-loc /etc/apparmor.d/cache
-EOF
-
+    # Copy AppArmor parser configuration
+    if ! cp "$HERE/arch/etc/apparmor/parser.conf" "/mnt/etc/apparmor/parser.conf"; then
+        output "ERROR: Failed to copy AppArmor parser configuration"
+        return 1
+    fi
+    
     # Set up audit logging configuration
     mkdir -p "$AUDIT_CONFIG_DIR/rules.d"
     
-    cat > "$AUDIT_CONFIG_DIR/rules.d/apparmor.rules" << 'EOF'
-# AppArmor audit rules
-# Log AppArmor denials for security monitoring
-
--a always,exclude -F msgtype=AVC
--a always,exclude -F msgtype=USER_AVC
--a always,exclude -F msgtype=SELINUX_ERR
--a always,exclude -F msgtype=AML_DENY
--a always,exclude -F msgtype=APPARMOR_AUDIT
--a always,exclude -F msgtype=APPARMOR_ALLOWED
--a always,exclude -F msgtype=APPARMOR_DENIED
--a always,exclude -F msgtype=APPARMOR_HINT
--a always,exclude -F msgtype=APPARMOR_STATUS
--a always,exclude -F msgtype=APPARMOR_ERROR
-EOF
-
+    if ! cp "$HERE/arch/etc/audit/rules.d/apparmor.rules" "$AUDIT_CONFIG_DIR/rules.d/apparmor.rules"; then
+        output "ERROR: Failed to copy AppArmor audit rules"
+        return 1
+    fi
+    
     # Create local customization directory structure
     cat > "$APPARMOR_CONFIG_DIR/local/README" << 'EOF'
 # AppArmor Local Customizations
@@ -257,6 +187,8 @@ EOF
     # Set proper permissions
     chmod 755 "$APPARMOR_CONFIG_DIR"/{local,abstractions/local,cache}
     chmod 644 "$APPARMOR_CONFIG_DIR/local/README"
+    chmod 644 "/mnt/etc/apparmor/parser.conf"
+    chmod 644 "$AUDIT_CONFIG_DIR/rules.d/apparmor.rules"
     
     # Verify AppArmor structure was created
     if [[ ! -d "$APPARMOR_CONFIG_DIR/local" ]]; then
@@ -280,94 +212,24 @@ configure_ssh_security() {
     # Ensure SSH config directories exist
     mkdir -p "$SSH_CONFIG_DIR/ssh_config.d" "$SSH_CONFIG_DIR/sshd_config.d"
     
-    # Install hardened SSH client configuration
-    cat > "$SSH_CONFIG_DIR/ssh_config.d/10-security.conf" << 'EOF'
-# SSH Client Security Configuration
-
-# Encryption hardening
-GSSAPIAuthentication no
-VerifyHostKeyDNS yes
-
-# Use strong host key algorithms only
-HostKeyAlgorithms ssh-ed25519,rsa-sha2-256,rsa-sha2-512
-PubkeyAcceptedKeyTypes ssh-ed25519,rsa-sha2-256,rsa-sha2-512
-
-# Use strong ciphers and MACs
-Ciphers aes256-gcm@openssh.com,aes128-gcm@openssh.com
-MACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com
-
-# Use strong key exchange algorithms
-KexAlgorithms sntrup761x25519-sha512@openssh.com,curve25519-sha256,curve25519-sha256@libssh.org
-
-# Connection settings
-ConnectTimeout 30
-ServerAliveInterval 300
-ServerAliveCountMax 3
-EOF
-
-    # Install hardened SSH server configuration
-    cat > "$SSH_CONFIG_DIR/sshd_config.d/10-security.conf" << 'EOF'
-# SSH Server Security Configuration
-
-# Encryption hardening
-HostKey /etc/ssh/ssh_host_ed25519_key
-HostKeyAlgorithms ssh-ed25519
-KexAlgorithms sntrup761x25519-sha512@openssh.com
-PubkeyAcceptedKeyTypes ssh-ed25519
-Ciphers aes256-gcm@openssh.com
-MACs hmac-sha2-256-etm@openssh.com
-
-# Security hardening
-AuthenticationMethods publickey
-AuthorizedKeysFile .ssh/authorized_keys
-Compression no
-DisableForwarding yes
-LoginGraceTime 15s
-MaxAuthTries 3
-PermitUserEnvironment no
-PermitUserRC no
-StrictModes yes
-UseDNS no
-
-# Use KeepAlive over SSH instead of with TCP
-TCPKeepAlive no
-ClientAliveInterval 300
-ClientAliveCountMax 3
-
-# Use PAM for session checks
-UsePAM yes
-
-# Disable unused authentication methods
-ChallengeResponseAuthentication no
-GSSAPIAuthentication no
-HostbasedAuthentication no
-PasswordAuthentication no
-PermitRootLogin no
-PermitEmptyPasswords no
-KbdInteractiveAuthentication no
-KerberosAuthentication no
-
-# Information display
-Banner /etc/issue.net
-PrintLastLog yes
-PrintMotd yes
-EOF
-
-    # Create security banner
-    cat > "/mnt/etc/issue.net" << 'EOF'
-================================================================================
-                            AUTHORIZED ACCESS ONLY
-================================================================================
-
-This system is for authorized users only. All activities are monitored and
-logged. Unauthorized access is prohibited and may result in prosecution.
-
-By continuing, you acknowledge that you have read and agree to comply with
-this system's security policies and acceptable use guidelines.
-
-================================================================================
-EOF
-
+    # Copy SSH client configuration
+    if ! cp "$HERE/arch/etc/ssh/ssh_config.d/10-security.conf" "$SSH_CONFIG_DIR/ssh_config.d/10-security.conf"; then
+        output "ERROR: Failed to copy SSH client configuration"
+        return 1
+    fi
+    
+    # Copy SSH server configuration
+    if ! cp "$HERE/arch/etc/ssh/sshd_config.d/10-security.conf" "$SSH_CONFIG_DIR/sshd_config.d/10-security.conf"; then
+        output "ERROR: Failed to copy SSH server configuration"
+        return 1
+    fi
+    
+    # Copy security banner
+    if ! cp "$HERE/arch/etc/issue.net" "/mnt/etc/issue.net"; then
+        output "ERROR: Failed to copy security banner"
+        return 1
+    fi
+    
     # Set proper permissions
     chmod 644 "$SSH_CONFIG_DIR/ssh_config.d/10-security.conf"
     chmod 644 "$SSH_CONFIG_DIR/sshd_config.d/10-security.conf"
@@ -395,44 +257,18 @@ configure_fail2ban() {
     # Create fail2ban directory structure
     mkdir -p "$FAIL2BAN_CONFIG_DIR"/{jail.d,filter.d,action.d}
     
-    # Configure fail2ban for SSH protection
-    cat > "$FAIL2BAN_CONFIG_DIR/jail.d/sshd.local" << 'EOF'
-# Fail2ban SSH jail configuration
-
-[DEFAULT]
-# Global settings
-bantime = 1h
-findtime = 10m
-maxretry = 3
-backend = systemd
-
-# Ignore localhost and private networks
-ignoreip = 127.0.0.1/8 ::1 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
-
-[sshd]
-enabled = true
-mode = aggressive
-port = ssh
-logpath = %(sshd_log)s
-maxretry = 3
-bantime = 24h
-findtime = 1h
-EOF
-
-    # Configure fail2ban service settings
-    cat > "$FAIL2BAN_CONFIG_DIR/fail2ban.local" << 'EOF'
-# Fail2ban main configuration
-
-[Definition]
-loglevel = INFO
-logtarget = /var/log/fail2ban.log
-syslogsocket = auto
-socket = /var/run/fail2ban/fail2ban.sock
-pidfile = /var/run/fail2ban/fail2ban.pid
-dbfile = /var/lib/fail2ban/fail2ban.sqlite3
-dbpurgeage = 1d
-EOF
-
+    # Copy fail2ban SSH jail configuration
+    if ! cp "$HERE/arch/etc/fail2ban/jail.d/sshd.local" "$FAIL2BAN_CONFIG_DIR/jail.d/sshd.local"; then
+        output "ERROR: Failed to copy fail2ban jail configuration"
+        return 1
+    fi
+    
+    # Copy fail2ban main configuration
+    if ! cp "$HERE/arch/etc/fail2ban/fail2ban.local" "$FAIL2BAN_CONFIG_DIR/fail2ban.local"; then
+        output "ERROR: Failed to copy fail2ban main configuration"
+        return 1
+    fi
+    
     # Set proper permissions
     chmod 644 "$FAIL2BAN_CONFIG_DIR/jail.d/sshd.local"
     chmod 644 "$FAIL2BAN_CONFIG_DIR/fail2ban.local"
@@ -458,81 +294,27 @@ setup_network_security() {
     # Configure UFW firewall default rules
     mkdir -p "/mnt/etc/ufw"
     
-    cat > "/mnt/etc/ufw/user.rules" << 'EOF'
-# UFW user rules (IPv4)
-*filter
-:ufw-user-input - [0:0]
-:ufw-user-output - [0:0]
-:ufw-user-forward - [0:0]
-:ufw-user-limit - [0:0]
-:ufw-user-limit-accept - [0:0]
-
-# Allow loopback
--A ufw-user-input -i lo -j ACCEPT
--A ufw-user-output -o lo -j ACCEPT
-
-# Allow established and related connections
--A ufw-user-input -m state --state ESTABLISHED,RELATED -j ACCEPT
--A ufw-user-output -m state --state ESTABLISHED,RELATED -j ACCEPT
-
-# Default deny incoming, allow outgoing
--A ufw-user-input -j DROP
--A ufw-user-output -j ACCEPT
-
-COMMIT
-EOF
-
+    if ! cp "$HERE/arch/etc/ufw/user.rules" "/mnt/etc/ufw/user.rules"; then
+        output "ERROR: Failed to copy UFW configuration"
+        return 1
+    fi
+    
     # Configure secure DNS resolution
     mkdir -p "/mnt/etc/systemd/resolved.conf.d"
     
-    cat > "/mnt/etc/systemd/resolved.conf.d/security.conf" << 'EOF'
-# Secure DNS resolution configuration
-
-[Resolve]
-# Use secure DNS servers with DoT support
-DNS=1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com
-FallbackDNS=9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net
-
-# Enable DNS over TLS
-DNSOverTLS=yes
-
-# Enable DNSSEC validation
-DNSSEC=yes
-
-# Disable mDNS for security
-MulticastDNS=no
-
-# Disable LLMNR for security
-LLMNR=no
-
-# Cache DNS responses
-Cache=yes
-EOF
-
+    if ! cp "$HERE/arch/etc/systemd/resolved.conf.d/security.conf" "/mnt/etc/systemd/resolved.conf.d/security.conf"; then
+        output "ERROR: Failed to copy DNS security configuration"
+        return 1
+    fi
+    
     # Configure NetworkManager security
     mkdir -p "/mnt/etc/NetworkManager/conf.d"
     
-    cat > "/mnt/etc/NetworkManager/conf.d/security.conf" << 'EOF'
-# NetworkManager security configuration
-
-[main]
-# Don't store DNS servers from DHCP
-dns=systemd-resolved
-
-[device]
-# Randomize MAC addresses for privacy
-wifi.scan-rand-mac-address=yes
-
-[connection]
-# Use random MAC addresses
-wifi.cloned-mac-address=random
-ethernet.cloned-mac-address=random
-connection.stable-id=${CONNECTION}/${BOOT}
-
-# Disable hostname broadcast
-hostname-mode=none
-EOF
-
+    if ! cp "$HERE/arch/etc/NetworkManager/conf.d/security.conf" "/mnt/etc/NetworkManager/conf.d/security.conf"; then
+        output "ERROR: Failed to copy NetworkManager security configuration"
+        return 1
+    fi
+    
     # Set proper permissions
     chmod 644 "/mnt/etc/ufw/user.rules"
     chmod 644 "/mnt/etc/systemd/resolved.conf.d/security.conf"
@@ -554,96 +336,25 @@ configure_filesystem_security() {
     # Configure sudo security
     mkdir -p "/mnt/etc/sudoers.d"
     
-    cat > "/mnt/etc/sudoers.d/security" << 'EOF'
-# Sudo security configuration
-
-# Require password for sudo
-Defaults passwd_timeout=0
-Defaults timestamp_timeout=15
-
-# Log sudo commands
-Defaults log_input, log_output
-Defaults logfile="/var/log/sudo.log"
-
-# Secure path
-Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-
-# Don't allow shell escapes
-Defaults noexec
-
-# Require tty
-Defaults requiretty
-EOF
-
+    if ! cp "$HERE/arch/etc/sudoers.d/security" "/mnt/etc/sudoers.d/security"; then
+        output "ERROR: Failed to copy sudo security configuration"
+        return 1
+    fi
+    
     # Configure systemd service hardening template
     mkdir -p "/mnt/etc/systemd/system/service.d"
     
-    cat > "/mnt/etc/systemd/system/service.d/hardening.conf" << 'EOF'
-# Default service hardening for user services
-# Apply to services that don't need special privileges
-
-[Service]
-# Memory protection
-MemoryDenyWriteExecute=yes
-
-# Filesystem protection
-ProtectSystem=strict
-ProtectHome=read-only
-PrivateTmp=yes
-
-# Kernel protection
-ProtectKernelTunables=yes
-ProtectKernelModules=yes
-ProtectControlGroups=yes
-
-# Network restrictions (override per service as needed)
-RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
-
-# System call filtering
-SystemCallFilter=@system-service
-SystemCallFilter=~@mount @reboot @swap
-
-# Namespace restrictions
-RestrictNamespaces=yes
-
-# Privilege restrictions
-NoNewPrivileges=yes
-LockPersonality=yes
-RestrictRealtime=yes
-RemoveIPC=yes
-
-# Capability restrictions (override per service as needed)
-CapabilityBoundingSet=
-EOF
-
-    # Set up file permissions monitoring preparation
-    cat > "/mnt/etc/aide.conf" << 'EOF'
-# AIDE configuration for file integrity monitoring
-# This will be configured post-installation
-
-# Database location
-database=file:/var/lib/aide/aide.db
-database_out=file:/var/lib/aide/aide.db.new
-
-# Report settings
-verbose=5
-report_url=file:/var/log/aide.log
-
-# File selection rules (basic set)
-/etc p+i+n+u+g+s+b+m+c+md5+sha256
-/bin p+i+n+u+g+s+b+m+c+md5+sha256
-/sbin p+i+n+u+g+s+b+m+c+md5+sha256
-/usr/bin p+i+n+u+g+s+b+m+c+md5+sha256
-/usr/sbin p+i+n+u+g+s+b+m+c+md5+sha256
-
-# Exclude temporary and log directories
-!/tmp
-!/var/tmp
-!/var/log
-!/var/cache
-!/var/spool
-EOF
-
+    if ! cp "$HERE/arch/etc/systemd/system/service.d/hardening.conf" "/mnt/etc/systemd/system/service.d/hardening.conf"; then
+        output "ERROR: Failed to copy systemd service hardening configuration"
+        return 1
+    fi
+    
+    # Copy AIDE configuration
+    if ! cp "$HERE/arch/etc/aide.conf" "/mnt/etc/aide.conf"; then
+        output "ERROR: Failed to copy AIDE configuration"
+        return 1
+    fi
+    
     # Set proper permissions
     chmod 440 "/mnt/etc/sudoers.d/security"
     chmod 644 "/mnt/etc/systemd/system/service.d/hardening.conf"
@@ -787,6 +498,7 @@ output ""
 # Pre-configuration validation
 validate_target_directories || exit 1
 check_security_packages || exit 1
+validate_config_templates || exit 1
 
 # Main security configuration steps
 install_sysctl_security || exit 1
