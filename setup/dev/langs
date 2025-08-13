@@ -16,7 +16,7 @@ paru -S --noconfirm dotnet-sdk dotnet-runtime aspnet-runtime
 paru -S --noconfirm go
 
 # lua
-paru -S --noconfirm lua lua51 luarocks hererocks
+paru -S --noconfirm lua lua51 luarocks hererocks stylua texlab lua-language-server
 
 # shell
 paru -S --noconfirm bash-completion shellcheck-bin shfmt
