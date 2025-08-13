@@ -102,55 +102,30 @@ configure_mkinitcpio() {
     output "Step 1/4: Configuring mkinitcpio for Limine..."
     
     local mkinitcpio_conf="/mnt/etc/mkinitcpio.conf"
+    local template_file="$HERE/arch/etc/mkinitcpio.conf"
     
     # Backup existing configuration
-    cp "$mkinitcpio_conf" "${mkinitcpio_conf}.backup"
+    if [[ -f "$mkinitcpio_conf" ]]; then
+        cp "$mkinitcpio_conf" "${mkinitcpio_conf}.backup"
+    fi
     
-    # Create optimized mkinitcpio configuration for Limine
-    cat > "$mkinitcpio_conf" << 'EOF'
-# mkinitcpio configuration for Limine bootloader
-# Optimized for BTRFS with optional LUKS encryption
-
-# MODULES
-# Load BTRFS and essential modules early
-MODULES=(btrfs)
-
-# BINARIES
-# Additional binaries for emergency recovery
-BINARIES=()
-
-# FILES
-# Additional files for initramfs
-FILES=()
-
-# HOOKS
-# Hook order optimized for Limine + BTRFS + optional LUKS
-# Base system and device detection
-HOOKS=(base udev autodetect microcode modconf)
-
-# Keyboard input for LUKS passwords
-HOOKS+=(keyboard keymap)
-
-# Block devices and encryption (if used)
-HOOKS+=(block)
-
-# Filesystems and final setup  
-HOOKS+=(filesystems fsck)
-
-# COMPRESSION
-# Use zstd for fast decompression
-COMPRESSION="zstd"
-COMPRESSION_OPTIONS=(-1)
-
-# MODULES_DECOMPRESS
-# Enable for smaller initramfs with high compression
-MODULES_DECOMPRESS="no"
-EOF
+    # Verify template file exists
+    if [[ ! -f "$template_file" ]]; then
+        output "ERROR: mkinitcpio template not found: $template_file"
+        return 1
+    fi
+    
+    # Copy template to target location
+    if ! cp "$template_file" "$mkinitcpio_conf"; then
+        output "ERROR: Failed to copy mkinitcpio template"
+        return 1
+    fi
 
     # Add LUKS hook if encryption is enabled
     if [[ ${use_luks:?} -eq 1 ]]; then
         output "  Adding LUKS support to mkinitcpio..."
-        sed -i 's/HOOKS+=(block)/HOOKS+=(block encrypt)/' "$mkinitcpio_conf"
+        # Insert encrypt hook after block hook in the HOOKS array
+        sed -i 's/\(block\)/\1 encrypt/' "$mkinitcpio_conf"
     fi
     
     # Verify configuration was written correctly
@@ -161,6 +136,12 @@ EOF
     
     if ! grep -q "COMPRESSION=\"zstd\"" "$mkinitcpio_conf"; then
         output "ERROR: mkinitcpio configuration not written correctly"
+        return 1
+    fi
+    
+    # Verify essential modules are present
+    if ! grep -q "usbhid xhci_hcd" "$mkinitcpio_conf"; then
+        output "ERROR: Essential USB modules missing from mkinitcpio"
         return 1
     fi
     
