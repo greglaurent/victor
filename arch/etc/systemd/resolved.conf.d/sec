@@ -1,0 +1,21 @@
+# Secure DNS resolution configuration
+
+[Resolve]
+# Use secure DNS servers with DoT support
+DNS=1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com
+FallbackDNS=9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net
+
+# Enable DNS over TLS
+DNSOverTLS=yes
+
+# Enable DNSSEC validation
+DNSSEC=yes
+
+# Disable mDNS for security
+MulticastDNS=no
+
+# Disable LLMNR for security
+LLMNR=no
+
+# Cache DNS responses
+Cache=yes
