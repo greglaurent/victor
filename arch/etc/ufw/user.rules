@@ -1,0 +1,21 @@
+# UFW user rules (IPv4)
+*filter
+:ufw-user-input - [0:0]
+:ufw-user-output - [0:0]
+:ufw-user-forward - [0:0]
+:ufw-user-limit - [0:0]
+:ufw-user-limit-accept - [0:0]
+
+# Allow loopback
+-A ufw-user-input -i lo -j ACCEPT
+-A ufw-user-output -o lo -j ACCEPT
+
+# Allow established and related connections
+-A ufw-user-input -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A ufw-user-output -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+# Default deny incoming, allow outgoing
+-A ufw-user-input -j DROP
+-A ufw-user-output -j ACCEPT
+
+COMMIT
