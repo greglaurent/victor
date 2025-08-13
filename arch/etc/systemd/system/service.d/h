@@ -1,0 +1,35 @@
+# Default service hardening for user services
+# Apply to services that don't need special privileges
+
+[Service]
+# Memory protection
+MemoryDenyWriteExecute=yes
+
+# Filesystem protection
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+
+# Kernel protection
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+# Network restrictions (override per service as needed)
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# System call filtering
+SystemCallFilter=@system-service
+SystemCallFilter=~@mount @reboot @swap
+
+# Namespace restrictions
+RestrictNamespaces=yes
+
+# Privilege restrictions
+NoNewPrivileges=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RemoveIPC=yes
+
+# Capability restrictions (override per service as needed)
+CapabilityBoundingSet=
