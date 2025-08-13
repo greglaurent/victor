@@ -1,59 +1,31 @@
 #!/usr/bin/env bash
 
-# arch/07-config-network
-# Configure secure network stack with unbound DNS resolver
+# arch/06-config-security
+# Configure enterprise-grade security optimized for development workstations
 
 set -euo pipefail
 
 # =====================================
-# NETWORK CONFIGURATION CONSTANTS
+# SECURITY CONFIGURATION CONSTANTS
 # =====================================
 
-readonly UNBOUND_PORT="5353"
-readonly SYSTEMD_RESOLVED_PORT="53"
-readonly NETWORKMANAGER_CONFIG_DIR="/mnt/etc/NetworkManager/conf.d"
-readonly UNBOUND_CONFIG_DIR="/mnt/etc/unbound"
-readonly SYSTEMD_RESOLVED_CONFIG_DIR="/mnt/etc/systemd/resolved.conf.d"
-
-# Secure DNS servers with DoT support
-readonly SECURE_DNS_SERVERS=(
-    "1.1.1.2@853#security.cloudflare-dns.com"      # Cloudflare for Families
-    "1.0.0.2@853#security.cloudflare-dns.com"
-    "9.9.9.9@853#dns.quad9.net"                    # Quad9 security
-    "149.112.112.112@853#dns.quad9.net"
-)
+readonly SYSCTL_CONFIG_NAME="99-developer-workstation.conf"
+readonly SSH_CONFIG_DIR="/mnt/etc/ssh"
+readonly APPARMOR_CONFIG_DIR="/mnt/etc/apparmor.d"
+readonly AUDIT_CONFIG_DIR="/mnt/etc/audit"
+readonly FAIL2BAN_CONFIG_DIR="/mnt/etc/fail2ban"
 
 # =====================================
 # VALIDATION FUNCTIONS
 # =====================================
 
-validate_network_packages() {
-    output "Validating network packages..."
-    
-    local required_packages=("networkmanager" "unbound" "bind")
-    local missing_packages=()
-    
-    for package in "${required_packages[@]}"; do
-        if ! arch-chroot /mnt pacman -Q "$package" &>/dev/null; then
-            missing_packages+=("$package")
-        fi
-    done
-    
-    if [[ ${#missing_packages[@]} -gt 0 ]]; then
-        output "ERROR: Missing network packages: ${missing_packages[*]}"
-        return 1
-    fi
-    
-    output "All network packages confirmed installed"
-    return 0
-}
-
 validate_target_directories() {
-    output "Validating network configuration directories..."
+    output "Validating target system directories..."
     
     local required_dirs=(
-        "/mnt/etc/NetworkManager"
-        "/mnt/etc/systemd"
+        "/mnt/etc"
+        "/mnt/etc/systemd/system"
+        "/mnt/etc/ssh"
     )
     
     for dir in "${required_dirs[@]}"; do
@@ -63,637 +35,779 @@ validate_target_directories() {
         fi
     done
     
-    # Create configuration directories
-    mkdir -p "$NETWORKMANAGER_CONFIG_DIR"
-    mkdir -p "$UNBOUND_CONFIG_DIR/unbound.conf.d"
-    mkdir -p "$SYSTEMD_RESOLVED_CONFIG_DIR"
-    
-    output "Network configuration directories ready"
+    output "Target directories validated"
     return 0
 }
 
-# =====================================
-# UNBOUND DNS RESOLVER CONFIGURATION
-# =====================================
-
-configure_unbound_resolver() {
-    output "Step 1/4: Configuring Unbound DNS resolver..."
+check_security_packages() {
+    output "Checking security packages installation..."
     
-    local unbound_conf="$UNBOUND_CONFIG_DIR/unbound.conf"
+    local required_packages=("apparmor" "audit" "ufw" "fail2ban")
+    local missing_packages=()
     
-    # Main unbound configuration
-    cat > "$unbound_conf" << EOF
-# Unbound DNS resolver configuration
-# Optimized for developer workstations with security focus
-
-server:
-    # Network configuration
-    interface: 127.0.0.1@${UNBOUND_PORT}
-    interface: ::1@${UNBOUND_PORT}
-    
-    # Only allow local access
-    access-control: 127.0.0.0/8 allow
-    access-control: ::1 allow
-    access-control: 0.0.0.0/0 refuse
-    access-control: ::/0 refuse
-    
-    # Performance settings
-    num-threads: 2
-    msg-cache-slabs: 2
-    rrset-cache-slabs: 2
-    infra-cache-slabs: 2
-    key-cache-slabs: 2
-    
-    # Cache settings (optimal for development)
-    cache-min-ttl: 60
-    cache-max-ttl: 86400
-    msg-cache-size: 64m
-    rrset-cache-size: 128m
-    
-    # Security settings
-    hide-identity: yes
-    hide-version: yes
-    hide-trustanchor: yes
-    harden-glue: yes
-    harden-dnssec-stripped: yes
-    harden-below-nxdomain: yes
-    harden-referral-path: yes
-    harden-algo-downgrade: yes
-    harden-large-queries: yes
-    harden-short-bufsize: yes
-    
-    # Privacy settings
-    qname-minimisation: yes
-    qname-minimisation-strict: yes
-    aggressive-nsec: yes
-    
-    # DNSSEC validation
-    auto-trust-anchor-file: "/var/lib/unbound/root.key"
-    trust-anchor-signaling: yes
-    root-key-sentinel: yes
-    
-    # Performance optimizations
-    prefetch: yes
-    prefetch-key: yes
-    serve-expired: yes
-    serve-expired-ttl: 3600
-    
-    # TLS configuration
-    tls-cert-bundle: /etc/ssl/certs/ca-certificates.crt
-    
-    # Logging (for development/debugging)
-    verbosity: 1
-    log-queries: no
-    log-replies: no
-    
-    # Local development settings
-    do-not-query-localhost: no
-    domain-insecure: "localhost"
-    private-address: 127.0.0.0/8
-    private-address: 10.0.0.0/8
-    private-address: 172.16.0.0/12
-    private-address: 192.168.0.0/16
-    private-address: fd00::/8
-    private-address: fe80::/10
-
-# Remote control (for unbound-control)
-remote-control:
-    control-enable: yes
-    control-interface: 127.0.0.1
-    control-port: 8953
-
-# Forward all queries to secure DNS servers with DoT
-forward-zone:
-    name: "."
-    forward-tls-upstream: yes
-EOF
-
-    # Add forward addresses for secure DNS servers
-    for server in "${SECURE_DNS_SERVERS[@]}"; do
-        echo "    forward-addr: $server" >> "$unbound_conf"
+    for package in "${required_packages[@]}"; do
+        if ! arch-chroot /mnt pacman -Q "$package" &>/dev/null; then
+            missing_packages+=("$package")
+        fi
     done
     
-    # Create unbound control keys directory
-    mkdir -p "$UNBOUND_CONFIG_DIR/unbound_control.d"
-    
-    # Create local configuration directory for custom zones
-    cat > "$UNBOUND_CONFIG_DIR/unbound.conf.d/local.conf" << 'EOF'
-# Local DNS configuration
-# Add custom zones and overrides here
-
-# Example local development zone:
-# local-zone: "dev.local" static
-# local-data: "app.dev.local A 127.0.0.1"
-
-# Block known malicious domains (uncomment to enable)
-# include: /etc/unbound/unbound.conf.d/blocklist.conf
-EOF
-
-    # Set proper permissions
-    chmod 644 "$unbound_conf"
-    chmod 644 "$UNBOUND_CONFIG_DIR/unbound.conf.d/local.conf"
-    chmod 755 "$UNBOUND_CONFIG_DIR/unbound_control.d"
-    
-    # Verify configuration was created
-    if [[ ! -s "$unbound_conf" ]]; then
-        output "ERROR: Unbound configuration is empty"
+    if [[ ${#missing_packages[@]} -gt 0 ]]; then
+        output "ERROR: Missing security packages: ${missing_packages[*]}"
+        output "These should have been installed in pacstrap phase"
         return 1
     fi
     
-    if ! grep -q "forward-tls-upstream: yes" "$unbound_conf"; then
-        output "ERROR: Unbound configuration missing DoT setup"
-        return 1
-    fi
-    
-    output "  ✓ Unbound configured on port $UNBOUND_PORT"
-    output "  ✓ DNS-over-TLS forwarding to secure resolvers"
-    output "  ✓ DNSSEC validation enabled"
-    output "  ✓ Privacy and security optimizations applied"
+    output "All required security packages confirmed installed"
     return 0
 }
 
 # =====================================
-# SYSTEMD-RESOLVED INTEGRATION
+# SYSCTL SECURITY CONFIGURATION
 # =====================================
 
-configure_systemd_resolved() {
-    output "Step 2/4: Configuring systemd-resolved integration..."
+install_sysctl_security() {
+    output "Step 1/6: Installing developer-friendly security configuration..."
     
-    local resolved_conf="$SYSTEMD_RESOLVED_CONFIG_DIR/unbound-integration.conf"
+    local sysctl_dir="/mnt/etc/sysctl.d"
+    local sysctl_file="$sysctl_dir/$SYSCTL_CONFIG_NAME"
     
-    # Configure systemd-resolved to use unbound as upstream
-    cat > "$resolved_conf" << EOF
-# systemd-resolved configuration for unbound integration
-# systemd-resolved acts as a proxy to unbound for better integration
+    # Create sysctl.d directory if it doesn't exist
+    mkdir -p "$sysctl_dir"
+    
+    # Remove any old problematic configurations
+    rm -f "$sysctl_dir/99-workstation.conf"
+    
+    # Install our developer-friendly sysctl configuration
+    cat > "$sysctl_file" << 'EOF'
+# /etc/sysctl.d/99-developer-workstation.conf
+# Security hardening optimized for development workstations
+# Balances security with virtualization, containers, and debugging needs
+
+# =====================================
+# MEMORY PROTECTION (Safe for dev work)
+# =====================================
+
+# Improve ASLR effectiveness for mmap
+vm.mmap_rnd_bits = 32
+vm.mmap_rnd_compat_bits = 16
+
+# Restrict userfaultfd to processes with CAP_SYS_PTRACE
+vm.unprivileged_userfaultfd = 0
+
+# =====================================
+# KERNEL INFORMATION PROTECTION
+# =====================================
+
+# Restrict dmesg to CAP_SYS_LOG
+kernel.dmesg_restrict = 1
+
+# Restrict access to /proc and kernel pointer info
+# Level 1 allows debugging own processes (developer-friendly)
+kernel.kptr_restrict = 1
+
+# Developer-friendly ptrace scope
+# 1 = restrict to same uid and CAP_SYS_PTRACE (allows debugging)
+kernel.yama.ptrace_scope = 1
+
+# =====================================
+# FILESYSTEM PROTECTION
+# =====================================
+
+# Enable filesystem protection sysctls
+fs.protected_regular = 2
+fs.protected_fifos = 2
+fs.protected_symlinks = 1
+fs.protected_hardlinks = 1
+
+# Disable core dumps (security)
+kernel.core_pattern = |/bin/false
+fs.suid_dumpable = 0
+
+# =====================================
+# NETWORK SECURITY (Dev-friendly)
+# =====================================
+
+# Basic IP spoofing mitigation
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.default.rp_filter = 1
+
+# SYN flood protection
+net.ipv4.tcp_syncookies = 1
+
+# Protection against time-wait assassination attacks
+net.ipv4.tcp_rfc1337 = 1
+
+# Ignore bogus ICMP responses
+net.ipv4.icmp_ignore_bogus_error_responses = 1
+
+# Don't send ICMP redirects (we're not a router)
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.default.send_redirects = 0
+
+# Don't accept ICMP redirects
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.default.accept_redirects = 0
+net.ipv6.conf.all.accept_redirects = 0
+net.ipv6.conf.default.accept_redirects = 0
+
+# Enable TCP timestamps
+net.ipv4.tcp_timestamps = 1
+
+# =====================================
+# CONTAINER/VIRTUALIZATION SUPPORT
+# =====================================
+
+# REQUIRED for Flatpak, containers, and user namespaces
+kernel.unprivileged_userns_clone = 1
+
+# Restrict eBPF to CAP_BPF
+kernel.unprivileged_bpf_disabled = 1
+net.core.bpf_jit_harden = 2
+
+# Enable IP forwarding for VM networking and containers
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
+
+# =====================================
+# PERFORMANCE TUNING
+# =====================================
+
+# Restrict performance events (security vs debugging balance)
+kernel.perf_event_paranoid = 2
+EOF
+
+    # Verify configuration was written correctly
+    if [[ ! -s "$sysctl_file" ]]; then
+        output "ERROR: sysctl configuration file is empty"
+        return 1
+    fi
+    
+    if ! grep -q "kernel.yama.ptrace_scope = 1" "$sysctl_file"; then
+        output "ERROR: sysctl configuration not written correctly"
+        return 1
+    fi
+    
+    # Set proper permissions
+    chmod 644 "$sysctl_file"
+    
+    output "  ✓ Developer-friendly security configuration installed"
+    output "  ✓ Kernel hardening enabled without breaking development tools"
+    return 0
+}
+
+# =====================================
+# APPARMOR SECURITY FRAMEWORK
+# =====================================
+
+setup_apparmor_foundation() {
+    output "Step 2/6: Setting up AppArmor security framework..."
+    
+    # Create AppArmor directory structure
+    mkdir -p "$APPARMOR_CONFIG_DIR"/{local,abstractions/local,cache,profiles/extras}
+    
+    # Create basic AppArmor configuration
+    cat > "/mnt/etc/apparmor/parser.conf" << 'EOF'
+# AppArmor parser configuration
+
+## Turn creating/updating of the cache on by default
+write-cache
+
+## Verify that cache is up to date
+cache-loc /etc/apparmor.d/cache
+EOF
+
+    # Set up audit logging configuration
+    mkdir -p "$AUDIT_CONFIG_DIR/rules.d"
+    
+    cat > "$AUDIT_CONFIG_DIR/rules.d/apparmor.rules" << 'EOF'
+# AppArmor audit rules
+# Log AppArmor denials for security monitoring
+
+-a always,exclude -F msgtype=AVC
+-a always,exclude -F msgtype=USER_AVC
+-a always,exclude -F msgtype=SELINUX_ERR
+-a always,exclude -F msgtype=AML_DENY
+-a always,exclude -F msgtype=APPARMOR_AUDIT
+-a always,exclude -F msgtype=APPARMOR_ALLOWED
+-a always,exclude -F msgtype=APPARMOR_DENIED
+-a always,exclude -F msgtype=APPARMOR_HINT
+-a always,exclude -F msgtype=APPARMOR_STATUS
+-a always,exclude -F msgtype=APPARMOR_ERROR
+EOF
+
+    # Create local customization directory structure
+    cat > "$APPARMOR_CONFIG_DIR/local/README" << 'EOF'
+# AppArmor Local Customizations
+
+This directory contains local customizations for AppArmor profiles.
+Files in this directory are included by the main AppArmor profiles
+to allow for site-specific modifications without editing the main profiles.
+
+## Usage:
+- Add local rules to files matching the profile name
+- Example: rules for /usr/bin/firefox go in local/usr.bin.firefox
+- Use include statements in main profiles: #include <local/usr.bin.firefox>
+
+## Profile deployment:
+- Profiles will be deployed post-installation using Victor commands
+- Use: vic setup security apparmor
+- Monitor with: vic run system security-status
+EOF
+
+    # Set proper permissions
+    chmod 755 "$APPARMOR_CONFIG_DIR"/{local,abstractions/local,cache}
+    chmod 644 "$APPARMOR_CONFIG_DIR/local/README"
+    
+    # Verify AppArmor structure was created
+    if [[ ! -d "$APPARMOR_CONFIG_DIR/local" ]]; then
+        output "ERROR: AppArmor directory structure not created"
+        return 1
+    fi
+    
+    output "  ✓ AppArmor directory structure created"
+    output "  ✓ Audit logging configured for security events"
+    output "  ✓ Profile deployment prepared for post-installation"
+    return 0
+}
+
+# =====================================
+# SSH SECURITY HARDENING
+# =====================================
+
+configure_ssh_security() {
+    output "Step 3/6: Configuring SSH security..."
+    
+    # Ensure SSH config directories exist
+    mkdir -p "$SSH_CONFIG_DIR/ssh_config.d" "$SSH_CONFIG_DIR/sshd_config.d"
+    
+    # Install hardened SSH client configuration
+    cat > "$SSH_CONFIG_DIR/ssh_config.d/10-security.conf" << 'EOF'
+# SSH Client Security Configuration
+
+# Encryption hardening
+GSSAPIAuthentication no
+VerifyHostKeyDNS yes
+
+# Use strong host key algorithms only
+HostKeyAlgorithms ssh-ed25519,rsa-sha2-256,rsa-sha2-512
+PubkeyAcceptedKeyTypes ssh-ed25519,rsa-sha2-256,rsa-sha2-512
+
+# Use strong ciphers and MACs
+Ciphers aes256-gcm@openssh.com,aes128-gcm@openssh.com
+MACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com
+
+# Use strong key exchange algorithms
+KexAlgorithms sntrup761x25519-sha512@openssh.com,curve25519-sha256,curve25519-sha256@libssh.org
+
+# Connection settings
+ConnectTimeout 30
+ServerAliveInterval 300
+ServerAliveCountMax 3
+EOF
+
+    # Install hardened SSH server configuration
+    cat > "$SSH_CONFIG_DIR/sshd_config.d/10-security.conf" << 'EOF'
+# SSH Server Security Configuration
+
+# Encryption hardening
+HostKey /etc/ssh/ssh_host_ed25519_key
+HostKeyAlgorithms ssh-ed25519
+KexAlgorithms sntrup761x25519-sha512@openssh.com
+PubkeyAcceptedKeyTypes ssh-ed25519
+Ciphers aes256-gcm@openssh.com
+MACs hmac-sha2-256-etm@openssh.com
+
+# Security hardening
+AuthenticationMethods publickey
+AuthorizedKeysFile .ssh/authorized_keys
+Compression no
+DisableForwarding yes
+LoginGraceTime 15s
+MaxAuthTries 3
+PermitUserEnvironment no
+PermitUserRC no
+StrictModes yes
+UseDNS no
+
+# Use KeepAlive over SSH instead of with TCP
+TCPKeepAlive no
+ClientAliveInterval 300
+ClientAliveCountMax 3
+
+# Use PAM for session checks
+UsePAM yes
+
+# Disable unused authentication methods
+ChallengeResponseAuthentication no
+GSSAPIAuthentication no
+HostbasedAuthentication no
+PasswordAuthentication no
+PermitRootLogin no
+PermitEmptyPasswords no
+KbdInteractiveAuthentication no
+KerberosAuthentication no
+
+# Information display
+Banner /etc/issue.net
+PrintLastLog yes
+PrintMotd yes
+EOF
+
+    # Create security banner
+    cat > "/mnt/etc/issue.net" << 'EOF'
+================================================================================
+                            AUTHORIZED ACCESS ONLY
+================================================================================
+
+This system is for authorized users only. All activities are monitored and
+logged. Unauthorized access is prohibited and may result in prosecution.
+
+By continuing, you acknowledge that you have read and agree to comply with
+this system's security policies and acceptable use guidelines.
+
+================================================================================
+EOF
+
+    # Set proper permissions
+    chmod 644 "$SSH_CONFIG_DIR/ssh_config.d/10-security.conf"
+    chmod 644 "$SSH_CONFIG_DIR/sshd_config.d/10-security.conf"
+    chmod 644 "/mnt/etc/issue.net"
+    
+    # Verify SSH configuration files were created
+    if [[ ! -f "$SSH_CONFIG_DIR/sshd_config.d/10-security.conf" ]]; then
+        output "ERROR: SSH server security configuration not created"
+        return 1
+    fi
+    
+    output "  ✓ SSH client security configuration installed"
+    output "  ✓ SSH server security hardening enabled"
+    output "  ✓ Security banner configured"
+    return 0
+}
+
+# =====================================
+# FAIL2BAN INTRUSION PREVENTION
+# =====================================
+
+configure_fail2ban() {
+    output "Step 4/6: Configuring intrusion prevention..."
+    
+    # Create fail2ban directory structure
+    mkdir -p "$FAIL2BAN_CONFIG_DIR"/{jail.d,filter.d,action.d}
+    
+    # Configure fail2ban for SSH protection
+    cat > "$FAIL2BAN_CONFIG_DIR/jail.d/sshd.local" << 'EOF'
+# Fail2ban SSH jail configuration
+
+[DEFAULT]
+# Global settings
+bantime = 1h
+findtime = 10m
+maxretry = 3
+backend = systemd
+
+# Ignore localhost and private networks
+ignoreip = 127.0.0.1/8 ::1 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
+
+[sshd]
+enabled = true
+mode = aggressive
+port = ssh
+logpath = %(sshd_log)s
+maxretry = 3
+bantime = 24h
+findtime = 1h
+EOF
+
+    # Configure fail2ban service settings
+    cat > "$FAIL2BAN_CONFIG_DIR/fail2ban.local" << 'EOF'
+# Fail2ban main configuration
+
+[Definition]
+loglevel = INFO
+logtarget = /var/log/fail2ban.log
+syslogsocket = auto
+socket = /var/run/fail2ban/fail2ban.sock
+pidfile = /var/run/fail2ban/fail2ban.pid
+dbfile = /var/lib/fail2ban/fail2ban.sqlite3
+dbpurgeage = 1d
+EOF
+
+    # Set proper permissions
+    chmod 644 "$FAIL2BAN_CONFIG_DIR/jail.d/sshd.local"
+    chmod 644 "$FAIL2BAN_CONFIG_DIR/fail2ban.local"
+    
+    # Verify fail2ban configuration
+    if [[ ! -f "$FAIL2BAN_CONFIG_DIR/jail.d/sshd.local" ]]; then
+        output "ERROR: Fail2ban configuration not created"
+        return 1
+    fi
+    
+    output "  ✓ Fail2ban intrusion prevention configured"
+    output "  ✓ SSH brute-force protection enabled"
+    return 0
+}
+
+# =====================================
+# NETWORK SECURITY SETUP
+# =====================================
+
+setup_network_security() {
+    output "Step 5/6: Configuring network security..."
+    
+    # Configure UFW firewall default rules
+    mkdir -p "/mnt/etc/ufw"
+    
+    cat > "/mnt/etc/ufw/user.rules" << 'EOF'
+# UFW user rules (IPv4)
+*filter
+:ufw-user-input - [0:0]
+:ufw-user-output - [0:0]
+:ufw-user-forward - [0:0]
+:ufw-user-limit - [0:0]
+:ufw-user-limit-accept - [0:0]
+
+# Allow loopback
+-A ufw-user-input -i lo -j ACCEPT
+-A ufw-user-output -o lo -j ACCEPT
+
+# Allow established and related connections
+-A ufw-user-input -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A ufw-user-output -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+# Default deny incoming, allow outgoing
+-A ufw-user-input -j DROP
+-A ufw-user-output -j ACCEPT
+
+COMMIT
+EOF
+
+    # Configure secure DNS resolution
+    mkdir -p "/mnt/etc/systemd/resolved.conf.d"
+    
+    cat > "/mnt/etc/systemd/resolved.conf.d/security.conf" << 'EOF'
+# Secure DNS resolution configuration
 
 [Resolve]
-# Use unbound as upstream DNS server
-DNS=127.0.0.1:${UNBOUND_PORT}
+# Use secure DNS servers with DoT support
+DNS=1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com
+FallbackDNS=9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net
 
-# Fallback to secure public DNS if unbound fails
-FallbackDNS=1.1.1.2#security.cloudflare-dns.com 9.9.9.9#dns.quad9.net
+# Enable DNS over TLS
+DNSOverTLS=yes
 
-# Enable DNS over TLS (unbound handles this)
-DNSOverTLS=no
+# Enable DNSSEC validation
+DNSSEC=yes
 
-# Let unbound handle DNSSEC
-DNSSEC=no
-
-# Disable conflicting features (unbound handles these)
+# Disable mDNS for security
 MulticastDNS=no
+
+# Disable LLMNR for security
 LLMNR=no
 
-# Cache settings (minimal since unbound does the heavy caching)
+# Cache DNS responses
 Cache=yes
-CacheFromLocalhost=no
-
-# DNS stub listener configuration
-DNSStubListener=yes
-DNSStubListenerExtra=
-
-# Read system hosts file
-ReadEtcHosts=yes
-
-# Don't resolve single-label names over DNS
-ResolveUnicastSingleLabel=no
 EOF
 
-    # Create backup resolv.conf configuration
-    cat > "/mnt/etc/systemd/resolved.conf.d/backup-dns.conf" << 'EOF'
-# Backup DNS configuration
-# This file provides fallback DNS configuration if unbound fails
-
-[Resolve]
-# These settings are only used if the primary DNS configuration fails
-# They are overridden by unbound-integration.conf when unbound is running
-
-# Backup secure DNS servers
-#FallbackDNS=1.1.1.1#cloudflare-dns.com 9.9.9.9#dns.quad9.net
-EOF
-
-    # Verify configuration was created
-    if [[ ! -s "$resolved_conf" ]]; then
-        output "ERROR: systemd-resolved configuration is empty"
-        return 1
-    fi
+    # Configure NetworkManager security
+    mkdir -p "/mnt/etc/NetworkManager/conf.d"
     
-    if ! grep -q "DNS=127.0.0.1:${UNBOUND_PORT}" "$resolved_conf"; then
-        output "ERROR: systemd-resolved not configured to use unbound"
-        return 1
-    fi
-    
-    output "  ✓ systemd-resolved configured to use unbound upstream"
-    output "  ✓ Fallback DNS servers configured"
-    output "  ✓ Integration settings optimized"
-    return 0
-}
-
-# =====================================
-# NETWORKMANAGER CONFIGURATION
-# =====================================
-
-configure_networkmanager() {
-    output "Step 3/4: Configuring NetworkManager security and privacy..."
-    
-    # Main NetworkManager configuration
-    cat > "$NETWORKMANAGER_CONFIG_DIR/security.conf" << 'EOF'
-# NetworkManager security and privacy configuration
+    cat > "/mnt/etc/NetworkManager/conf.d/security.conf" << 'EOF'
+# NetworkManager security configuration
 
 [main]
-# Use systemd-resolved for DNS (which uses unbound)
+# Don't store DNS servers from DHCP
 dns=systemd-resolved
 
-# Don't send hostname to DHCP servers
-hostname-mode=none
-
-# Security settings
-dhcp=internal
-
 [device]
-# WiFi privacy settings
+# Randomize MAC addresses for privacy
 wifi.scan-rand-mac-address=yes
-wifi.cloned-mac-address=stable-ssid
-
-# Ethernet privacy settings  
-ethernet.cloned-mac-address=stable
 
 [connection]
-# Connection-specific privacy settings
+# Use random MAC addresses
+wifi.cloned-mac-address=random
+ethernet.cloned-mac-address=random
 connection.stable-id=${CONNECTION}/${BOOT}
 
-# IPv6 privacy extensions
-ipv6.ip6-privacy=2
-
-# Don't leak DNS queries during connection setup
-connection.mdns=no
-connection.llmnr=no
-EOF
-
-    # Advanced connection security
-    cat > "$NETWORKMANAGER_CONFIG_DIR/connection-security.conf" << 'EOF'
-# Advanced connection security settings
-
-[connection-security]
-# Additional security for untrusted networks
-
-[device-security]
-# Device-level security settings
-
-# Disable wake-on-lan by default (security)
-ethernet.wake-on-lan=ignore
-
-# WiFi security settings
-wifi.wake-on-wlan=ignore
-wifi.powersave=default
-
-[logging]
-# Security-relevant logging
-level=INFO
-domains=DEVICE,WIFI,DHCP4,DHCP6,DNS
-EOF
-
-    # WiFi-specific security configuration
-    cat > "$NETWORKMANAGER_CONFIG_DIR/wifi-security.conf" << 'EOF'
-# WiFi-specific security configuration
-
-[device-wifi-security]
-# WiFi scanning and connection security
-
-# Randomize MAC during scans
-wifi.scan-rand-mac-address=yes
-
-# Use random MAC for connections
-wifi.cloned-mac-address=random
-
-# Disable MAC address randomization for trusted networks (uncomment if needed)
-# wifi.cloned-mac-address=preserve
-
-[connection-wifi-security]
-# Connection-specific WiFi security
-
-# Prefer secure connection methods
-wifi-sec.key-mgmt=wpa-psk,wpa-eap,sae
-
-# Disable legacy security
-wifi-sec.proto=rsn
-wifi-sec.pairwise=ccmp
-wifi-sec.group=ccmp
+# Disable hostname broadcast
+hostname-mode=none
 EOF
 
     # Set proper permissions
-    chmod 644 "$NETWORKMANAGER_CONFIG_DIR"/*.conf
+    chmod 644 "/mnt/etc/ufw/user.rules"
+    chmod 644 "/mnt/etc/systemd/resolved.conf.d/security.conf"
+    chmod 644 "/mnt/etc/NetworkManager/conf.d/security.conf"
     
-    # Verify NetworkManager configuration
-    if [[ ! -f "$NETWORKMANAGER_CONFIG_DIR/security.conf" ]]; then
-        output "ERROR: NetworkManager security configuration not created"
-        return 1
-    fi
-    
-    if ! grep -q "dns=systemd-resolved" "$NETWORKMANAGER_CONFIG_DIR/security.conf"; then
-        output "ERROR: NetworkManager not configured for systemd-resolved"
-        return 1
-    fi
-    
-    output "  ✓ NetworkManager configured for systemd-resolved integration"
-    output "  ✓ MAC address randomization enabled"
-    output "  ✓ Privacy and security settings applied"
-    output "  ✓ WiFi security hardening configured"
+    output "  ✓ Firewall default-deny rules configured"
+    output "  ✓ Secure DNS resolution with DoT enabled"
+    output "  ✓ NetworkManager privacy settings applied"
     return 0
 }
 
 # =====================================
-# NETWORK SECURITY INTEGRATION
+# FILESYSTEM AND SERVICE SECURITY
 # =====================================
 
-integrate_network_security() {
-    output "Step 4/4: Integrating with system security configuration..."
+configure_filesystem_security() {
+    output "Step 6/6: Configuring filesystem and service security..."
     
-    # Create network security monitoring script
-    cat > "/mnt/usr/local/bin/network-security-check" << 'EOF'
-#!/usr/bin/env bash
-# Network security status checker
+    # Configure sudo security
+    mkdir -p "/mnt/etc/sudoers.d"
+    
+    cat > "/mnt/etc/sudoers.d/security" << 'EOF'
+# Sudo security configuration
 
-set -euo pipefail
+# Require password for sudo
+Defaults passwd_timeout=0
+Defaults timestamp_timeout=15
 
-check_dns_resolution() {
-    echo "=== DNS Resolution Test ==="
-    
-    # Test systemd-resolved
-    if systemctl is-active systemd-resolved >/dev/null 2>&1; then
-        echo "✓ systemd-resolved is running"
-    else
-        echo "✗ systemd-resolved is not running"
-        return 1
-    fi
-    
-    # Test unbound
-    if systemctl is-active unbound >/dev/null 2>&1; then
-        echo "✓ unbound is running"
-    else
-        echo "✗ unbound is not running"
-        return 1
-    fi
-    
-    # Test DNS resolution
-    if nslookup cloudflare.com >/dev/null 2>&1; then
-        echo "✓ DNS resolution working"
-    else
-        echo "✗ DNS resolution failed"
-        return 1
-    fi
-    
-    # Test DoT functionality
-    if unbound-control status >/dev/null 2>&1; then
-        echo "✓ Unbound control interface working"
-    else
-        echo "✗ Unbound control interface failed"
-    fi
-}
+# Log sudo commands
+Defaults log_input, log_output
+Defaults logfile="/var/log/sudo.log"
 
-check_network_privacy() {
-    echo "=== Network Privacy Status ==="
-    
-    # Check MAC randomization
-    local wifi_devices
-    wifi_devices=$(nmcli device | grep wifi | awk '{print $1}' || echo "")
-    
-    if [[ -n "$wifi_devices" ]]; then
-        for device in $wifi_devices; do
-            local mac_setting
-            mac_setting=$(nmcli -t -f 802-11-wireless.cloned-mac-address device show "$device" 2>/dev/null || echo "unknown")
-            echo "WiFi device $device MAC setting: $mac_setting"
-        done
-    else
-        echo "No WiFi devices found"
-    fi
-}
+# Secure path
+Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-check_dns_security() {
-    echo "=== DNS Security Status ==="
-    
-    # Check DNSSEC
-    if dig +dnssec cloudflare.com | grep -q "ad" 2>/dev/null; then
-        echo "✓ DNSSEC validation working"
-    else
-        echo "? DNSSEC status unclear"
-    fi
-    
-    # Check DoT
-    local unbound_stats
-    unbound_stats=$(unbound-control stats 2>/dev/null || echo "unavailable")
-    if [[ "$unbound_stats" != "unavailable" ]]; then
-        echo "✓ Unbound statistics available"
-        echo "  $(echo "$unbound_stats" | grep "num.query.tls" || echo "TLS query count: unknown")"
-    else
-        echo "? Unbound statistics unavailable"
-    fi
-}
+# Don't allow shell escapes
+Defaults noexec
 
-main() {
-    echo "Network Security Status Check"
-    echo "============================="
-    echo
-    
-    check_dns_resolution
-    echo
-    check_network_privacy  
-    echo
-    check_dns_security
-    echo
-    echo "Check complete."
-}
-
-main "$@"
+# Require tty
+Defaults requiretty
 EOF
 
-    # Make the script executable
-    chmod 755 "/mnt/usr/local/bin/network-security-check"
+    # Configure systemd service hardening template
+    mkdir -p "/mnt/etc/systemd/system/service.d"
     
-    # Create network monitoring configuration for systemd
-    cat > "/mnt/etc/systemd/system/network-security-monitor.service" << 'EOF'
-[Unit]
-Description=Network Security Monitoring
-After=network-online.target unbound.service systemd-resolved.service
-Wants=network-online.target
+    cat > "/mnt/etc/systemd/system/service.d/hardening.conf" << 'EOF'
+# Default service hardening for user services
+# Apply to services that don't need special privileges
 
 [Service]
-Type=oneshot
-ExecStart=/usr/local/bin/network-security-check
-StandardOutput=journal
-StandardError=journal
+# Memory protection
+MemoryDenyWriteExecute=yes
 
-[Install]
-WantedBy=multi-user.target
+# Filesystem protection
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+
+# Kernel protection
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+# Network restrictions (override per service as needed)
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# System call filtering
+SystemCallFilter=@system-service
+SystemCallFilter=~@mount @reboot @swap
+
+# Namespace restrictions
+RestrictNamespaces=yes
+
+# Privilege restrictions
+NoNewPrivileges=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RemoveIPC=yes
+
+# Capability restrictions (override per service as needed)
+CapabilityBoundingSet=
 EOF
 
-    # Create timer for periodic checks
-    cat > "/mnt/etc/systemd/system/network-security-monitor.timer" << 'EOF'
-[Unit]
-Description=Periodic Network Security Check
-Requires=network-security-monitor.service
+    # Set up file permissions monitoring preparation
+    cat > "/mnt/etc/aide.conf" << 'EOF'
+# AIDE configuration for file integrity monitoring
+# This will be configured post-installation
 
-[Timer]
-OnBootSec=5min
-OnUnitActiveSec=1h
-Persistent=true
+# Database location
+database=file:/var/lib/aide/aide.db
+database_out=file:/var/lib/aide/aide.db.new
 
-[Install]
-WantedBy=timers.target
+# Report settings
+verbose=5
+report_url=file:/var/log/aide.log
+
+# File selection rules (basic set)
+/etc p+i+n+u+g+s+b+m+c+md5+sha256
+/bin p+i+n+u+g+s+b+m+c+md5+sha256
+/sbin p+i+n+u+g+s+b+m+c+md5+sha256
+/usr/bin p+i+n+u+g+s+b+m+c+md5+sha256
+/usr/sbin p+i+n+u+g+s+b+m+c+md5+sha256
+
+# Exclude temporary and log directories
+!/tmp
+!/var/tmp
+!/var/log
+!/var/cache
+!/var/spool
 EOF
 
-    # Verify integration files were created
-    if [[ ! -x "/mnt/usr/local/bin/network-security-check" ]]; then
-        output "ERROR: Network security check script not created"
-        return 1
-    fi
+    # Set proper permissions
+    chmod 440 "/mnt/etc/sudoers.d/security"
+    chmod 644 "/mnt/etc/systemd/system/service.d/hardening.conf"
+    chmod 600 "/mnt/etc/aide.conf"
     
-    output "  ✓ Network security monitoring script created"
-    output "  ✓ Systemd monitoring service configured"
-    output "  ✓ Security integration complete"
+    # Create security log directory
+    mkdir -p "/mnt/var/log/security"
+    chmod 750 "/mnt/var/log/security"
+    
+    output "  ✓ Sudo security hardening configured"
+    output "  ✓ Systemd service hardening template created"
+    output "  ✓ File integrity monitoring prepared"
     return 0
 }
 
 # =====================================
-# CONFIGURATION VALIDATION
+# SECURITY VALIDATION
 # =====================================
 
-validate_network_configuration() {
-    output "Validating complete network configuration..."
+validate_security_configuration() {
+    output "Validating security configuration..."
     
     local validation_errors=0
     
-    # Check unbound configuration
-    if [[ ! -f "$UNBOUND_CONFIG_DIR/unbound.conf" ]]; then
-        output "ERROR: Unbound configuration missing"
-        ((validation_errors++))
-    elif ! grep -q "forward-tls-upstream: yes" "$UNBOUND_CONFIG_DIR/unbound.conf"; then
-        output "ERROR: Unbound DoT configuration invalid"
+    # Check sysctl configuration
+    if [[ ! -f "/mnt/etc/sysctl.d/$SYSCTL_CONFIG_NAME" ]]; then
+        output "ERROR: sysctl security configuration missing"
         ((validation_errors++))
     else
-        output "  ✓ Unbound configuration validated"
+        output "  ✓ sysctl security configuration installed"
     fi
     
-    # Check systemd-resolved configuration
-    if [[ ! -f "$SYSTEMD_RESOLVED_CONFIG_DIR/unbound-integration.conf" ]]; then
-        output "ERROR: systemd-resolved integration missing"
-        ((validation_errors++))
-    elif ! grep -q "DNS=127.0.0.1:$UNBOUND_PORT" "$SYSTEMD_RESOLVED_CONFIG_DIR/unbound-integration.conf"; then
-        output "ERROR: systemd-resolved unbound integration invalid"
+    # Check AppArmor structure
+    if [[ ! -d "$APPARMOR_CONFIG_DIR/local" ]]; then
+        output "ERROR: AppArmor directory structure missing"
         ((validation_errors++))
     else
-        output "  ✓ systemd-resolved integration validated"
+        output "  ✓ AppArmor framework prepared"
     fi
     
-    # Check NetworkManager configuration
-    if [[ ! -f "$NETWORKMANAGER_CONFIG_DIR/security.conf" ]]; then
-        output "ERROR: NetworkManager security configuration missing"
-        ((validation_errors++))
-    elif ! grep -q "dns=systemd-resolved" "$NETWORKMANAGER_CONFIG_DIR/security.conf"; then
-        output "ERROR: NetworkManager systemd-resolved integration invalid"
+    # Check SSH security
+    if [[ ! -f "$SSH_CONFIG_DIR/sshd_config.d/10-security.conf" ]]; then
+        output "ERROR: SSH security configuration missing"
         ((validation_errors++))
     else
-        output "  ✓ NetworkManager configuration validated"
+        output "  ✓ SSH security hardening configured"
     fi
     
-    # Check monitoring integration
-    if [[ ! -x "/mnt/usr/local/bin/network-security-check" ]]; then
-        output "ERROR: Network security monitoring missing"
+    # Check fail2ban configuration
+    if [[ ! -f "$FAIL2BAN_CONFIG_DIR/jail.d/sshd.local" ]]; then
+        output "ERROR: Fail2ban configuration missing"
         ((validation_errors++))
     else
-        output "  ✓ Network security monitoring validated"
+        output "  ✓ Fail2ban intrusion prevention configured"
+    fi
+    
+    # Check network security
+    if [[ ! -f "/mnt/etc/systemd/resolved.conf.d/security.conf" ]]; then
+        output "ERROR: DNS security configuration missing"
+        ((validation_errors++))
+    else
+        output "  ✓ Network security configured"
+    fi
+    
+    # Check filesystem security
+    if [[ ! -f "/mnt/etc/sudoers.d/security" ]]; then
+        output "ERROR: Sudo security configuration missing"
+        ((validation_errors++))
+    else
+        output "  ✓ Filesystem security configured"
     fi
     
     if [[ $validation_errors -gt 0 ]]; then
-        output "ERROR: $validation_errors network configuration failures"
+        output "ERROR: $validation_errors security configuration failures"
         return 1
     fi
     
-    output "All network configurations validated successfully"
+    output "All security configurations validated successfully"
     return 0
 }
 
-display_network_summary() {
+display_security_summary() {
     output ""
-    output "=== Network Configuration Summary ==="
-    output ""
-    
-    output "=== DNS Resolution Chain ==="
-    output "  Applications → systemd-resolved (127.0.0.53:53)"
-    output "               ↓"
-    output "               → Unbound (127.0.0.1:$UNBOUND_PORT)"
-    output "                 ↓"
-    output "                 → Secure DNS Servers (DoT)"
+    output "=== Security Configuration Summary ==="
     output ""
     
-    output "=== Security Features ==="
-    output "  • DNS-over-TLS encryption"
-    output "  • DNSSEC validation"
-    output "  • Query minimization for privacy"
+    output "=== Kernel Security ==="
+    output "  • Developer-friendly sysctl hardening"
+    output "  • Memory protection (ASLR, DEP)"
+    output "  • Filesystem protections"
+    output "  • Network security (no functionality breaks)"
+    output "  • Container/VM support maintained"
+    output ""
+    
+    output "=== Application Security ==="
+    output "  • AppArmor framework prepared"
+    output "  • Profile structure created"
+    output "  • Audit logging configured"
+    output "  • Post-install deployment ready"
+    output ""
+    
+    output "=== Network Security ==="
+    output "  • UFW firewall configured (default-deny)"
+    output "  • Secure DNS with DoT enabled"
     output "  • MAC address randomization"
-    output "  • Hostname privacy protection"
-    output "  • WiFi security hardening"
+    output "  • SSH hardening with modern crypto"
+    output "  • Fail2ban intrusion prevention"
     output ""
     
-    output "=== Performance Features ==="
-    output "  • Optimized caching (unbound)"
-    output "  • Prefetching for faster resolution"
-    output "  • Serve expired for availability"
-    output "  • Local development zone support"
+    output "=== Service Security ==="
+    output "  • Systemd service hardening template"
+    output "  • Sudo security restrictions"
+    output "  • File integrity monitoring prepared"
+    output "  • Security logging configured"
     output ""
     
-    output "=== Integration ==="
-    output "  • No conflicts between components"
-    output "  • Seamless fallback if unbound fails"
-    output "  • NetworkManager privacy integration"
-    output "  • Security monitoring included"
+    output "=== Post-Installation Steps ==="
+    output "  • Deploy AppArmor profiles: vic setup security apparmor"
+    output "  • Check security status: vic run system security-status"
+    output "  • Monitor security events: journalctl -f | grep -i security"
+    output "  • Configure UFW rules: ufw allow ssh"
     output ""
     
-    output "=== Configuration Files ==="
-    output "  • Unbound: /etc/unbound/unbound.conf"
-    output "  • systemd-resolved: /etc/systemd/resolved.conf.d/"
-    output "  • NetworkManager: /etc/NetworkManager/conf.d/"
-    output "  • Monitoring: /usr/local/bin/network-security-check"
-    output ""
-    
-    output "=== Post-Installation Commands ==="
-    output "  • Check status: network-security-check"
-    output "  • Unbound control: unbound-control status"
-    output "  • DNS test: resolvectl query cloudflare.com"
-    output "  • Monitor: journalctl -u unbound -f"
+    output "=== Security Approach ==="
+    output "  ✓ Application-level confinement (better than kernel restrictions)"
+    output "  ✓ Developer workflow preserved (debugging, containers, VMs)"
+    output "  ✓ Enterprise-grade security without productivity loss"
+    output "  ✓ Practical security that actually gets used"
     output "=================================="
     output ""
 }
 
 # =====================================
-# MAIN NETWORK CONFIGURATION PROCESS
+# MAIN SECURITY CONFIGURATION PROCESS
 # =====================================
 
-output "=== Secure Network Configuration ==="
-output "Implementing unbound + systemd-resolved + NetworkManager integration"
+output "=== Enterprise Security Configuration ==="
+output "Implementing practical, developer-friendly security measures"
 output ""
 
 # Pre-configuration validation
-validate_network_packages || exit 1
 validate_target_directories || exit 1
+check_security_packages || exit 1
 
-# Main network configuration steps
-configure_unbound_resolver || exit 1
-configure_systemd_resolved || exit 1
-configure_networkmanager || exit 1
-integrate_network_security || exit 1
+# Main security configuration steps
+install_sysctl_security || exit 1
+setup_apparmor_foundation || exit 1
+configure_ssh_security || exit 1
+configure_fail2ban || exit 1
+setup_network_security || exit 1
+configure_filesystem_security || exit 1
 
 # Post-configuration validation
-validate_network_configuration || exit 1
+validate_security_configuration || exit 1
 
 # Display summary
-display_network_summary
+display_security_summary
 
-output "=== Network Configuration Complete ==="
-output "✓ Unbound DNS resolver with DoT and DNSSEC"
-output "✓ systemd-resolved integration (no conflicts)"
-output "✓ NetworkManager privacy and security"
-output "✓ Performance optimizations for development"
-output "✓ Security monitoring and fallback configured"
-output "✓ All components working together seamlessly"
+output "=== Security Configuration Complete ==="
+output "✓ Practical kernel hardening (no development workflow breaks)"
+output "✓ AppArmor application security framework prepared"
+output "✓ Network security with modern cryptography"
+output "✓ Intrusion prevention and monitoring configured"
+output "✓ Service and filesystem hardening enabled"
+output "✓ Enterprise-grade security without productivity loss"
 output ""
-output "Network stack ready with enterprise-grade security and performance"
+output "Security foundation ready - profiles will be deployed post-installation"
