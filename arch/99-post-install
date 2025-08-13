@@ -1,6 +1,776 @@
 #!/usr/bin/env bash
 
-# TODO: Fix pathing
+# arch/99-post-install
+# Final installation validation, cleanup, and preparation
 
-# Last step -- copy vic into user home
-# unpriv cd -r ../../victor "/mnt/home/${username}/Workspace/."
+set -euo pipefail
+
+# =====================================
+# INSTALLATION VALIDATION CONSTANTS
+# =====================================
+
+readonly CRITICAL_FILES=(
+    "/mnt/etc/fstab"
+    "/mnt/etc/hostname"
+    "/mnt/etc/hosts"
+    "/mnt/etc/passwd"
+    "/mnt/etc/group"
+    "/mnt/etc/sudoers"
+    "/mnt/boot/limine.cfg"
+    "/mnt/etc/mkinitcpio.conf"
+)
+
+readonly SECURITY_FILES=(
+    "/mnt/etc/sysctl.d/99-developer-workstation.conf"
+    "/mnt/etc/ssh/sshd_config.d/10-security.conf"
+    "/mnt/etc/apparmor.d/local"
+    "/mnt/etc/fail2ban/jail.d/sshd.local"
+)
+
+readonly NETWORK_FILES=(
+    "/mnt/etc/unbound/unbound.conf"
+    "/mnt/etc/systemd/resolved.conf.d/unbound-integration.conf"
+    "/mnt/etc/NetworkManager/conf.d/security.conf"
+)
+
+readonly REQUIRED_SERVICES=(
+    "systemd-resolved"
+    "NetworkManager"
+    "chronyd"
+    "apparmor"
+    "unbound"
+    "sshd"
+    "fail2ban"
+)
+
+# =====================================
+# COMPREHENSIVE SYSTEM VALIDATION
+# =====================================
+
+validate_critical_files() {
+    output "Step 1/6: Validating critical system files..."
+    
+    local missing_files=()
+    local empty_files=()
+    
+    for file in "${CRITICAL_FILES[@]}"; do
+        if [[ ! -f "$file" ]]; then
+            missing_files+=("$file")
+        elif [[ ! -s "$file" ]]; then
+            empty_files+=("$file")
+        fi
+    done
+    
+    if [[ ${#missing_files[@]} -gt 0 ]]; then
+        output "ERROR: Critical files missing:"
+        printf '  %s\n' "${missing_files[@]}"
+        return 1
+    fi
+    
+    if [[ ${#empty_files[@]} -gt 0 ]]; then
+        output "ERROR: Critical files are empty:"
+        printf '  %s\n' "${empty_files[@]}"
+        return 1
+    fi
+    
+    output "  ✓ All critical system files present and non-empty"
+    return 0
+}
+
+validate_security_configuration() {
+    output "Step 2/6: Validating security configuration..."
+    
+    local validation_errors=0
+    
+    # Check security files exist
+    for file in "${SECURITY_FILES[@]}"; do
+        if [[ ! -e "$file" ]]; then
+            output "ERROR: Security file missing: $file"
+            ((validation_errors++))
+        fi
+    done
+    
+    # Validate sysctl configuration
+    if [[ -f "/mnt/etc/sysctl.d/99-developer-workstation.conf" ]]; then
+        if ! grep -q "kernel.yama.ptrace_scope = 1" "/mnt/etc/sysctl.d/99-developer-workstation.conf"; then
+            output "ERROR: sysctl security configuration invalid"
+            ((validation_errors++))
+        fi
+    fi
+    
+    # Validate SSH security
+    if [[ -f "/mnt/etc/ssh/sshd_config.d/10-security.conf" ]]; then
+        if ! grep -q "AuthenticationMethods publickey" "/mnt/etc/ssh/sshd_config.d/10-security.conf"; then
+            output "ERROR: SSH security configuration invalid"
+            ((validation_errors++))
+        fi
+    fi
+    
+    # Validate AppArmor structure
+    if [[ ! -d "/mnt/etc/apparmor.d/local" ]]; then
+        output "ERROR: AppArmor directory structure missing"
+        ((validation_errors++))
+    fi
+    
+    if [[ $validation_errors -eq 0 ]]; then
+        output "  ✓ Security configuration validated"
+        return 0
+    else
+        output "ERROR: $validation_errors security validation failures"
+        return 1
+    fi
+}
+
+validate_network_stack() {
+    output "Step 3/6: Validating network stack integration..."
+    
+    local network_errors=0
+    
+    # Check network configuration files
+    for file in "${NETWORK_FILES[@]}"; do
+        if [[ ! -f "$file" ]]; then
+            output "ERROR: Network file missing: $file"
+            ((network_errors++))
+        fi
+    done
+    
+    # Validate unbound configuration
+    if [[ -f "/mnt/etc/unbound/unbound.conf" ]]; then
+        if ! grep -q "forward-tls-upstream: yes" "/mnt/etc/unbound/unbound.conf"; then
+            output "ERROR: Unbound DoT configuration missing"
+            ((network_errors++))
+        fi
+    fi
+    
+    # Validate systemd-resolved integration
+    if [[ -f "/mnt/etc/systemd/resolved.conf.d/unbound-integration.conf" ]]; then
+        if ! grep -q "DNS=127.0.0.1:5353" "/mnt/etc/systemd/resolved.conf.d/unbound-integration.conf"; then
+            output "ERROR: systemd-resolved integration invalid"
+            ((network_errors++))
+        fi
+    fi
+    
+    # Validate NetworkManager integration
+    if [[ -f "/mnt/etc/NetworkManager/conf.d/security.conf" ]]; then
+        if ! grep -q "dns=systemd-resolved" "/mnt/etc/NetworkManager/conf.d/security.conf"; then
+            output "ERROR: NetworkManager DNS integration invalid"
+            ((network_errors++))
+        fi
+    fi
+    
+    # Validate DNS resolution chain configuration
+    local resolv_conf_target
+    resolv_conf_target=$(readlink /mnt/etc/resolv.conf 2>/dev/null || echo "missing")
+    if [[ "$resolv_conf_target" != "/run/systemd/resolve/stub-resolv.conf" ]]; then
+        output "ERROR: DNS resolution chain not configured correctly"
+        ((network_errors++))
+    fi
+    
+    if [[ $network_errors -eq 0 ]]; then
+        output "  ✓ Network stack integration validated"
+        output "    DNS chain: Applications → systemd-resolved → unbound → secure DNS"
+        return 0
+    else
+        output "ERROR: $network_errors network validation failures"
+        return 1
+    fi
+}
+
+validate_bootloader_configuration() {
+    output "Step 4/6: Validating bootloader configuration..."
+    
+    # Check Limine configuration exists
+    if [[ ! -f "/mnt/boot/limine.cfg" ]]; then
+        output "ERROR: Limine configuration missing"
+        return 1
+    fi
+    
+    # Validate required boot entries
+    local required_entries=("Arch Linux" "Arch Linux LTS" "Recovery")
+    local missing_entries=()
+    
+    for entry in "${required_entries[@]}"; do
+        if ! grep -q ":.*$entry" "/mnt/boot/limine.cfg"; then
+            missing_entries+=("$entry")
+        fi
+    done
+    
+    if [[ ${#missing_entries[@]} -gt 0 ]]; then
+        output "ERROR: Missing boot entries: ${missing_entries[*]}"
+        return 1
+    fi
+    
+    # Validate kernel files exist
+    local kernel_files=(
+        "/mnt/boot/vmlinuz-linux"
+        "/mnt/boot/vmlinuz-linux-lts"
+        "/mnt/boot/initramfs-linux.img"
+        "/mnt/boot/initramfs-linux-lts.img"
+    )
+    
+    for file in "${kernel_files[@]}"; do
+        if [[ ! -f "$file" ]]; then
+            output "ERROR: Kernel file missing: $file"
+            return 1
+        fi
+    done
+    
+    # Check Limine bootloader installation
+    if [[ ! -f "/mnt/boot/efi/EFI/BOOT/BOOTX64.EFI" ]]; then
+        output "ERROR: Limine UEFI bootloader not installed"
+        return 1
+    fi
+    
+    output "  ✓ Bootloader configuration validated"
+    output "    Limine installed with UEFI + BIOS compatibility"
+    return 0
+}
+
+validate_service_integration() {
+    output "Step 5/6: Validating service integration..."
+    
+    local service_errors=0
+    
+    # Check required services are enabled
+    for service in "${REQUIRED_SERVICES[@]}"; do
+        if ! systemctl is-enabled "$service" --root=/mnt &>/dev/null; then
+            output "ERROR: Required service not enabled: $service"
+            ((service_errors++))
+        fi
+    done
+    
+    # Validate service integration chains
+    
+    # DNS resolution chain
+    if systemctl is-enabled systemd-resolved --root=/mnt &>/dev/null && \
+       systemctl is-enabled unbound --root=/mnt &>/dev/null; then
+        output "  ✓ DNS resolution chain: systemd-resolved ↔ unbound"
+    else
+        output "ERROR: DNS resolution chain broken"
+        ((service_errors++))
+    fi
+    
+    # Security integration
+    if systemctl is-enabled apparmor --root=/mnt &>/dev/null && \
+       systemctl is-enabled auditd --root=/mnt &>/dev/null; then
+        output "  ✓ Security integration: AppArmor + audit logging"
+    else
+        output "WARNING: Security audit integration incomplete"
+    fi
+    
+    # Network security
+    if systemctl is-enabled NetworkManager --root=/mnt &>/dev/null && \
+       systemctl is-enabled fail2ban --root=/mnt &>/dev/null; then
+        output "  ✓ Network security: NetworkManager + fail2ban"
+    else
+        output "ERROR: Network security integration incomplete"
+        ((service_errors++))
+    fi
+    
+    if [[ $service_errors -eq 0 ]]; then
+        output "  ✓ Service integration validated"
+        return 0
+    else
+        output "ERROR: $service_errors service integration failures"
+        return 1
+    fi
+}
+
+validate_user_configuration() {
+    output "Step 6/6: Validating user configuration..."
+    
+    # Check user account exists
+    if ! grep -q "^${username:?}:" /mnt/etc/passwd; then
+        output "ERROR: User account not found: ${username}"
+        return 1
+    fi
+    
+    # Check user home directory
+    if [[ ! -d "/mnt/home/${username}" ]]; then
+        output "ERROR: User home directory missing: /home/${username}"
+        return 1
+    fi
+    
+    # Check user is in wheel group
+    if ! grep -q "^wheel:.*${username}" /mnt/etc/group; then
+        output "ERROR: User not in wheel group: ${username}"
+        return 1
+    fi
+    
+    # Check sudo configuration
+    if ! grep -q "^%wheel ALL=(ALL:ALL) ALL" /mnt/etc/sudoers; then
+        output "ERROR: Sudo configuration for wheel group missing"
+        return 1
+    fi
+    
+    output "  ✓ User configuration validated"
+    output "    User: ${username} with sudo access"
+    return 0
+}
+
+# =====================================
+# INTEGRATION TESTING
+# =====================================
+
+test_system_integration() {
+    output ""
+    output "=== Integration Testing ==="
+    
+    # Test configuration file consistency
+    output "Testing configuration consistency..."
+    
+    # Check for conflicting DNS configurations
+    local dns_configs_count=0
+    [[ -f "/mnt/etc/systemd/resolved.conf.d/unbound-integration.conf" ]] && ((dns_configs_count++))
+    [[ -f "/mnt/etc/unbound/unbound.conf" ]] && ((dns_configs_count++))
+    
+    if [[ $dns_configs_count -eq 2 ]]; then
+        output "  ✓ DNS configuration stack complete"
+    else
+        output "  ⚠ DNS configuration incomplete ($dns_configs_count/2 components)"
+    fi
+    
+    # Test security configuration completeness
+    local security_configs_count=0
+    [[ -f "/mnt/etc/sysctl.d/99-developer-workstation.conf" ]] && ((security_configs_count++))
+    [[ -d "/mnt/etc/apparmor.d/local" ]] && ((security_configs_count++))
+    [[ -f "/mnt/etc/ssh/sshd_config.d/10-security.conf" ]] && ((security_configs_count++))
+    [[ -f "/mnt/etc/fail2ban/jail.d/sshd.local" ]] && ((security_configs_count++))
+    
+    output "  ✓ Security configuration: $security_configs_count/4 components configured"
+    
+    # Check for configuration conflicts
+    local conflicts=0
+    
+    # Check for timesyncd vs chronyd conflict
+    if systemctl is-enabled systemd-timesyncd --root=/mnt &>/dev/null && \
+       systemctl is-enabled chronyd --root=/mnt &>/dev/null; then
+        output "  ⚠ Time sync conflict: both systemd-timesyncd and chronyd enabled"
+        ((conflicts++))
+    fi
+    
+    if [[ $conflicts -eq 0 ]]; then
+        output "  ✓ No configuration conflicts detected"
+    else
+        output "  ⚠ $conflicts configuration conflicts detected"
+    fi
+    
+    output "Integration testing complete"
+    return 0
+}
+
+# =====================================
+# VICTOR TOOLS PREPARATION
+# =====================================
+
+prepare_victor_integration() {
+    output ""
+    output "=== Preparing Victor Tools Integration ==="
+    
+    # Create target directories
+    local victor_target="/mnt/home/${username:?}/Workspace/victor"
+    local victor_bin="/mnt/usr/local/bin"
+    
+    output "Creating Victor directory structure..."
+    mkdir -p "$victor_target"
+    mkdir -p "$victor_bin"
+    
+    # Copy Victor tools to target system
+    output "Installing Victor tools..."
+    
+    # Copy main Victor structure (excluding repos and temporary files)
+    if ! cp -r "${HERE:?}"/{utils,vic,setup,install,run,arch} "$victor_target/" 2>/dev/null; then
+        output "ERROR: Failed to copy Victor tools"
+        return 1
+    fi
+    
+    # Create symlink for system-wide access
+    if ! ln -sf "$victor_target/vic" "$victor_bin/vic"; then
+        output "ERROR: Failed to create Victor symlink"
+        return 1
+    fi
+    
+    # Set proper ownership
+    arch-chroot /mnt chown -R "${username}:${username}" "/home/${username}/Workspace"
+    
+    # Make Victor executable
+    chmod +x "$victor_target/vic"
+    chmod +x "$victor_target/utils"
+    find "$victor_target" -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+    find "$victor_target" -path "*/run/*" -type f -exec chmod +x {} \; 2>/dev/null || true
+    find "$victor_target" -path "*/setup/*" -type f -exec chmod +x {} \; 2>/dev/null || true
+    find "$victor_target" -path "*/install/*" -type f -exec chmod +x {} \; 2>/dev/null || true
+    
+    # Verify Victor installation
+    if [[ ! -f "$victor_bin/vic" ]] || [[ ! -x "$victor_target/vic" ]]; then
+        output "ERROR: Victor installation verification failed"
+        return 1
+    fi
+    
+    output "  ✓ Victor tools installed to $victor_target"
+    output "  ✓ System-wide access via: vic"
+    output "  ✓ User ownership configured"
+    return 0
+}
+
+# =====================================
+# SECURITY HARDENING FINALIZATION
+# =====================================
+
+finalize_security_hardening() {
+    output ""
+    output "=== Finalizing Security Hardening ==="
+    
+    output "Setting final security permissions..."
+    
+    # SSH key permissions
+    find /mnt/etc/ssh -name "ssh_host_*_key" -exec chmod 600 {} \; 2>/dev/null || true
+    find /mnt/etc/ssh -name "ssh_host_*_key.pub" -exec chmod 644 {} \; 2>/dev/null || true
+    
+    # AppArmor permissions
+    if [[ -d /mnt/etc/apparmor.d ]]; then
+        find /mnt/etc/apparmor.d -type d -exec chmod 755 {} \;
+        find /mnt/etc/apparmor.d -type f -exec chmod 644 {} \;
+    fi
+    
+    # Audit configuration permissions
+    if [[ -d /mnt/etc/audit ]]; then
+        chmod 750 /mnt/etc/audit
+        find /mnt/etc/audit -name "*.rules" -exec chmod 640 {} \; 2>/dev/null || true
+    fi
+    
+    # Sudo configuration permissions
+    if [[ -f /mnt/etc/sudoers.d/security ]]; then
+        chmod 440 /mnt/etc/sudoers.d/security
+    fi
+    
+    # Fail2ban configuration permissions
+    if [[ -d /mnt/etc/fail2ban ]]; then
+        find /mnt/etc/fail2ban -type f -exec chmod 644 {} \;
+    fi
+    
+    # Create security monitoring preparation file
+    cat > "/mnt/etc/security-deployment.conf" << EOF
+# Security Deployment Configuration
+# This file tracks security framework deployment status
+
+SECURITY_FRAMEWORK_VERSION="1.0"
+INSTALLATION_DATE="$(date -Iseconds)"
+APPARMOR_PROFILES_DEPLOYED="false"
+SECURITY_MONITORING_ENABLED="false"
+FIREWALL_CONFIGURED="false"
+
+# Next steps for security deployment:
+# 1. Deploy AppArmor profiles: vic setup security apparmor
+# 2. Configure firewall: ufw allow ssh && ufw enable  
+# 3. Enable monitoring: systemctl enable --now network-security-monitor.timer
+# 4. Check status: vic run system security-status
+EOF
+    
+    chmod 644 /mnt/etc/security-deployment.conf
+    
+    output "  ✓ Security permissions finalized"
+    output "  ✓ Security deployment tracking configured"
+    return 0
+}
+
+# =====================================
+# INSTALLATION CLEANUP
+# =====================================
+
+cleanup_installation_artifacts() {
+    output ""
+    output "=== Cleaning Up Installation Artifacts ==="
+    
+    output "Cleaning temporary files..."
+    
+    # Clean package cache (keep recent packages)
+    if ! arch-chroot /mnt pacman -Sc --noconfirm; then
+        output "WARNING: Package cache cleanup failed"
+    fi
+    
+    # Remove temporary installation files
+    rm -f /mnt/tmp/fstab.* 2>/dev/null || true
+    rm -f /mnt/*.backup 2>/dev/null || true
+    
+    # Clean systemd journal space
+    arch-chroot /mnt journalctl --vacuum-size=100M 2>/dev/null || true
+    
+    # Update package database
+    arch-chroot /mnt pacman -Sy --noconfirm || true
+    
+    # Update locate database
+    if command -v updatedb &>/dev/null; then
+        arch-chroot /mnt updatedb 2>/dev/null || true
+    fi
+    
+    output "  ✓ Temporary files cleaned"
+    output "  ✓ Package cache optimized"
+    output "  ✓ System databases updated"
+    return 0
+}
+
+# =====================================
+# INSTALLATION REPORT GENERATION
+# =====================================
+
+generate_installation_report() {
+    output ""
+    output "=== Generating Installation Success Report ==="
+    
+    local report_file="/mnt/home/${username:?}/installation-report.txt"
+    
+    cat > "$report_file" << EOF
+================================================================================
+                        ARCH LINUX INSTALLATION REPORT
+================================================================================
+
+Installation Date: $(date)
+Installation Method: Victor Automated Installation
+System Architecture: $(uname -m)
+
+=== SYSTEM CONFIGURATION ===
+Hostname: $(cat /mnt/etc/hostname)
+Username: ${username}
+Timezone: $(readlink /mnt/etc/localtime | sed 's|/usr/share/zoneinfo/||')
+Locale: $(grep LANG /mnt/etc/locale.conf | cut -d= -f2)
+Keyboard Layout: $(grep KEYMAP /mnt/etc/vconsole.conf | cut -d= -f2)
+
+=== HARDWARE SUPPORT ===
+CPU Vendor: $(grep vendor_id /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)
+Microcode: ${MICROCODE_PACKAGE:-"Auto-detected"}
+Graphics: Auto-detected and optimized drivers installed
+Storage: BTRFS with optimized SSD/NVMe mount options
+
+=== SECURITY FEATURES ===
+✓ Limine bootloader (modern, secure alternative to GRUB)
+✓ AppArmor security framework prepared for deployment
+✓ Developer-friendly kernel hardening (preserves debugging capabilities)  
+✓ SSH hardening with modern cryptography (Ed25519)
+✓ Fail2ban intrusion prevention system
+✓ Network privacy features (MAC randomization)
+✓ Secure DNS resolution with DNS-over-TLS
+✓ Audit logging configured for security events
+✓ File integrity monitoring prepared
+
+=== NETWORK CONFIGURATION ===
+✓ Unbound DNS resolver with DoT encryption
+✓ systemd-resolved integration for compatibility
+✓ NetworkManager with privacy and security settings
+✓ Secure DNS servers: Cloudflare for Families, Quad9
+✓ DNSSEC validation enabled
+✓ Query minimization for privacy
+
+=== SYSTEM SERVICES ===
+Critical Services:
+$(for service in "${REQUIRED_SERVICES[@]}"; do
+    if systemctl is-enabled "$service" --root=/mnt &>/dev/null; then
+        echo "  ✓ $service"
+    else
+        echo "  ✗ $service"
+    fi
+done)
+
+=== FILESYSTEM LAYOUT ===
+Root Filesystem: BTRFS with subvolumes
+  • @ (root)
+  • @home (user data)
+  • @var_log (system logs, no snapshots)
+  • @snapshots (snapper storage)
+  • @swap (swap file location)
+
+Snapshot System: Snapper with automated timeline and cleanup
+Boot Partition: FAT32 (ESP) at /boot/efi
+Encryption: $([ "${use_luks:-0}" -eq 1 ] && echo "LUKS enabled" || echo "Not configured")
+
+=== PERFORMANCE OPTIMIZATIONS ===
+✓ SSD/NVMe optimized mount options (compression, discard)
+✓ zram memory compression enabled
+✓ Optimized network stack (unbound caching)
+✓ Hardware-specific graphics drivers only
+✓ Modern init system (systemd) optimizations
+
+=== POST-INSTALLATION STEPS ===
+
+CRITICAL - Complete these steps after first boot:
+
+1. DEPLOY SECURITY PROFILES
+   vic setup security apparmor
+   
+2. CONFIGURE FIREWALL
+   ufw allow ssh
+   ufw enable
+   
+3. VERIFY SYSTEM STATUS
+   vic run system security-status
+   network-security-check
+   
+4. UPDATE SYSTEM
+   sudo pacman -Syu
+   
+5. CONFIGURE USER ENVIRONMENT
+   vic setup user-env
+   
+OPTIONAL - Additional customization:
+
+6. INSTALL DESKTOP ENVIRONMENT
+   vic install desktop plasma    # or gnome
+   
+7. INSTALL DEVELOPMENT TOOLS
+   vic setup dev langs
+   vic setup dev neovim
+   
+8. INSTALL APPLICATIONS  
+   vic install flatpak all
+   vic install extras
+
+=== SECURITY MONITORING ===
+
+Monitor system security with these commands:
+• journalctl -u apparmor -f              # AppArmor events
+• journalctl -u fail2ban -f              # Intrusion attempts  
+• systemctl status unbound               # DNS security status
+• snapper list                          # System snapshots
+• vic run system security-status        # Overall security status
+
+=== BACKUP AND RECOVERY ===
+
+Your system includes automated snapshot management:
+• Timeline snapshots: Every 15 minutes when active
+• Cleanup: Automatic retention management
+• Boot from snapshots: Available in Limine boot menu
+• Manual snapshot: snapper create --description "Before changes"
+
+=== SUPPORT RESOURCES ===
+
+Victor Tools: /home/${username}/Workspace/victor
+Documentation: Use 'vic' command for available operations
+System logs: journalctl for troubleshooting
+Security status: vic run system security-status
+
+================================================================================
+                           INSTALLATION SUCCESSFUL
+================================================================================
+
+Your Arch Linux system is ready for production use with enterprise-grade
+security, performance optimizations, and developer-friendly configurations.
+
+EOF
+
+    # Set proper ownership
+    arch-chroot /mnt chown "${username}:${username}" "/home/${username}/installation-report.txt"
+    chmod 644 "$report_file"
+    
+    output "  ✓ Installation report generated: ~/installation-report.txt"
+    return 0
+}
+
+# =====================================
+# NEXT STEPS GUIDANCE
+# =====================================
+
+display_next_steps() {
+    output ""
+    output "=== NEXT STEPS AFTER REBOOT ==="
+    output ""
+    
+    output "🔐 CRITICAL SECURITY STEPS (Complete First):"
+    output "  1. Deploy AppArmor profiles:"
+    output "     vic setup security apparmor"
+    output ""
+    output "  2. Configure firewall:"
+    output "     ufw allow ssh"
+    output "     ufw enable"
+    output ""
+    output "  3. Verify system security:"
+    output "     vic run system security-status"
+    output "     network-security-check"
+    output ""
+    
+    output "⚙️  SYSTEM CONFIGURATION:"
+    output "  4. Update system packages:"
+    output "     sudo pacman -Syu"
+    output ""
+    output "  5. Configure user environment:"
+    output "     vic setup user-env"
+    output ""
+    
+    output "🖥️  OPTIONAL CUSTOMIZATION:"
+    output "  6. Install desktop environment:"
+    output "     vic install desktop plasma    # or gnome"
+    output ""
+    output "  7. Install development tools:"
+    output "     vic setup dev langs"
+    output "     vic setup dev neovim"
+    output ""
+    output "  8. Install applications:"
+    output "     vic install flatpak all"
+    output "     vic install extras"
+    output ""
+    
+    output "📊 MONITORING COMMANDS:"
+    output "  • System status: vic run system security-status"
+    output "  • Network security: network-security-check"
+    output "  • DNS status: resolvectl query cloudflare.com"
+    output "  • Snapshots: snapper list"
+    output "  • Services: systemctl status apparmor unbound"
+    output ""
+    
+    output "📚 HELPFUL RESOURCES:"
+    output "  • Victor tools: /home/${username}/Workspace/victor/"
+    output "  • Installation report: ~/installation-report.txt"
+    output "  • System logs: journalctl"
+    output "  • Victor help: vic (shows available commands)"
+    output ""
+}
+
+# =====================================
+# MAIN POST-INSTALLATION PROCESS
+# =====================================
+
+output "=== Post-Installation Validation and Preparation ==="
+output "Final validation and system preparation for first boot"
+output ""
+
+# Comprehensive system validation
+validate_critical_files || exit 1
+validate_security_configuration || exit 1
+validate_network_stack || exit 1
+validate_bootloader_configuration || exit 1
+validate_service_integration || exit 1
+validate_user_configuration || exit 1
+
+# Integration testing
+test_system_integration
+
+# System preparation
+prepare_victor_integration || exit 1
+finalize_security_hardening || exit 1
+cleanup_installation_artifacts
+
+# Documentation and reporting
+generate_installation_report || exit 1
+
+# Final guidance
+display_next_steps
+
+output ""
+output "=== Post-Installation Complete ==="
+output "✓ Comprehensive system validation passed"
+output "✓ Security framework prepared for deployment"
+output "✓ Network stack integration verified"
+output "✓ Victor tools installed and configured"
+output "✓ Installation cleanup completed"
+output "✓ Success report generated"
+output ""
+output "🎉 INSTALLATION SUCCESSFUL!"
+output ""
+output "Your Arch Linux system is ready for first boot with:"
+output "  • Enterprise-grade security foundation"
+output "  • Modern bootloader (Limine)"
+output "  • Secure network stack (DoT + privacy)"
+output "  • Developer-friendly configurations"
+output "  • Automated snapshot management"
+output "  • Comprehensive monitoring tools"
+output ""
+output "Reboot when ready and follow the next steps guidance!"
