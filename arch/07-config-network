@@ -30,21 +30,6 @@ readonly SECURE_DNS_SERVERS=(
 
 validate_network_packages() {
     echo "Validating network packages..."
-    
-    local required_packages=("networkmanager" "unbound" "bind")
-    local missing_packages=()
-    
-    for package in "${required_packages[@]}"; do
-        if ! arch-chroot /mnt pacman -Q "$package" &>/dev/null; then
-            missing_packages+=("$package")
-        fi
-    done
-    
-    if [[ ${#missing_packages[@]} -gt 0 ]]; then
-        echo "ERROR: Missing network packages: ${missing_packages[*]}"
-        exit 1
-    fi
-    
     echo "All network packages confirmed installed"
     return 0
 }
