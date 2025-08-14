@@ -95,11 +95,11 @@ fi
 # VALIDATION FUNCTIONS
 # =====================================
 validate_installation_environment() {
-  output "Validating installation environment..."
+  echo "Validating installation environment..."
 
   # Check if running in live environment
   if [[ ! -d /run/archiso ]]; then
-    output "ERROR: This script must be run from an Arch Linux live environment"
+    echo "ERROR: This script must be run from an Arch Linux live environment"
     exit 1
   fi
 
@@ -113,8 +113,8 @@ validate_installation_environment() {
   done
   
   if [[ "$connectivity_test_passed" == "false" ]]; then
-    output "ERROR: No internet connection detected"
-    output "Please configure networking before running the installation"
+    echo "ERROR: No internet connection detected"
+    echo "Please configure networking before running the installation"
     exit 1
   fi
 
@@ -122,28 +122,28 @@ validate_installation_environment() {
   local available_space
   available_space=$(df /tmp --output=avail -BG | tail -n1 | tr -d 'G')
   if [[ $available_space -lt 2 ]]; then
-    output "WARNING: Low disk space in live environment (${available_space}GB)"
-    output "Consider using a larger live USB or cleaning /tmp"
+    echo "WARNING: Low disk space in live environment (${available_space}GB)"
+    echo "Consider using a larger live USB or cleaning /tmp"
   fi
 
   # Validate working directory context
   if [[ ! -f "01-format-disks" ]] || [[ ! -f "99-post-install" ]]; then
-    output "ERROR: Installation scripts not found in current directory"
-    output "Please run this script from the arch/ directory"
+    echo "ERROR: Installation scripts not found in current directory"
+    echo "Please run this script from the arch/ directory"
     exit 1
   fi
 
   # Check for required Victor context files (if available)
   if [[ -n "${HERE:-}" ]] && [[ ! -f "${HERE}/vic" ]]; then
-    output "WARNING: Victor tools context not found at ${HERE}"
-    output "Post-installation Victor integration may not work correctly"
+    echo "WARNING: Victor tools context not found at ${HERE}"
+    echo "Post-installation Victor integration may not work correctly"
   fi
 
-  output "Installation environment validated"
+  echo "Installation environment validated"
 }
 
 validate_required_packages() {
-  output "Validating required packages availability..."
+  echo "Validating required packages availability..."
 
   # Update package database first
   pacman -Sy --noconfirm
@@ -162,20 +162,18 @@ validate_required_packages() {
   done
 
   if [[ ${#unavailable_packages[@]} -gt 0 ]]; then
-    output "ERROR: Required packages not available:"
+    echo "ERROR: Required packages not available:"
     printf '  %s\n' "${unavailable_packages[@]}"
-    output ""
-    output "Please update your package database or check your mirrors:"
-    output "  pacman -Sy"
-    output "  reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist"
+    echo ""
+    echo "Please update your package database or check your mirrors:"
+    echo "  pacman -Sy"
+    echo "  reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist"
     exit 1
   fi
 
-  output "All required packages are available"
+  echo "All required packages are available"
 }
-output() {
-    echo "$@"
-}
+# No output function - use echo directly
 
 unpriv() {
   sudo -u nobody "${@}"
@@ -183,7 +181,7 @@ unpriv() {
 
 cleanup() {
   if mountpoint -q /mnt 2>/dev/null; then
-    output "Cleaning up mounts..."
+    echo "Cleaning up mounts..."
     umount -R /mnt || true
   fi
 }
@@ -193,7 +191,7 @@ trap cleanup EXIT
 validate_hostname() {
   local hostname="$1"
   if [[ ! $hostname =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]]; then
-    output "Invalid hostname format. Use alphanumeric characters and hyphens only."
+    echo "Invalid hostname format. Use alphanumeric characters and hyphens only."
     return 1
   fi
   return 0
@@ -202,7 +200,7 @@ validate_hostname() {
 validate_username() {
   local username="$1"
   if [[ ! $username =~ ^[a-z_]([a-z0-9_-]{0,31}|[a-z0-9_-]{0,30}\$)$ ]]; then
-    output "Invalid username format. Use lowercase letters, numbers, underscore, and hyphen only."
+    echo "Invalid username format. Use lowercase letters, numbers, underscore, and hyphen only."
     return 1
   fi
   return 0
@@ -223,19 +221,19 @@ is_in_array() {
 # =====================================
 luks_passphrase_prompt() {
   if [[ $use_luks -eq 1 && -z $luks_passphrase ]]; then
-    output 'Enter your encryption passphrase (the passphrase will not be shown on the screen):'
+    echo 'Enter your encryption passphrase (the passphrase will not be shown on the screen):'
     read -r -s luks_passphrase
 
     if [[ -z $luks_passphrase ]]; then
-      output 'To use encryption, you need to enter a passphrase.'
+      echo 'To use encryption, you need to enter a passphrase.'
       luks_passphrase_prompt
       return
     fi
 
-    output 'Confirm your encryption passphrase (the passphrase will not be shown on the screen):'
+    echo 'Confirm your encryption passphrase (the passphrase will not be shown on the screen):'
     read -r -s luks_passphrase2
     if [[ $luks_passphrase != "$luks_passphrase2" ]]; then
-      output 'Passphrases do not match, please try again.'
+      echo 'Passphrases do not match, please try again.'
       luks_passphrase_prompt
       return
     fi
@@ -245,85 +243,85 @@ luks_passphrase_prompt() {
 disk_prompt() {
   if [[ -n ${DISK:-} ]]; then
     disk="$DISK"
-    output "Using disk from environment: ${disk}"
+    echo "Using disk from environment: ${disk}"
     return
   fi
 
-  output "Available disks:"
+  echo "Available disks:"
   lsblk -d -o NAME,SIZE,TYPE,MODEL | grep -E "(nvme|sd|mmcblk|vd)" || {
-    output "No suitable disks found!"
+    echo "No suitable disks found!"
     exit 1
   }
 
-  output 'Please select the disk for installation:'
+  echo 'Please select the disk for installation:'
   local disks=()
   while IFS= read -r line; do
     disks+=("$line")
   done < <(lsblk -dpnoNAME | grep -P "/dev/(nvme|sd|mmcblk|vd)")
 
   if [[ ${#disks[@]} -eq 0 ]]; then
-    output "No suitable disks found!"
+    echo "No suitable disks found!"
     exit 1
   fi
 
   select entry in "${disks[@]}"; do
     if [[ -n $entry ]]; then
       disk="$entry"
-      output "Selected disk: ${disk}"
+      echo "Selected disk: ${disk}"
 
       # Confirmation for destructive operation
-      output "WARNING: This will DESTROY all data on ${disk}!"
+      echo "WARNING: This will DESTROY all data on ${disk}!"
       confirmation=""
       read -r -p "Type 'YES' to continue: " confirmation
       if [[ $confirmation != "YES" ]]; then
-        output "Installation cancelled."
+        echo "Installation cancelled."
         exit 1
       fi
       break
     else
-      output "Invalid selection. Please try again."
+      echo "Invalid selection. Please try again."
     fi
   done
 }
 
 timezone_prompt() {
   if [[ -n $timezone && $timezone != "$DEFAULT_TIMEZONE" ]]; then
-    output "Using timezone from environment: ${timezone}"
+    echo "Using timezone from environment: ${timezone}"
     return
   fi
 
-  output 'Select timezone:'
+  echo 'Select timezone:'
   select tz in "${SUPPORTED_TIMEZONES[@]}" "Other"; do
     if [[ $tz == "Other" ]]; then
-      output 'Enter timezone (e.g., America/Chicago):'
+      echo 'Enter timezone (e.g., America/Chicago):'
       read -r custom_timezone
       if [[ -f /usr/share/zoneinfo/$custom_timezone ]]; then
         timezone="$custom_timezone"
         break
       else
-        output "Invalid timezone. Please try again."
+        echo "Invalid timezone. Please try again."
       fi
     elif [[ -n $tz ]]; then
       timezone="$tz"
       break
     else
-      output "Invalid selection. Please try again."
+      echo "Invalid selection. Please try again."
     fi
   done
 }
 
 username_prompt() {
   if [[ -n $username ]]; then
-    output "Using username from environment: ${username}"
+    echo "Using username from environment: ${username}"
     return
   fi
 
   while true; do
-    output 'Please enter the username:'
+    echo 'Please enter the username:'
     read -r username
 
     if [[ -z $username ]]; then
-      output 'You need to enter a username.'
+      echo 'You need to enter a username.'
       continue
     fi
 
@@ -335,54 +333,54 @@ username_prompt() {
 
 user_password_prompt() {
   if [[ -n $user_password ]]; then
-    output "Using password from environment variable."
+    echo "Using password from environment variable."
     return
   fi
 
   while true; do
-    output 'Enter your user password (the password will not be shown on the screen):'
+    echo 'Enter your user password (the password will not be shown on the screen):'
     read -r -s user_password
 
     if [[ -z $user_password ]]; then
-      output 'You need to enter a password.'
+      echo 'You need to enter a password.'
       continue
     fi
 
-    output 'Confirm your user password (the password will not be shown on the screen):'
+    echo 'Confirm your user password (the password will not be shown on the screen):'
     read -r -s user_password2
     if [[ $user_password == "$user_password2" ]]; then
       break
     else
-      output 'Passwords do not match, please try again.'
+      echo 'Passwords do not match, please try again.'
     fi
   done
 }
 
 fullname_prompt() {
   if [[ -n $fullname ]]; then
-    output "Using full name from environment: ${fullname}"
+    echo "Using full name from environment: ${fullname}"
     return
   fi
 
   while true; do
-    output 'Please enter the full name for the account:'
+    echo 'Please enter the full name for the account:'
     read -r fullname
 
     if [[ -n $fullname ]]; then
       break
     else
-      output 'Please enter the full name for the account.'
+      echo 'Please enter the full name for the account.'
     fi
   done
 }
 
 hostname_prompt() {
   while true; do
-    output 'Enter your hostname:'
+    echo 'Enter your hostname:'
     read -r hostname
 
     if [[ -z $hostname ]]; then
-      output 'You need to enter a hostname.'
+      echo 'You need to enter a hostname.'
       continue
     fi
 
@@ -394,56 +392,56 @@ hostname_prompt() {
 
 locale_prompt() {
   if [[ -n $locale && $locale != "$DEFAULT_LOCALE" ]]; then
-    output "Using locale from environment: ${locale}"
+    echo "Using locale from environment: ${locale}"
     return
   fi
 
-  output 'Select system locale:'
+  echo 'Select system locale:'
   select loc in "${SUPPORTED_LOCALES[@]}"; do
     if [[ -n $loc ]]; then
       locale="$loc"
-      output "Selected locale: ${locale}"
+      echo "Selected locale: ${locale}"
       break
     else
-      output "Invalid selection. Please try again."
+      echo "Invalid selection. Please try again."
     fi
   done
 }
 
 keyboard_prompt() {
   if [[ -n $kblayout && $kblayout != "$DEFAULT_KBLAYOUT" ]]; then
-    output "Using keyboard layout from environment: ${kblayout}"
+    echo "Using keyboard layout from environment: ${kblayout}"
     return
   fi
 
-  output 'Select keyboard layout:'
+  echo 'Select keyboard layout:'
   select kb in "${SUPPORTED_KEYBOARDS[@]}"; do
     if [[ -n $kb ]]; then
       kblayout="$kb"
-      output "Selected keyboard layout: ${kblayout}"
+      echo "Selected keyboard layout: ${kblayout}"
       break
     else
-      output "Invalid selection. Please try again."
+      echo "Invalid selection. Please try again."
     fi
   done
 }
 
 encryption_prompt() {
   if [[ -n ${USE_LUKS:-} ]]; then
-    output "Using encryption setting from environment: $([[ $use_luks -eq 1 ]] && echo "enabled" || echo "disabled")"
+    echo "Using encryption setting from environment: $([[ $use_luks -eq 1 ]] && echo "enabled" || echo "disabled")"
     return
   fi
 
-  output 'Enable disk encryption? (y/N)'
+  echo 'Enable disk encryption? (y/N)'
   read -r response
   case "$response" in
   [yY][eE][sS] | [yY])
     use_luks=1
-    output "Disk encryption enabled."
+    echo "Disk encryption enabled."
     ;;
   *)
     use_luks=0
-    output "Disk encryption disabled."
+    echo "Disk encryption disabled."
     ;;
   esac
 }
@@ -455,14 +453,14 @@ encryption_prompt() {
 # Clear the TTY
 clear
 
-output "=== Victor Arch Linux Installation ==="
-output "Installation mode: ${install_mode}"
-output "Date: ${installation_date}"
+echo "=== Victor Arch Linux Installation ==="
+echo "Installation mode: ${install_mode}"
+echo "Date: ${installation_date}"
 echo
 
 # Check if running in live environment
 if [[ ! -d /run/archiso ]]; then
-  output "This script must be run from an Arch Linux live environment."
+  echo "This script must be run from an Arch Linux live environment."
   exit 1
 fi
 
@@ -476,7 +474,7 @@ for test_site in archlinux.org google.com cloudflare.com; do
 done
 
 if [[ "$connectivity_test_passed" == "false" ]]; then
-  output "No internet connection detected. Please configure networking first."
+  echo "No internet connection detected. Please configure networking first."
   exit 1
 fi
 
@@ -493,29 +491,29 @@ keyboard_prompt
 timezone_prompt
 
 # Display configuration summary
-output ""
-output "=== Installation Configuration ==="
-output "Disk: ${disk}"
-output "Hostname: ${hostname}"
-output "Username: ${username}"
-output "Full name: ${fullname}"
-output "Locale: ${locale}"
-output "Keyboard: ${kblayout}"
-output "Timezone: ${timezone}"
-output "Install mode: ${install_mode}"
-output ""
+echo ""
+echo "=== Installation Configuration ==="
+echo "Disk: ${disk}"
+echo "Hostname: ${hostname}"
+echo "Username: ${username}"
+echo "Full name: ${fullname}"
+echo "Locale: ${locale}"
+echo "Keyboard: ${kblayout}"
+echo "Timezone: ${timezone}"
+echo "Install mode: ${install_mode}"
+echo ""
 
 confirm=""
 read -r -p "Proceed with installation? (y/N): " confirm
 echo ""
 if [[ $confirm != [yY] ]]; then
-  output "Installation cancelled."
+  echo "Installation cancelled."
   exit 0
 fi
 
 echo ""
 # Export all variables that child scripts need
-output "Preparing installation variables..."
+echo "Preparing installation variables..."
 export use_luks
 export luks_passphrase
 export disk
@@ -529,7 +527,7 @@ export user_password
 export install_mode
 export installation_date
 export HERE
-output "Variables exported successfully."
+echo "Variables exported successfully."
 
 # Installation steps with error handling
 installation_steps=(
@@ -552,14 +550,14 @@ INSTALL_PROGRESS_FILE="/tmp/arch_install_progress"
 if [[ -f "$INSTALL_PROGRESS_FILE" ]]; then
     last_completed=$(cat "$INSTALL_PROGRESS_FILE")
     if [[ $last_completed -gt 0 ]]; then
-        output "Found previous installation attempt that completed $last_completed steps"
-        output "Do you want to resume from step $((last_completed + 1))? (y/N)"
+        echo "Found previous installation attempt that completed $last_completed steps"
+        echo "Do you want to resume from step $((last_completed + 1))? (y/N)"
         read -r resume_response
         if [[ $resume_response == [yY] ]]; then
-            output "Resuming installation from step $((last_completed + 1))"
+            echo "Resuming installation from step $((last_completed + 1))"
             RESUME_FROM_STEP=$last_completed
         else
-            output "Starting fresh installation"
+            echo "Starting fresh installation"
             RESUME_FROM_STEP=0
         fi
     else
@@ -572,7 +570,7 @@ fi
 echo "$RESUME_FROM_STEP" > "$INSTALL_PROGRESS_FILE"
 
 # Execute installation scripts with proper error handling
-output "Starting installation process..."
+echo "Starting installation process..."
 
 step_counter=0
 for step_info in "${installation_steps[@]}"; do
@@ -582,20 +580,20 @@ for step_info in "${installation_steps[@]}"; do
     
     # Skip completed steps when resuming
     if [[ $step_counter -le $RESUME_FROM_STEP ]]; then
-        output "⏭ Skipping step $step_counter: $description (already completed)"
+        echo "⏭ Skipping step $step_counter: $description (already completed)"
         continue
     fi
     
-    output ""
-    output "=== Step $step_counter/${#installation_steps[@]}: $description ==="
+    echo ""
+    echo "=== Step $step_counter/${#installation_steps[@]}: $description ==="
     
     # Run the step with proper error handling
     if bash "./$script"; then
-        output "✓ Step $step_counter completed: $description"
+        echo "✓ Step $step_counter completed: $description"
         echo "$step_counter" > "$INSTALL_PROGRESS_FILE"
     else
-        output "✗ FAILED at step $step_counter: $description"
-        output "Installation can be resumed from this point after fixing the issue"
+        echo "✗ FAILED at step $step_counter: $description"
+        echo "Installation can be resumed from this point after fixing the issue"
         exit 1
     fi
 done
@@ -604,40 +602,40 @@ done
 rm -f "$INSTALL_PROGRESS_FILE"
 
 # Finish up
-output ""
-output "======================================="
-output "ARCH LINUX INSTALLATION COMPLETED"
-output "======================================="
-output "✓ All ${#installation_steps[@]} installation steps completed successfully"
-output "✓ System is ready for first boot"
-output "✓ Installation log saved: $INSTALL_LOG"
-output ""
-output "The system is now configured with:"
-output "  • Modern Limine bootloader (UEFI + BIOS)"
-output "  • BTRFS filesystem with snapshots"
-output "  • Developer-friendly security hardening"
-output "  • Unbound DNS with DoT/DNSSEC"
-output "  • AppArmor framework prepared"
-output "  • Container/VM support (Docker, Podman)"
-output "  • Core dumps enabled for debugging"
-output "  • Comprehensive system monitoring"
-output ""
-output "Next steps after reboot:"
-output "  1. Complete first-boot setup"
-output "  2. Deploy AppArmor profiles: vic setup security apparmor"
-output "  3. Configure development environment"
-output "======================================="
-output "The system has been installed successfully."
-output "You may now reboot into your new Arch Linux system."
-output ""
-output "Post-installation steps:"
-output "1. Remove installation media"
-output "2. Reboot the system"
-output "3. Log in with user: ${username}"
+echo ""
+echo "======================================="
+echo "ARCH LINUX INSTALLATION COMPLETED"
+echo "======================================="
+echo "✓ All ${#installation_steps[@]} installation steps completed successfully"
+echo "✓ System is ready for first boot"
+echo "✓ Installation log saved: $INSTALL_LOG"
+echo ""
+echo "The system is now configured with:"
+echo "  • Modern Limine bootloader (UEFI + BIOS)"
+echo "  • BTRFS filesystem with snapshots"
+echo "  • Developer-friendly security hardening"
+echo "  • Unbound DNS with DoT/DNSSEC"
+echo "  • AppArmor framework prepared"
+echo "  • Container/VM support (Docker, Podman)"
+echo "  • Core dumps enabled for debugging"
+echo "  • Comprehensive system monitoring"
+echo ""
+echo "Next steps after reboot:"
+echo "  1. Complete first-boot setup"
+echo "  2. Deploy AppArmor profiles: vic setup security apparmor"
+echo "  3. Configure development environment"
+echo "======================================="
+echo "The system has been installed successfully."
+echo "You may now reboot into your new Arch Linux system."
+echo ""
+echo "Post-installation steps:"
+echo "1. Remove installation media"
+echo "2. Reboot the system"
+echo "3. Log in with user: ${username}"
 if [[ $use_luks -eq 1 ]]; then
-  output "4. Enter disk encryption passphrase at boot"
+  echo "4. Enter disk encryption passphrase at boot"
 fi
-output ""
+echo ""
 
 reboot_confirm=""
 read -r -p "Reboot now? (y/N): " reboot_confirm
