@@ -394,7 +394,7 @@ keyboard_prompt() {
 
 encryption_prompt() {
   if [[ -n ${USE_LUKS:-} ]]; then
-    output "Using encryption setting from environment: $((use_luks ? "enabled" : "disabled"))"
+    output "Using encryption setting from environment: $([[ $use_luks -eq 1 ]] && echo "enabled" || echo "disabled")"
     return
   fi
 
@@ -470,7 +470,7 @@ output "Full name: ${fullname}"
 output "Locale: ${locale}"
 output "Keyboard: ${kblayout}"
 output "Timezone: ${timezone}"
-output "Encryption: $((use_luks ? "enabled" : "disabled"))"
+output "Encryption: $([[ $use_luks -eq 1 ]] && echo "enabled" || echo "disabled")"
 output "Install mode: ${install_mode}"
 output ""
 
