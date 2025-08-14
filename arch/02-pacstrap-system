@@ -84,6 +84,8 @@ detect_microcode() {
     local cpu_vendor
     cpu_vendor=$(grep -m1 "vendor_id" /proc/cpuinfo | cut -d: -f2 | tr -d ' ' || echo "unknown")
     
+    output "DEBUG: CPU vendor detection: '$cpu_vendor'"
+    
     case "$cpu_vendor" in
         "AuthenticAMD")
             echo "amd-ucode"
@@ -184,6 +186,7 @@ output "Package database updated successfully"
 
 # Detect microcode package
 microcode_package=$(detect_microcode)
+output "DEBUG: Microcode detection returned: '$microcode_package'"
 
 # Create complete package list
 all_packages=(
@@ -201,7 +204,11 @@ all_packages=(
 
 # Add microcode if detected
 if [[ -n $microcode_package ]]; then
+    output "DEBUG: Adding microcode package '$microcode_package' to array"
     all_packages+=("$microcode_package")
+    output "DEBUG: Array now has ${#all_packages[@]} packages"
+else
+    output "DEBUG: No microcode package to add (empty string)"
 fi
 
 # Display installation summary
@@ -212,12 +219,17 @@ output "Microcode package: ${microcode_package:-"none detected"}"
 output "Target: /mnt"
 output ""
 
+# Debug: Show the actual package array contents
+output "DEBUG: Package array contents:"
+printf '  %s\n' "${all_packages[@]}"
+output ""
+
 # Install ALL packages in one pacstrap call
 output "Installing all packages with pacstrap..."
 if ! pacstrap /mnt "${all_packages[@]}"; then
     output "ERROR: Failed to install packages to new root"
     output "Packages attempted: ${all_packages[*]}"
-    return 1
+    exit 1
 fi
 output "✓ All packages installed successfully"
 
