@@ -394,7 +394,7 @@ display_limine_summary() {
     output "Bootloader: Limine (replaced GRUB)"
     output "UEFI Support: Yes (/boot/efi/EFI/BOOT/BOOTX64.EFI)"
     output "BIOS Support: Yes (installed to ${disk})"
-    output "Encryption: $(( use_luks ? "enabled (LUKS)" : "disabled" ))"
+    output "Encryption: $([[ $use_luks -eq 1 ]] && echo "enabled (LUKS)" || echo "disabled")"
     output "Timeout: 5 seconds"
     output "Default: Arch Linux (main kernel)"
     output ""

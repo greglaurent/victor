@@ -238,6 +238,6 @@ output ""
 
 output "Disk formatting completed successfully!"
 output "BTRFS device: ${BTRFS}"
-output "Encryption: $(( use_luks ? "enabled" : "disabled" ))"
+output "Encryption: $([[ $use_luks -eq 1 ]] && echo "enabled" || echo "disabled")"
 output "Subvolumes: 5 essential subvolumes created"
 output "Mount options: Optimized for SSD/NVMe performance and lifespan"
