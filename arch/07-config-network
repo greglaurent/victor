@@ -7,7 +7,7 @@ set -euo pipefail
 
 # Source output function
 output() {
-    echo -e \"\\e[1;34m${*}\\e[m\"
+    echo "$@"
 }
 
 # =====================================

@@ -174,7 +174,7 @@ validate_required_packages() {
   output "All required packages are available"
 }
 output() {
-  echo -e "\e[1;34m${*}\e[m"
+    echo "$@"
 }
 
 unpriv() {
@@ -518,6 +518,7 @@ if [[ $confirm != [yY] ]]; then
   exit 0
 fi
 
+echo ""
 # Export all variables that child scripts need
 output "Preparing installation variables..."
 export use_luks
