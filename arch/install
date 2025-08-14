@@ -503,7 +503,8 @@ echo "Install mode: ${install_mode}"
 echo ""
 
 confirm=""
-read -r -p "Proceed with installation? (y/N): " confirm </dev/tty
+echo -n "Proceed with installation? (y/N): " >/dev/tty
+read -r confirm </dev/tty
 echo ""
 if [[ $confirm != [yY] ]]; then
   echo "Installation cancelled."

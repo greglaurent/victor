@@ -90,7 +90,15 @@ generate_fstab() {
         root_device="/dev/mapper/cryptroot"
     else
         local root_uuid
-        root_uuid=$(lsblk -no UUID /dev/disk/by-partlabel/ROOT)
+        # Try different possible partition labels
+        if [[ -e /dev/disk/by-partlabel/ROOT ]]; then
+            root_uuid=$(lsblk -no UUID /dev/disk/by-partlabel/ROOT)
+        elif [[ -e /dev/disk/by-partlabel/root ]]; then
+            root_uuid=$(lsblk -no UUID /dev/disk/by-partlabel/root)
+        else
+            # Fallback: find the BTRFS partition
+            root_uuid=$(lsblk -no UUID -t btrfs | head -1)
+        fi
         root_device="UUID=${root_uuid}"
     fi
     
