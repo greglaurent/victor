@@ -73,76 +73,53 @@ verify_filesystem_types() {
 # =====================================
 
 generate_fstab() {
-    echo "Generating fstab with UUIDs..."
+    echo "Generating fstab from template..."
     
-    # Generate fstab using UUIDs for device identification
-    if ! genfstab -U /mnt > /tmp/fstab.new 2>/dev/null; then
-        echo "ERROR: Failed to generate fstab"
+    # Check if template exists
+    if [[ ! -f "fstab.template" ]]; then
+        echo "ERROR: fstab template not found"
         return 1
     fi
     
-    # Validate fstab was created and is not empty
+    # Get UUIDs
+    local esp_uuid root_device
+    esp_uuid=$(lsblk -no UUID /dev/disk/by-partlabel/ESP)
+    
+    # Determine root device based on encryption
+    if [[ ${use_luks:-0} -eq 1 ]]; then
+        root_device="/dev/mapper/cryptroot"
+    else
+        local root_uuid
+        root_uuid=$(lsblk -no UUID /dev/disk/by-partlabel/ROOT)
+        root_device="UUID=${root_uuid}"
+    fi
+    
+    # Validate UUIDs were found
+    if [[ -z "$esp_uuid" ]]; then
+        echo "ERROR: ESP UUID not found"
+        return 1
+    fi
+    
+    if [[ ${use_luks:-0} -eq 0 && -z "${root_uuid:-}" ]]; then
+        echo "ERROR: Root UUID not found"
+        return 1
+    fi
+    
+    # Generate fstab from template
+    sed -e "s|__ROOT_DEVICE__|${root_device}|g" \
+        -e "s|__ESP_UUID__|${esp_uuid}|g" \
+        "fstab.template" > /tmp/fstab.new
+    
+    # Validate fstab was created
     if [[ ! -s /tmp/fstab.new ]]; then
         echo "ERROR: Generated fstab is empty"
         return 1
     fi
     
-    # Check for minimum expected entries
-    local fstab_lines
-    fstab_lines=$(grep -c "^[^#]" /tmp/fstab.new || echo "0")
-    if [[ $fstab_lines -lt 6 ]]; then
-        echo "ERROR: Generated fstab has too few entries ($fstab_lines)"
-        echo "Expected at least 6 filesystem entries"
-        return 1
-    fi
-    
-    echo "fstab generated successfully with $fstab_lines filesystem entries"
+    echo "fstab generated successfully from template"
     return 0
 }
 
-clean_fstab_subvolume_references() {
-    echo "Cleaning conflicting subvolume references..."
-    
-    # Explanation of the sed operation:
-    # When we set a default subvolume for snapper (@snapshots/1/snapshot),
-    # genfstab generates entries that reference this snapshot subvolume explicitly.
-    # This creates conflicts because:
-    # 1. The default subvolume is already set to the snapshot
-    # 2. Explicit subvolume options override the default subvolume
-    # 3. This breaks the snapper snapshot boot mechanism
-    #
-    # We need to remove these explicit references so the default subvolume is used
-    
-    # Create backup before modification
-    cp /tmp/fstab.new /tmp/fstab.backup
-    
-    # Remove the specific subvolume reference pattern that genfstab adds
-    # Pattern: ,subvolid=XXX,subvol=/@/.snapshots/1/snapshot,subvol=@/.snapshots/1/snapshot
-    sed -i 's|,subvolid=[0-9]*,subvol=/@/\.snapshots/1/snapshot,subvol=@/\.snapshots/1/snapshot||g' /tmp/fstab.new
-    
-    # Also remove any remaining single references to the snapshot subvolume
-    sed -i 's|,subvol=@/\.snapshots/1/snapshot||g' /tmp/fstab.new
-    sed -i 's|subvol=@/\.snapshots/1/snapshot,||g' /tmp/fstab.new
-    
-    # Verify the cleaning operation worked
-    if grep -q "\.snapshots/1/snapshot" /tmp/fstab.new; then
-        echo "WARNING: Some snapshot subvolume references still exist in fstab"
-        echo "This may cause boot issues with snapper snapshots"
-        
-        # Show the problematic lines
-        echo "Problematic lines:"
-        grep "\.snapshots/1/snapshot" /tmp/fstab.new || true
-    else
-        echo "Successfully removed all snapshot subvolume references"
-    fi
-    
-    # Check if any modifications were actually made
-    if diff -q /tmp/fstab.backup /tmp/fstab.new &>/dev/null; then
-        echo "No subvolume references needed cleaning"
-    else
-        echo "fstab cleaned of conflicting subvolume references"
-    fi
-}
 
 validate_fstab() {
     echo "Validating fstab syntax and feasibility..."
@@ -152,6 +129,26 @@ validate_fstab() {
         echo "ERROR: fstab has syntax errors or invalid entries"
         echo "Running detailed verification..."
         findmnt --verify --tab-file /tmp/fstab.new || true
+        echo ""
+        echo "Current fstab content:"
+        cat /tmp/fstab.new
+        echo ""
+        echo "Checking for common issues..."
+        
+        # Check for malformed mount options
+        if grep -n ",," /tmp/fstab.new; then
+            echo "Found double commas in mount options (lines shown above)"
+        fi
+        
+        # Check for trailing/leading commas
+        if grep -n "[[:space:]]," /tmp/fstab.new; then
+            echo "Found leading commas in mount options (lines shown above)"
+        fi
+        
+        if grep -n ",[[:space:]]" /tmp/fstab.new; then
+            echo "Found trailing commas in mount options (lines shown above)"
+        fi
+        
         return 1
     fi
     
@@ -253,22 +250,19 @@ display_fstab_summary() {
 echo "=== fstab Generation ==="
 
 # Step 1: Validate current system state
-validate_current_mounts || return 1
-verify_filesystem_types || return 1
+validate_current_mounts || exit 1
+verify_filesystem_types || exit 1
 
 # Step 2: Generate fstab
-generate_fstab || return 1
+generate_fstab || exit 1
 
-# Step 3: Clean conflicting references
-clean_fstab_subvolume_references
+# Step 3: Validate generated fstab
+validate_fstab || exit 1
 
-# Step 4: Validate generated fstab
-validate_fstab || return 1
+# Step 4: Install fstab
+install_fstab || exit 1
 
-# Step 5: Install fstab
-install_fstab || return 1
-
-# Step 6: Display summary
+# Step 5: Display summary
 display_fstab_summary
 
 # Cleanup temporary files
