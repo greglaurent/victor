@@ -15,7 +15,7 @@ validate_chroot_environment() {
     # Verify we're in Arch Linux chroot
     if [[ ! -f /etc/arch-release ]]; then
         output "ERROR: Not running in Arch Linux chroot environment"
-        exit 1
+        return 1
     fi
     
     # Verify critical directories exist
@@ -23,14 +23,14 @@ validate_chroot_environment() {
     for dir in "${required_dirs[@]}"; do
         if [[ ! -d "$dir" ]]; then
             output "ERROR: Required directory missing in chroot: $dir"
-            exit 1
+            return 1
         fi
     done
     
     # Verify package manager is functional
     if ! pacman -V &>/dev/null; then
         output "ERROR: Package manager not functional in chroot"
-        exit 1
+        return 1
     fi
     
     output "Chroot environment validated successfully"
@@ -51,7 +51,7 @@ validate_required_variables() {
     
     if [[ ${#missing_vars[@]} -gt 0 ]]; then
         output "ERROR: Missing required variables: ${missing_vars[*]}"
-        exit 1
+        return 1
     fi
     
     output "All required variables validated"
@@ -319,7 +319,7 @@ regenerate_initramfs() {
     chmod 600 /boot/initramfs-linux*
     
     # Regenerate initramfs with new configuration
-    if ! mkinitcpio -P 2>&1; then
+    if ! mkinitcpio -P; then
         output "ERROR: Failed to regenerate initramfs"
         output "Check the mkinitcpio output above for details"
         return 1
@@ -831,28 +831,28 @@ output "Finalizing Arch Linux installation with modern security"
 output ""
 
 # Pre-configuration validation
-validate_chroot_environment || exit 1
-validate_required_variables || exit 1
+validate_chroot_environment || return 1
+validate_required_variables || return 1
 
 # Display hardware detection summary
 display_hardware_summary
 
 # Main configuration steps
-configure_graphics_drivers || exit 1
-configure_timezone || exit 1
-generate_locales || exit 1
-regenerate_initramfs || exit 1
-install_limine_bootloader || exit 1
-create_user_account || exit 1
+configure_graphics_drivers || return 1
+configure_timezone || return 1
+generate_locales || return 1
+regenerate_initramfs || return 1
+install_limine_bootloader || return 1
+create_user_account || return 1
 set_user_password
-configure_sudo_access || exit 1
-install_additional_packages || exit 1
+configure_sudo_access || return 1
+install_additional_packages || return 1
 configure_desktop_integration
-configure_snapper || exit 1
-finalize_security_setup || exit 1
+configure_snapper || return 1
+finalize_security_setup || return 1
 
 # Final validation
-final_system_validation || exit 1
+final_system_validation || return 1
 
 # Display summary
 display_installation_summary

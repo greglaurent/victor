@@ -436,7 +436,7 @@ output "Enabling services for secure, modern Arch Linux system"
 output ""
 
 # Pre-configuration validation
-validate_systemctl_environment || exit 1
+validate_systemctl_environment || return 1
 validate_service_units
 
 # Disable conflicting services first
@@ -447,15 +447,15 @@ for service in "${DISABLED_SERVICES[@]}"; do
 done
 
 # Enable services by category (order matters)
-enable_service_category "Critical" "${CRITICAL_SERVICES[@]}" || exit 1
-enable_service_category "Security" "${SECURITY_SERVICES[@]}" || exit 1
-enable_service_category "Network" "${NETWORK_SERVICES[@]}" || exit 1
-enable_service_category "Hardware" "${HARDWARE_SERVICES[@]}" || exit 1
-enable_service_category "Snapshot" "${SNAPSHOT_SERVICES[@]}" || exit 1
+enable_service_category "Critical" "${CRITICAL_SERVICES[@]}" || return 1
+enable_service_category "Security" "${SECURITY_SERVICES[@]}" || return 1
+enable_service_category "Network" "${NETWORK_SERVICES[@]}" || return 1
+enable_service_category "Hardware" "${HARDWARE_SERVICES[@]}" || return 1
+enable_service_category "Snapshot" "${SNAPSHOT_SERVICES[@]}" || return 1
 
 # Configure additional system services
-configure_dns_resolution || exit 1
-configure_zram || exit 1
+configure_dns_resolution || return 1
+configure_zram || return 1
 
 # Validation and verification
 validate_service_dependencies

@@ -496,20 +496,20 @@ output "Implementing practical, developer-friendly security measures"
 output ""
 
 # Pre-configuration validation
-validate_target_directories || exit 1
-check_security_packages || exit 1
-validate_config_templates || exit 1
+validate_target_directories || return 1
+check_security_packages || return 1
+validate_config_templates || return 1
 
 # Main security configuration steps
-install_sysctl_security || exit 1
-setup_apparmor_foundation || exit 1
-configure_ssh_security || exit 1
-configure_fail2ban || exit 1
-setup_network_security || exit 1
-configure_filesystem_security || exit 1
+install_sysctl_security || return 1
+setup_apparmor_foundation || return 1
+configure_ssh_security || return 1
+configure_fail2ban || return 1
+setup_network_security || return 1
+configure_filesystem_security || return 1
 
 # Post-configuration validation
-validate_security_configuration || exit 1
+validate_security_configuration || return 1
 
 # Display summary
 display_security_summary

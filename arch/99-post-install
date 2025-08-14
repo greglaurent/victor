@@ -733,23 +733,23 @@ output "Final validation and system preparation for first boot"
 output ""
 
 # Comprehensive system validation
-validate_critical_files || exit 1
-validate_security_configuration || exit 1
-validate_network_stack || exit 1
-validate_bootloader_configuration || exit 1
-validate_service_integration || exit 1
-validate_user_configuration || exit 1
+validate_critical_files || return 1
+validate_security_configuration || return 1
+validate_network_stack || return 1
+validate_bootloader_configuration || return 1
+validate_service_integration || return 1
+validate_user_configuration || return 1
 
 # Integration testing
 test_system_integration
 
 # System preparation
-prepare_victor_integration || exit 1
-finalize_security_hardening || exit 1
+prepare_victor_integration || return 1
+finalize_security_hardening || return 1
 cleanup_installation_artifacts
 
 # Documentation and reporting
-generate_installation_report || exit 1
+generate_installation_report || return 1
 
 # Final guidance
 display_next_steps

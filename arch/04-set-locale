@@ -394,23 +394,23 @@ display_configuration_summary() {
 output "=== Locale and System Configuration ==="
 
 # Validate all input parameters
-validate_hostname "${hostname:?}" || exit 1
-validate_locale "${locale:?}" || exit 1
-validate_keyboard "${kblayout:?}" || exit 1
-validate_timezone "${timezone:?}" || exit 1
+validate_hostname "${hostname:?}" || return 1
+validate_locale "${locale:?}" || return 1
+validate_keyboard "${kblayout:?}" || return 1
+validate_timezone "${timezone:?}" || return 1
 
 output "All input parameters validated successfully"
 output ""
 
 # Create configuration files
-create_hostname_config || exit 1
-create_hosts_file || exit 1
-create_locale_config || exit 1
-create_keyboard_config || exit 1
-configure_timezone || exit 1
+create_hostname_config || return 1
+create_hosts_file || return 1
+create_locale_config || return 1
+create_keyboard_config || return 1
+configure_timezone || return 1
 
 # Verify all configurations
-verify_all_configuration || exit 1
+verify_all_configuration || return 1
 
 # Display summary
 display_configuration_summary

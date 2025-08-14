@@ -20,13 +20,13 @@ validate_disk() {
     # Check if disk exists
     if [[ ! -b "$disk" ]]; then
         output "ERROR: Disk $disk does not exist or is not a block device."
-        exit 1
+        return 1
     fi
     
     # Check if disk is mounted
     if mount | grep -q "^$disk"; then
         output "ERROR: Disk $disk appears to be mounted. Unmount it first."
-        exit 1
+        return 1
     fi
     
     # Check minimum disk size (20GB)
@@ -36,7 +36,7 @@ validate_disk() {
     
     if [[ $size_gb -lt 20 ]]; then
         output "ERROR: Disk $disk is too small (${size_gb}GB). Minimum 20GB required."
-        exit 1
+        return 1
     fi
     
     output "Disk validation passed: $disk (${size_gb}GB)"
@@ -53,12 +53,12 @@ validate_partition_creation() {
     # Check if partitions exist
     if [[ ! -b "$esp" ]]; then
         output "ERROR: ESP partition $esp was not created successfully."
-        exit 1
+        return 1
     fi
     
     if [[ ! -b "$rootfs" ]]; then
         output "ERROR: Root partition $rootfs was not created successfully."
-        exit 1
+        return 1
     fi
     
     output "Partition creation validated successfully."
@@ -73,7 +73,7 @@ validate_filesystem_creation() {
     
     if [[ "$actual_fstype" != "$fstype" ]]; then
         output "ERROR: Filesystem creation failed. Expected $fstype, got $actual_fstype"
-        exit 1
+        return 1
     fi
     
     output "Filesystem creation validated: $device ($fstype)"
@@ -215,13 +215,13 @@ mount -o nodev,nosuid,noexec "${ESP}" /mnt/boot/efi
 output "Verifying mount structure..."
 if ! mountpoint -q /mnt; then
     output "ERROR: Root filesystem not mounted properly."
-    exit 1
+    return 1
 fi
 
 for mount_point in /mnt/home /mnt/var/log /mnt/swap /mnt/.snapshots /mnt/boot/efi; do
     if ! mountpoint -q "$mount_point"; then
         output "ERROR: Mount point $mount_point not mounted properly."
-        exit 1
+        return 1
     fi
 done
 

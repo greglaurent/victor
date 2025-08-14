@@ -422,17 +422,17 @@ output "Implementing unbound + systemd-resolved + NetworkManager integration"
 output ""
 
 # Pre-configuration validation
-validate_network_packages || exit 1
-validate_target_directories || exit 1
+validate_network_packages || return 1
+validate_target_directories || return 1
 
 # Main network configuration steps
-configure_unbound_resolver || exit 1
-configure_systemd_resolved || exit 1
-configure_networkmanager || exit 1
-integrate_network_security || exit 1
+configure_unbound_resolver || return 1
+configure_systemd_resolved || return 1
+configure_networkmanager || return 1
+integrate_network_security || return 1
 
 # Post-configuration validation
-validate_network_configuration || exit 1
+validate_network_configuration || return 1
 
 # Display summary
 display_network_summary

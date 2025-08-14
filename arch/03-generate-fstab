@@ -251,20 +251,20 @@ display_fstab_summary() {
 output "=== fstab Generation ==="
 
 # Step 1: Validate current system state
-validate_current_mounts || exit 1
-verify_filesystem_types || exit 1
+validate_current_mounts || return 1
+verify_filesystem_types || return 1
 
 # Step 2: Generate fstab
-generate_fstab || exit 1
+generate_fstab || return 1
 
 # Step 3: Clean conflicting references
 clean_fstab_subvolume_references
 
 # Step 4: Validate generated fstab
-validate_fstab || exit 1
+validate_fstab || return 1
 
 # Step 5: Install fstab
-install_fstab || exit 1
+install_fstab || return 1
 
 # Step 6: Display summary
 display_fstab_summary

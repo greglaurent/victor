@@ -297,7 +297,7 @@ regenerate_initramfs() {
     output "Regenerating initramfs with new configuration..."
     
     # Generate initramfs for both kernels
-    if ! arch-chroot /mnt mkinitcpio -P 2>&1; then
+    if ! arch-chroot /mnt mkinitcpio -P; then
         output "ERROR: Failed to regenerate initramfs"
         output "Check the mkinitcpio output above for details"
         return 1
@@ -445,19 +445,19 @@ output "Replacing GRUB with modern Limine bootloader"
 output ""
 
 # Pre-installation validation
-check_limine_package || exit 1
-validate_esp_mount || exit 1
+check_limine_package || return 1
+validate_esp_mount || return 1
 
 # Main configuration steps
-configure_mkinitcpio || exit 1
-regenerate_initramfs || exit 1
-validate_kernel_files || exit 1
-create_limine_config || exit 1
-install_limine_uefi || exit 1
-install_limine_bios || exit 1
+configure_mkinitcpio || return 1
+regenerate_initramfs || return 1
+validate_kernel_files || return 1
+create_limine_config || return 1
+install_limine_uefi || return 1
+install_limine_bios || return 1
 
 # Post-installation verification
-verify_limine_installation || exit 1
+verify_limine_installation || return 1
 
 # Display summary
 display_limine_summary

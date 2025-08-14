@@ -2,6 +2,41 @@
 
 set -euo pipefail
 
+# Installation logging and error handling
+INSTALL_LOG="/tmp/arch-install-$(date +%Y%m%d-%H%M%S).log"
+exec 1> >(tee -a "$INSTALL_LOG")
+exec 2> >(tee -a "$INSTALL_LOG" >&2)
+
+# Error handler function
+handle_installation_error() {
+    local exit_code=$?
+    local line_number=$1
+    echo "" >&2
+    echo "=======================================" >&2
+    echo "INSTALLATION FAILED" >&2
+    echo "=======================================" >&2
+    echo "Error occurred at line $line_number with exit code $exit_code" >&2
+    echo "Full installation log: $INSTALL_LOG" >&2
+    echo "Progress file: $INSTALL_PROGRESS_FILE" >&2
+    echo "" >&2
+    echo "To resume installation after fixing the issue:" >&2
+    echo "1. Fix the reported problem" >&2
+    echo "2. Re-run this installer" >&2
+    echo "3. It will continue from where it left off" >&2
+    echo "=======================================" >&2
+    exit $exit_code
+}
+
+# Set error trap for main installer
+trap 'handle_installation_error $LINENO' ERR
+
+# Installation start logging
+echo "======================================="
+echo "Arch Linux Installation Started"
+echo "Date: $(date)"
+echo "Log file: $INSTALL_LOG"
+echo "======================================="
+
 # =====================================
 # INSTALLATION CONFIGURATION
 # =====================================
@@ -482,23 +517,100 @@ if [[ $confirm != [yY] ]]; then
   exit 0
 fi
 
-# Execute installation scripts
+# Execute installation scripts with proper error handling
 output "Starting installation process..."
 
-source ./01-format-disks
-source ./02-pacstrap-system
-source ./03-generate-fstab
-source ./04-set-locale
-source ./05-config-limine
-source ./06-config-security
-source ./07-config-network
-source ./08-arch-chroot
-source ./09-enable-systemctl
-source ./99-post-install
+# Installation steps with error handling
+installation_steps=(
+    "01-format-disks:Format and partition disk"
+    "02-pacstrap-system:Install base system"
+    "03-generate-fstab:Generate filesystem table"
+    "04-set-locale:Configure system locale"
+    "05-config-limine:Configure bootloader"
+    "06-config-security:Apply security hardening"
+    "07-config-network:Configure networking"
+    "08-arch-chroot:Configure system in chroot"
+    "09-enable-systemctl:Enable system services"
+    "99-post-install:Finalize installation"
+)
+
+# Track progress for recovery
+INSTALL_PROGRESS_FILE="/tmp/arch_install_progress"
+
+# Check if resuming from previous installation
+if [[ -f "$INSTALL_PROGRESS_FILE" ]]; then
+    last_completed=$(cat "$INSTALL_PROGRESS_FILE")
+    if [[ $last_completed -gt 0 ]]; then
+        output "Found previous installation attempt that completed $last_completed steps"
+        output "Do you want to resume from step $((last_completed + 1))? (y/N)"
+        read -r resume_response
+        if [[ $resume_response == [yY] ]]; then
+            output "Resuming installation from step $((last_completed + 1))"
+            RESUME_FROM_STEP=$last_completed
+        else
+            output "Starting fresh installation"
+            RESUME_FROM_STEP=0
+        fi
+    else
+        RESUME_FROM_STEP=0
+    fi
+else
+    RESUME_FROM_STEP=0
+fi
+
+echo "$RESUME_FROM_STEP" > "$INSTALL_PROGRESS_FILE"
+
+step_counter=0
+for step_info in "${installation_steps[@]}"; do
+    step_counter=$((step_counter + 1))
+    script="${step_info%%:*}"
+    description="${step_info##*:}"
+    
+    # Skip completed steps when resuming
+    if [[ $step_counter -le $RESUME_FROM_STEP ]]; then
+        output "⏭ Skipping step $step_counter: $description (already completed)"
+        continue
+    fi
+    
+    output ""
+    output "=== Step $step_counter/${#installation_steps[@]}: $description ==="
+    
+    # Run the step with proper error handling
+    if bash "./$script"; then
+        output "✓ Step $step_counter completed: $description"
+        echo "$step_counter" > "$INSTALL_PROGRESS_FILE"
+    else
+        output "✗ FAILED at step $step_counter: $description"
+        output "Installation can be resumed from this point after fixing the issue"
+        exit 1
+    fi
+done
+
+# Clean up progress tracking on successful completion
+rm -f "$INSTALL_PROGRESS_FILE"
 
 # Finish up
 output ""
-output "=== Installation Complete ==="
+output "======================================="
+output "ARCH LINUX INSTALLATION COMPLETED"
+output "======================================="
+output "✓ All ${#installation_steps[@]} installation steps completed successfully"
+output "✓ System is ready for first boot"
+output "✓ Installation log saved: $INSTALL_LOG"
+output ""
+output "The system is now configured with:"
+output "  • Modern Limine bootloader (UEFI + BIOS)"
+output "  • BTRFS filesystem with snapshots"
+output "  • Enterprise security hardening"
+output "  • Unbound DNS with DoT/DNSSEC"
+output "  • AppArmor framework prepared"
+output "  • Comprehensive system monitoring"
+output ""
+output "Next steps after reboot:"
+output "  1. Complete first-boot setup"
+output "  2. Deploy AppArmor profiles: vic setup security apparmor"
+output "  3. Configure development environment"
+output "======================================="
 output "The system has been installed successfully."
 output "You may now reboot into your new Arch Linux system."
 output ""
