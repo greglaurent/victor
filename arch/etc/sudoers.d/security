@@ -2,11 +2,14 @@
 
 # Require password for sudo
 Defaults passwd_timeout=0
-Defaults timestamp_timeout=15
+Defaults timestamp_timeout=60
 
-# Log sudo commands
-Defaults log_input, log_output
+# Log sudo commands (but not sensitive output)
+Defaults log_input
 Defaults logfile="/var/log/sudo.log"
+
+# Developer-friendly: Don't log output (prevents secret leakage)
+# Defaults log_output
 
 # Secure path
 Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"

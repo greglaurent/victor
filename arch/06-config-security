@@ -364,6 +364,11 @@ configure_filesystem_security() {
     mkdir -p "/mnt/var/log/security"
     chmod 750 "/mnt/var/log/security"
     
+    # Create secure core dump directory for development debugging
+    mkdir -p "/mnt/var/crash"
+    chmod 755 "/mnt/var/crash"
+    # Core dumps will be owned by the user who caused the crash
+    
     output "  ✓ Sudo security hardening configured"
     output "  ✓ Systemd service hardening template created"
     output "  ✓ File integrity monitoring prepared"
@@ -483,6 +488,13 @@ display_security_summary() {
     output "  ✓ Developer workflow preserved (debugging, containers, VMs)"
     output "  ✓ Enterprise-grade security without productivity loss"
     output "  ✓ Practical security that actually gets used"
+    output ""
+    output "=== Developer-Friendly Features ==="
+    output "  ✓ Core dumps enabled in /var/crash for debugging"
+    output "  ✓ Sudo timeout extended to 60min (reduced interruptions)"
+    output "  ✓ Systemd hardening allows JIT compilers and containers"
+    output "  ✓ AppArmor profiles support all major development tools"
+    output "  ✓ Container/VM support maintained (Docker, Podman, libvirt)"
     output "=================================="
     output ""
 }
