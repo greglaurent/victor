@@ -179,23 +179,20 @@ echo "Step 7/8: Creating BTRFS subvolumes..."
 # Mount BTRFS root for subvolume creation
 mount "${BTRFS}" /mnt
 
-# Create simplified subvolume structure
+# Create subvolume structure matching original working script
 btrfs subvolume create /mnt/@
-btrfs subvolume create /mnt/@home
-btrfs subvolume create /mnt/@var_log
-btrfs subvolume create /mnt/@snapshots
-btrfs subvolume create /mnt/@swap
-
-# Create snapshot structure for snapper
-mkdir -p /mnt/@snapshots/1
-btrfs subvolume create /mnt/@snapshots/1/snapshot
+btrfs subvolume create /mnt/@/.snapshots
+mkdir -p /mnt/@/.snapshots/1
+btrfs subvolume create /mnt/@/.snapshots/1/snapshot
+btrfs subvolume create /mnt/@/home
+btrfs subvolume create /mnt/@/var_log
 
 # Disable COW for performance-sensitive subvolumes
 chattr +C /mnt/@var_log
 chattr +C /mnt/@swap
 
 # Set default subvolume to snapshot 1 (for snapper)
-btrfs subvolume set-default "$(btrfs subvolume list /mnt | grep "@snapshots/1/snapshot" | grep -oP '(?<=ID )[0-9]+')" /mnt
+btrfs subvolume set-default "$(btrfs subvolume list /mnt | grep "@/.snapshots/1/snapshot" | grep -oP '(?<=ID )[0-9]+')" /mnt
 
 # Create snapper info file
 echo "<?xml version=\"1.0\"?>
@@ -218,13 +215,12 @@ umount /mnt
 mount -o "${BTRFS_OPTS}" "${BTRFS}" /mnt
 
 # Create mount points
-mkdir -p /mnt/{home,var/log,swap,.snapshots,boot/efi}
+mkdir -p /mnt/{home,var/log,.snapshots,boot/efi}
 
 # Mount subvolumes with appropriate options
-mount -o "${BTRFS_OPTS},subvol=@home" "${BTRFS}" /mnt/home
-mount -o "${BTRFS_OPTS_NOCOW},nodev,nosuid,noexec,subvol=@var_log" "${BTRFS}" /mnt/var/log
-mount -o "${BTRFS_OPTS_NOCOW},nodev,nosuid,noexec,subvol=@swap" "${BTRFS}" /mnt/swap
-mount -o "${BTRFS_OPTS},subvol=@snapshots" "${BTRFS}" /mnt/.snapshots
+mount -o "${BTRFS_OPTS},subvol=@/home" "${BTRFS}" /mnt/home
+mount -o "${BTRFS_OPTS_NOCOW},nodev,nosuid,noexec,subvol=@/var_log" "${BTRFS}" /mnt/var/log
+mount -o "${BTRFS_OPTS},subvol=@/.snapshots" "${BTRFS}" /mnt/.snapshots
 
 # Mount ESP
 mount -o nodev,nosuid,noexec "${ESP}" /mnt/boot/efi
