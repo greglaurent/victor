@@ -1,7 +1,239 @@
 #!/usr/bin/env bash
 
-# utils::is_root
+# run/system/update
+# Comprehensive system update script for Arch Linux development environment
 
-utils::is_cmd fake_cmd && echo "is a command"
+set -euo pipefail
 
-#TODO: Add update script
+source "${HERE}/utils"
+
+utils::is_root
+
+output() {
+    printf '\e[1;34m%-6s\e[m\n' "${@}"
+}
+
+main() {
+    output "=== System Update ==="
+    
+    local start_time=$(date +%s)
+    local update_log="/var/log/system-updates.log"
+    
+    # Log update start
+    echo "$(date): Starting system update" >> "$update_log"
+    
+    # Update package databases
+    output "Updating package databases..."
+    if pacman -Syy; then
+        output "✓ Package databases updated"
+    else
+        output "✗ Failed to update package databases"
+        return 1
+    fi
+    
+    # Check for updates before proceeding
+    local updates_available=$(pacman -Qu | wc -l)
+    if [[ $updates_available -eq 0 ]]; then
+        output "✓ System is already up to date"
+        echo "$(date): No updates available" >> "$update_log"
+        return 0
+    fi
+    
+    output "Found $updates_available package updates available"
+    
+    # Show packages to be updated
+    output "Packages to be updated:"
+    pacman -Qu | head -20
+    if [[ $updates_available -gt 20 ]]; then
+        output "... and $((updates_available - 20)) more packages"
+    fi
+    
+    # Perform system update
+    output "Updating system packages..."
+    if pacman -Su --noconfirm; then
+        output "✓ System packages updated successfully"
+        echo "$(date): Successfully updated $updates_available packages" >> "$update_log"
+    else
+        output "✗ System package update failed"
+        echo "$(date): Package update failed" >> "$update_log"
+        return 1
+    fi
+    
+    # Update AUR packages if paru is available
+    if command -v paru >/dev/null 2>&1; then
+        output "Checking for AUR package updates..."
+        local aur_updates=$(paru -Qu --aur 2>/dev/null | wc -l || echo "0")
+        
+        if [[ $aur_updates -gt 0 ]]; then
+            output "Found $aur_updates AUR package updates"
+            if paru -Su --aur --noconfirm; then
+                output "✓ AUR packages updated successfully"
+                echo "$(date): Successfully updated $aur_updates AUR packages" >> "$update_log"
+            else
+                output "⚠ Some AUR package updates may have failed"
+                echo "$(date): AUR package updates completed with warnings" >> "$update_log"
+            fi
+        else
+            output "✓ AUR packages are up to date"
+        fi
+    else
+        output "⊘ Paru not installed, skipping AUR updates"
+    fi
+    
+    # Clean package cache
+    output "Cleaning package cache..."
+    local cache_before=$(du -sh /var/cache/pacman/pkg 2>/dev/null | cut -f1 || echo "unknown")
+    
+    # Keep only the most recent version and any currently installed versions
+    paccache -r -k2 >/dev/null 2>&1 || true
+    
+    # Remove uninstalled packages from cache (older than 7 days)
+    paccache -r -u -k0 >/dev/null 2>&1 || true
+    
+    local cache_after=$(du -sh /var/cache/pacman/pkg 2>/dev/null | cut -f1 || echo "unknown")
+    output "✓ Package cache cleaned (was: $cache_before, now: $cache_after)"
+    
+    # Update system files database
+    output "Updating file database..."
+    if updatedb 2>/dev/null; then
+        output "✓ File database updated"
+    else
+        output "⊘ File database update skipped (mlocate not installed or failed)"
+    fi
+    
+    # Check for .pacnew files (config file conflicts)
+    output "Checking for configuration file conflicts..."
+    local pacnew_files=$(find /etc -name "*.pacnew" 2>/dev/null || true)
+    if [[ -n "$pacnew_files" ]]; then
+        output "⚠ Found .pacnew files that need manual review:"
+        echo "$pacnew_files" | while read -r file; do
+            output "  $file"
+        done
+        output "Use 'pacdiff' to review and merge configuration changes"
+        echo "$(date): Found .pacnew files: $pacnew_files" >> "$update_log"
+    else
+        output "✓ No configuration file conflicts found"
+    fi
+    
+    # Check for orphaned packages
+    output "Checking for orphaned packages..."
+    local orphans=$(pacman -Qtdq 2>/dev/null || true)
+    if [[ -n "$orphans" ]]; then
+        local orphan_count=$(echo "$orphans" | wc -l)
+        output "Found $orphan_count orphaned packages:"
+        echo "$orphans" | head -10 | while read -r pkg; do
+            output "  $pkg"
+        done
+        if [[ $orphan_count -gt 10 ]]; then
+            output "  ... and $((orphan_count - 10)) more"
+        fi
+        output "Run 'pacman -Rns \$(pacman -Qtdq)' to remove orphaned packages"
+        echo "$(date): Found $orphan_count orphaned packages" >> "$update_log"
+    else
+        output "✓ No orphaned packages found"
+    fi
+    
+    # Update systemd database (for new services)
+    output "Reloading systemd configuration..."
+    systemctl daemon-reload
+    output "✓ Systemd configuration reloaded"
+    
+    # Check for services that need restart after updates
+    output "Checking for services that need restart..."
+    local needs_restart=""
+    
+    # Check if systemctl has needrestart-like functionality
+    if command -v needrestart >/dev/null 2>&1; then
+        needs_restart=$(needrestart -b -r l 2>/dev/null | grep "NEEDRESTART-SVC:" | cut -d: -f2 || true)
+    else
+        # Manual check for common services that often need restart after kernel updates
+        if [[ -f /var/run/reboot-required ]] || pacman -Q linux >/dev/null 2>&1; then
+            # Check if we updated the kernel
+            if pacman -Qu | grep -q "^linux "; then
+                output "⚠ Kernel was updated - system reboot recommended"
+                echo "$(date): Kernel updated, reboot recommended" >> "$update_log"
+            fi
+        fi
+        
+        # Check for common services that might need restart
+        local common_services=("docker" "nginx" "apache" "postgresql" "mysql" "redis")
+        for service in "${common_services[@]}"; do
+            if systemctl is-active "$service" >/dev/null 2>&1; then
+                if systemctl needs-reload "$service" >/dev/null 2>&1; then
+                    needs_restart+="$service "
+                fi
+            fi
+        done
+    fi
+    
+    if [[ -n "$needs_restart" ]]; then
+        output "⚠ The following services may need restart:"
+        for service in $needs_restart; do
+            output "  systemctl restart $service"
+        done
+        echo "$(date): Services needing restart: $needs_restart" >> "$update_log"
+    else
+        output "✓ No services appear to need restart"
+    fi
+    
+    # Update development tools if they exist
+    output "Updating development tools..."
+    
+    # Update npm global packages if npm exists
+    if command -v npm >/dev/null 2>&1; then
+        output "Updating npm global packages..."
+        if npm update -g 2>/dev/null; then
+            output "✓ npm global packages updated"
+        else
+            output "⚠ npm global packages update completed with warnings"
+        fi
+    fi
+    
+    # Update cargo if rust is installed
+    if command -v cargo >/dev/null 2>&1; then
+        output "Updating Rust toolchain..."
+        if rustup update 2>/dev/null; then
+            output "✓ Rust toolchain updated"
+        else
+            output "⚠ Rust toolchain update completed with warnings"
+        fi
+    fi
+    
+    # Update pip packages if python exists
+    if command -v pip >/dev/null 2>&1; then
+        output "Updating Python pip..."
+        if pip install --upgrade pip 2>/dev/null; then
+            output "✓ Python pip updated"
+        else
+            output "⚠ Python pip update completed with warnings"
+        fi
+    fi
+    
+    # Calculate update time
+    local end_time=$(date +%s)
+    local duration=$((end_time - start_time))
+    local minutes=$((duration / 60))
+    local seconds=$((duration % 60))
+    
+    output ""
+    output "✓ System update completed successfully!"
+    output "Update took ${minutes}m ${seconds}s"
+    output ""
+    output "Summary:"
+    output "  Packages updated: $updates_available"
+    if command -v paru >/dev/null 2>&1; then
+        output "  AUR packages checked: Yes"
+    fi
+    output "  Cache cleaned: Yes"
+    output "  Services checked: Yes"
+    output ""
+    output "Next steps:"
+    output "  • Review any .pacnew files if found"
+    output "  • Consider removing orphaned packages"
+    output "  • Restart services if recommended"
+    output "  • Reboot if kernel was updated"
+    
+    echo "$(date): Update completed successfully in ${duration}s" >> "$update_log"
+}
+
+main "$@"

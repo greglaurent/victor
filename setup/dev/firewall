@@ -16,6 +16,14 @@ output() {
 main() {
     output "=== Development Firewall Setup ==="
     
+    # Enable UFW if not already enabled
+    if ! ufw status | grep -q "Status: active"; then
+        output "Enabling UFW firewall..."
+        ufw --force enable
+    else
+        output "✓ UFW firewall already active"
+    fi
+    
     # Allow development port ranges from local networks
     output "Configuring development port access..."
     
@@ -26,6 +34,15 @@ main() {
     
     # Allow localhost access to all ports (for local development)
     ufw allow from 127.0.0.1 comment 'Localhost development'
+    ufw allow from ::1 comment 'IPv6 localhost development'
+    
+    # Allow specific development service ports globally (commonly exposed)
+    output "Configuring common development service ports..."
+    ufw allow 3000 comment 'React/Node.js development server'
+    ufw allow 8080 comment 'Alternative HTTP development server'
+    ufw allow 5173 comment 'Vite development server'
+    ufw allow 4200 comment 'Angular development server'
+    ufw allow 8000 comment 'Python/Django development server'
     
     # Configure container networking rules
     output "Configuring container networking..."
@@ -44,19 +61,183 @@ main() {
     ufw allow from 10.88.0.0/16 comment 'Podman default network'
     ufw allow to 10.88.0.0/16 comment 'Podman default network'
     
-    # Container registry access (for pulling images)
-    ufw allow out 443 comment 'HTTPS - container registries'
-    ufw allow out 80 comment 'HTTP - container registries' 
+    # Development database ports (local network only)
+    output "Configuring database development ports..."
+    ufw allow from 192.168.0.0/16 to any port 5432 comment 'PostgreSQL - local network'
+    ufw allow from 10.0.0.0/8 to any port 5432 comment 'PostgreSQL - local network'
+    ufw allow from 172.16.0.0/12 to any port 5432 comment 'PostgreSQL - local network'
     
-    output "✓ Development ports 3000-9999 allowed from local networks"
-    output "✓ Localhost access enabled"
-    output "✓ Container networking configured (Docker, Podman)"
+    ufw allow from 192.168.0.0/16 to any port 3306 comment 'MySQL - local network'
+    ufw allow from 10.0.0.0/8 to any port 3306 comment 'MySQL - local network'
+    ufw allow from 172.16.0.0/12 to any port 3306 comment 'MySQL - local network'
+    
+    ufw allow from 192.168.0.0/16 to any port 6379 comment 'Redis - local network'
+    ufw allow from 10.0.0.0/8 to any port 6379 comment 'Redis - local network'
+    ufw allow from 172.16.0.0/12 to any port 6379 comment 'Redis - local network'
+    
+    ufw allow from 192.168.0.0/16 to any port 27017 comment 'MongoDB - local network'
+    ufw allow from 10.0.0.0/8 to any port 27017 comment 'MongoDB - local network'
+    ufw allow from 172.16.0.0/12 to any port 27017 comment 'MongoDB - local network'
+    
+    # Container registry and package manager access
+    output "Configuring development tool access..."
+    ufw allow out 443 comment 'HTTPS - registries, packages, git'
+    ufw allow out 80 comment 'HTTP - registries, packages'
+    ufw allow out 22 comment 'SSH - git repositories'
+    ufw allow out 9418 comment 'Git protocol'
+    
+    # DNS and NTP (essential for development)
+    ufw allow out 53 comment 'DNS queries'
+    ufw allow out 123 comment 'NTP time sync'
+    
+    # Create development firewall utility script
+    local firewall_script="/usr/local/bin/dev-firewall"
+    output "Creating development firewall utility..."
+    
+    cat > "$firewall_script" << 'EOF'
+#!/usr/bin/env bash
+
+# dev-firewall - Development firewall management utility
+
+set -euo pipefail
+
+output() {
+    printf '\e[1;34m%-6s\e[m\n' "${@}"
+}
+
+show_usage() {
+    output "Usage: dev-firewall <command> [args]"
+    output ""
+    output "Commands:"
+    output "  open PORT [COMMENT]     Open port globally with optional comment"
+    output "  close PORT             Close port globally"
+    output "  open-local PORT        Open port for local networks only"
+    output "  list                   List all firewall rules"
+    output "  status                 Show firewall status"
+    output "  dev-ports              List common development ports"
+    output ""
+    output "Examples:"
+    output "  dev-firewall open 8080 'API server'"
+    output "  dev-firewall open-local 5432"
+    output "  dev-firewall close 8080"
+    output "  dev-firewall list"
+}
+
+open_port() {
+    local port="${1:?Port required}"
+    local comment="${2:-Development port}"
+    
+    output "Opening port $port globally..."
+    ufw allow "$port" comment "$comment"
+    output "✓ Port $port opened with comment: $comment"
+}
+
+close_port() {
+    local port="${1:?Port required}"
+    
+    output "Closing port $port..."
+    ufw delete allow "$port" 2>/dev/null || output "Port $port was not open globally"
+    
+    # Also try to delete local network rules
+    ufw delete allow from 192.168.0.0/16 to any port "$port" 2>/dev/null || true
+    ufw delete allow from 10.0.0.0/8 to any port "$port" 2>/dev/null || true
+    ufw delete allow from 172.16.0.0/12 to any port "$port" 2>/dev/null || true
+    
+    output "✓ Port $port closed"
+}
+
+open_port_local() {
+    local port="${1:?Port required}"
+    local comment="${2:-Development port - local}"
+    
+    output "Opening port $port for local networks only..."
+    ufw allow from 192.168.0.0/16 to any port "$port" comment "$comment"
+    ufw allow from 10.0.0.0/8 to any port "$port" comment "$comment"
+    ufw allow from 172.16.0.0/12 to any port "$port" comment "$comment"
+    output "✓ Port $port opened for local networks with comment: $comment"
+}
+
+list_rules() {
+    output "=== UFW Rules ==="
+    ufw status numbered
+}
+
+show_status() {
+    output "=== UFW Status ==="
+    ufw status verbose
+}
+
+show_dev_ports() {
+    output "=== Common Development Ports ==="
+    output "Web Development:"
+    output "  3000  - React/Node.js default"
+    output "  5173  - Vite development server"
+    output "  4200  - Angular CLI"
+    output "  8080  - Alternative HTTP server"
+    output "  8000  - Python/Django development"
+    output ""
+    output "Databases:"
+    output "  5432  - PostgreSQL"
+    output "  3306  - MySQL/MariaDB"
+    output "  6379  - Redis"
+    output "  27017 - MongoDB"
+    output ""
+    output "Other:"
+    output "  9229  - Node.js debugging"
+    output "  5858  - Node.js legacy debugging"
+    output "  9000  - PHP-FPM"
+    output "  1234  - Hot reload servers"
+}
+
+case "${1:-}" in
+    open)
+        [[ $# -ge 2 ]] || { show_usage; exit 1; }
+        open_port "$2" "${3:-}"
+        ;;
+    close)
+        [[ $# -eq 2 ]] || { show_usage; exit 1; }
+        close_port "$2"
+        ;;
+    open-local)
+        [[ $# -ge 2 ]] || { show_usage; exit 1; }
+        open_port_local "$2" "${3:-}"
+        ;;
+    list)
+        list_rules
+        ;;
+    status)
+        show_status
+        ;;
+    dev-ports)
+        show_dev_ports
+        ;;
+    *)
+        show_usage
+        ;;
+esac
+EOF
+
+    chmod +x "$firewall_script"
+    output "✓ Development firewall utility created: $firewall_script"
     
     output ""
+    output "✓ Development firewall configured!"
+    output ""
+    output "Configuration summary:"
+    output "  ✓ Development ports 3000-9999 allowed from local networks"
+    output "  ✓ Common development servers (3000, 8080, 5173, etc.) globally accessible"
+    output "  ✓ Database ports accessible from local networks"
+    output "  ✓ Localhost access enabled (IPv4 and IPv6)"
+    output "  ✓ Container networking configured (Docker, Podman)"
+    output "  ✓ Development tool access (HTTPS, SSH, Git, DNS, NTP)"
+    output ""
     output "Usage:"
-    output "  vic run system firewall-status  # Check firewall rules"
-    output "  ufw allow 8080 comment 'API'    # Allow specific port from anywhere"
-    output "  ufw delete allow 8080            # Remove port when done"
+    output "  vic run system firewall-status      # Check firewall status"
+    output "  dev-firewall open 8080 'My API'     # Open port globally"
+    output "  dev-firewall open-local 5432        # Open port for local networks only"
+    output "  dev-firewall close 8080             # Close port"
+    output "  dev-firewall list                   # List all rules"
+    output "  dev-firewall dev-ports              # Show common development ports"
 }
 
 main "$@"

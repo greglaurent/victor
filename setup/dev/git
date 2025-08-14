@@ -1,17 +1,417 @@
 #!/usr/bin/env bash
 
-# TODO: Add prompt to y/n password
-# TODO: Add arguments or read ENV vars
-# TODO: Add other default git configs
-# TODO: SSH key config
+# setup/dev/git
+# Git configuration for development environment
 
-email="gregory.m.laurent@gmail.com"
+set -euo pipefail
 
-git config --global pull.ff only
-git config --global user.name "Greg L"
-git config --global user.email "${email}"
-git config --global init.defaultBranch "main"
+source "${HERE}/utils"
 
-ssh-keygen -t ed25519 -C "${email}"
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519
+output() {
+    printf '\e[1;34m%-6s\e[m\n' "${@}"
+}
+
+prompt_user_info() {
+    local default_name="Greg L"
+    local default_email="gregory.m.laurent@gmail.com"
+    
+    # Try to get current git config if it exists
+    local current_name=$(git config --global user.name 2>/dev/null || echo "")
+    local current_email=$(git config --global user.email 2>/dev/null || echo "")
+    
+    if [[ -n "$current_name" ]]; then
+        default_name="$current_name"
+    fi
+    if [[ -n "$current_email" ]]; then
+        default_email="$current_email"
+    fi
+    
+    output "=== Git User Configuration ==="
+    
+    # Prompt for name
+    read -r -p "Enter your full name [$default_name]: " user_name
+    user_name=${user_name:-$default_name}
+    
+    # Prompt for email
+    read -r -p "Enter your email address [$default_email]: " user_email
+    user_email=${user_email:-$default_email}
+    
+    # Confirm settings
+    output ""
+    output "Git configuration:"
+    output "  Name:  $user_name"
+    output "  Email: $user_email"
+    output ""
+    
+    read -r -p "Is this correct? [Y/n]: " confirm
+    case "$confirm" in
+        [nN][oO]|[nN])
+            output "Configuration cancelled. Please run the script again."
+            return 1
+            ;;
+        *)
+            ;;
+    esac
+    
+    export GIT_USER_NAME="$user_name"
+    export GIT_USER_EMAIL="$user_email"
+}
+
+configure_git_global() {
+    output "Configuring global Git settings..."
+    
+    # Basic user configuration
+    git config --global user.name "$GIT_USER_NAME"
+    git config --global user.email "$GIT_USER_EMAIL"
+    git config --global init.defaultBranch "main"
+    
+    # Pull/merge behavior
+    git config --global pull.ff only
+    git config --global merge.ff false
+    git config --global merge.conflictstyle diff3
+    
+    # Push behavior
+    git config --global push.default simple
+    git config --global push.autoSetupRemote true
+    
+    # Rebase configuration
+    git config --global rebase.autoStash true
+    git config --global rebase.autoSquash true
+    
+    # Editor and tools
+    if command -v nvim >/dev/null 2>&1; then
+        git config --global core.editor nvim
+    elif command -v vim >/dev/null 2>&1; then
+        git config --global core.editor vim
+    fi
+    
+    # Diff and merge tools
+    if command -v nvim >/dev/null 2>&1; then
+        git config --global diff.tool nvimdiff
+        git config --global merge.tool nvimdiff
+        git config --global mergetool.nvimdiff.cmd 'nvim -d "$LOCAL" "$REMOTE" "$MERGED" -c "wincmd w" -c "wincmd J"'
+    fi
+    
+    # Colors
+    git config --global color.ui auto
+    git config --global color.branch auto
+    git config --global color.diff auto
+    git config --global color.status auto
+    
+    # Aliases for common operations
+    git config --global alias.st status
+    git config --global alias.co checkout
+    git config --global alias.br branch
+    git config --global alias.ci commit
+    git config --global alias.unstage 'reset HEAD --'
+    git config --global alias.last 'log -1 HEAD'
+    git config --global alias.visual '!gitk'
+    git config --global alias.graph 'log --oneline --graph --decorate --all'
+    git config --global alias.tree 'log --graph --pretty=format:"%C(yellow)%h%Creset -%C(red)%d%Creset %s %C(green)(%cr) %C(bold blue)<%an>%Creset" --abbrev-commit --all'
+    
+    # Performance and behavior
+    git config --global core.preloadindex true
+    git config --global core.fscache true
+    git config --global gc.auto 256
+    
+    # Security
+    git config --global transfer.fsckobjects true
+    git config --global fetch.fsckobjects true
+    git config --global receive.fsckObjects true
+    
+    output "✓ Global Git configuration complete"
+}
+
+setup_ssh_key() {
+    local ssh_key_path="$HOME/.ssh/id_ed25519"
+    local ssh_pub_key_path="${ssh_key_path}.pub"
+    
+    output "=== SSH Key Setup ==="
+    
+    if [[ -f "$ssh_key_path" ]]; then
+        output "SSH key already exists at $ssh_key_path"
+        
+        read -r -p "Do you want to create a new SSH key? This will overwrite the existing one. [y/N]: " create_new
+        case "$create_new" in
+            [yY][eE][sS]|[yY])
+                output "Creating new SSH key..."
+                rm -f "$ssh_key_path" "$ssh_pub_key_path"
+                ;;
+            *)
+                output "Using existing SSH key"
+                return 0
+                ;;
+        esac
+    fi
+    
+    output "Generating new Ed25519 SSH key..."
+    
+    read -r -p "Enter passphrase for SSH key (or press Enter for no passphrase): " -s passphrase
+    output ""
+    
+    if [[ -n "$passphrase" ]]; then
+        ssh-keygen -t ed25519 -C "$GIT_USER_EMAIL" -f "$ssh_key_path" -N "$passphrase"
+    else
+        ssh-keygen -t ed25519 -C "$GIT_USER_EMAIL" -f "$ssh_key_path" -N ""
+    fi
+    
+    # Set proper permissions
+    chmod 600 "$ssh_key_path"
+    chmod 644 "$ssh_pub_key_path"
+    
+    output "✓ SSH key generated: $ssh_key_path"
+    
+    # Start ssh-agent and add key
+    output "Adding SSH key to ssh-agent..."
+    eval "$(ssh-agent -s)" >/dev/null
+    
+    if [[ -n "$passphrase" ]]; then
+        SSH_ASKPASS_REQUIRE=never ssh-add "$ssh_key_path" 2>/dev/null || {
+            output "Please add your SSH key to the agent manually:"
+            output "  ssh-add $ssh_key_path"
+        }
+    else
+        ssh-add "$ssh_key_path"
+    fi
+    
+    output "✓ SSH key added to ssh-agent"
+    
+    # Display public key for copying to GitHub/GitLab
+    output ""
+    output "Your public SSH key (copy this to GitHub/GitLab/etc.):"
+    output "$(cat "$ssh_pub_key_path")"
+    output ""
+    output "Add this key to your Git hosting service:"
+    output "  GitHub: https://github.com/settings/ssh/new"
+    output "  GitLab: https://gitlab.com/-/profile/keys"
+    output "  Bitbucket: https://bitbucket.org/account/settings/ssh-keys/"
+}
+
+setup_ssh_config() {
+    local ssh_config="$HOME/.ssh/config"
+    
+    output "Setting up SSH configuration..."
+    
+    # Create SSH config if it doesn't exist
+    mkdir -p "$HOME/.ssh"
+    touch "$ssh_config"
+    chmod 600 "$ssh_config"
+    
+    # Add common Git hosting configurations if not already present
+    local git_hosts_config="
+# GitHub configuration
+Host github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519
+    AddKeysToAgent yes
+
+# GitLab configuration  
+Host gitlab.com
+    HostName gitlab.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519
+    AddKeysToAgent yes
+
+# Bitbucket configuration
+Host bitbucket.org
+    HostName bitbucket.org
+    User git
+    IdentityFile ~/.ssh/id_ed25519
+    AddKeysToAgent yes
+"
+    
+    if ! grep -q "github.com" "$ssh_config"; then
+        echo "$git_hosts_config" >> "$ssh_config"
+        output "✓ Added Git hosting configurations to SSH config"
+    else
+        output "✓ SSH config already contains Git hosting configurations"
+    fi
+}
+
+create_git_ignore_global() {
+    local gitignore_global="$HOME/.gitignore_global"
+    
+    output "Creating global gitignore file..."
+    
+    cat > "$gitignore_global" << 'EOF'
+# Global gitignore file for development environment
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*~
+
+# Editor files
+*.swp
+*.swo
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.emacs.desktop
+.emacs.desktop.lock
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.cache
+.temp/
+.tmp/
+
+# Development tools
+.env
+.env.local
+.env.*.local
+.envrc
+.direnv/
+
+# Dependency directories
+node_modules/
+.npm
+.yarn/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+target/
+out/
+*.o
+*.a
+*.so
+*.dll
+
+# IDE files
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+.vscode/.ropeproject/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Archive files
+*.zip
+*.tar.gz
+*.tar.bz2
+*.rar
+*.7z
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+.nyc_output/
+
+# Dependency lock files (project-specific)
+# Uncomment if you want to ignore lock files globally
+# package-lock.json
+# yarn.lock
+# Cargo.lock
+EOF
+
+    git config --global core.excludesfile "$gitignore_global"
+    output "✓ Global gitignore created and configured: $gitignore_global"
+}
+
+test_git_connection() {
+    output "Testing Git SSH connection..."
+    
+    # Test GitHub connection
+    if ssh -T git@github.com -o ConnectTimeout=5 -o StrictHostKeyChecking=no 2>&1 | grep -q "successfully authenticated"; then
+        output "✓ GitHub SSH connection successful"
+    else
+        output "⊘ GitHub SSH connection not configured (add your public key)"
+    fi
+    
+    # Test GitLab connection
+    if ssh -T git@gitlab.com -o ConnectTimeout=5 -o StrictHostKeyChecking=no 2>&1 | grep -q "Welcome to GitLab"; then
+        output "✓ GitLab SSH connection successful"
+    else
+        output "⊘ GitLab SSH connection not configured (add your public key)"
+    fi
+}
+
+main() {
+    output "=== Git Development Setup ==="
+    
+    # Check if git is installed
+    if ! command -v git >/dev/null 2>&1; then
+        output "Installing Git..."
+        if command -v pacman >/dev/null 2>&1; then
+            pacman -S --needed --noconfirm git
+        else
+            output "✗ Please install Git manually"
+            return 1
+        fi
+    else
+        output "✓ Git is already installed"
+    fi
+    
+    # Prompt for user configuration
+    prompt_user_info
+    
+    # Configure Git
+    configure_git_global
+    
+    # Setup SSH key
+    read -r -p "Do you want to set up SSH key for Git? [Y/n]: " setup_ssh
+    case "$setup_ssh" in
+        [nN][oO]|[nN])
+            output "Skipping SSH key setup"
+            ;;
+        *)
+            setup_ssh_key
+            setup_ssh_config
+            ;;
+    esac
+    
+    # Create global gitignore
+    create_git_ignore_global
+    
+    # Test connections if SSH was set up
+    if [[ "${setup_ssh:-y}" != "n" && "${setup_ssh:-y}" != "N" ]]; then
+        test_git_connection
+    fi
+    
+    output ""
+    output "✓ Git development environment setup complete!"
+    output ""
+    output "Configuration summary:"
+    output "  User: $GIT_USER_NAME <$GIT_USER_EMAIL>"
+    output "  SSH Key: ${setup_ssh:-y} != n && echo 'Configured' || echo 'Skipped'"
+    output "  Global gitignore: Configured"
+    output "  Useful aliases: st, co, br, ci, graph, tree"
+    output ""
+    output "Next steps:"
+    output "  1. Add your SSH public key to Git hosting services"
+    output "  2. Test connection: ssh -T git@github.com"
+    output "  3. Clone your repositories: git clone git@github.com:user/repo.git"
+    output ""
+    output "Useful commands:"
+    output "  git tree              # Pretty commit tree"
+    output "  git graph             # Simple commit graph"  
+    output "  git config --list     # View all configuration"
+}
+
+main "$@"
