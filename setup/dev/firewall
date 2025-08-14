@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+
+# setup/dev/firewall
+# Configure UFW for development environment
+
+set -euo pipefail
+
+source "${HERE}/utils"
+
+utils::is_root
+
+output() {
+    printf '\e[1;34m%-6s\e[m\n' "${@}"
+}
+
+main() {
+    output "=== Development Firewall Setup ==="
+    
+    # Allow development port ranges from local networks
+    output "Configuring development port access..."
+    
+    # Allow common development ports from local networks only
+    ufw allow from 192.168.0.0/16 to any port 3000:9999 comment 'Development ports - local network'
+    ufw allow from 10.0.0.0/8 to any port 3000:9999 comment 'Development ports - local network'  
+    ufw allow from 172.16.0.0/12 to any port 3000:9999 comment 'Development ports - local network'
+    
+    # Allow localhost access to all ports (for local development)
+    ufw allow from 127.0.0.1 comment 'Localhost development'
+    
+    # Configure container networking rules
+    output "Configuring container networking..."
+    
+    # Docker default bridge network
+    ufw allow from 172.17.0.0/16 comment 'Docker bridge network'
+    ufw allow to 172.17.0.0/16 comment 'Docker bridge network'
+    
+    # Docker custom networks (common ranges)
+    ufw allow from 172.18.0.0/16 comment 'Docker custom networks'
+    ufw allow to 172.18.0.0/16 comment 'Docker custom networks'
+    ufw allow from 172.19.0.0/16 comment 'Docker custom networks' 
+    ufw allow to 172.19.0.0/16 comment 'Docker custom networks'
+    
+    # Podman default network
+    ufw allow from 10.88.0.0/16 comment 'Podman default network'
+    ufw allow to 10.88.0.0/16 comment 'Podman default network'
+    
+    # Container registry access (for pulling images)
+    ufw allow out 443 comment 'HTTPS - container registries'
+    ufw allow out 80 comment 'HTTP - container registries' 
+    
+    output "✓ Development ports 3000-9999 allowed from local networks"
+    output "✓ Localhost access enabled"
+    output "✓ Container networking configured (Docker, Podman)"
+    
+    output ""
+    output "Usage:"
+    output "  vic run system firewall-status  # Check firewall rules"
+    output "  ufw allow 8080 comment 'API'    # Allow specific port from anywhere"
+    output "  ufw delete allow 8080            # Remove port when done"
+}
+
+main "$@"

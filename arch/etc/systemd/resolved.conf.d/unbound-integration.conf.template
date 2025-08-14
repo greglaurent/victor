@@ -1,0 +1,36 @@
+# systemd-resolved configuration for unbound integration
+# systemd-resolved acts as a proxy to unbound for better integration
+#
+# Template variables:
+# {{UNBOUND_PORT}} - Port where unbound is listening
+
+[Resolve]
+# Use unbound as upstream DNS server
+DNS=127.0.0.1:{{UNBOUND_PORT}}
+
+# Fallback to secure public DNS if unbound fails
+FallbackDNS=1.1.1.2#security.cloudflare-dns.com 9.9.9.9#dns.quad9.net
+
+# Enable DNS over TLS (unbound handles this)
+DNSOverTLS=no
+
+# Let unbound handle DNSSEC
+DNSSEC=no
+
+# Disable conflicting features (unbound handles these)
+MulticastDNS=no
+LLMNR=no
+
+# Cache settings (minimal since unbound does the heavy caching)
+Cache=yes
+CacheFromLocalhost=no
+
+# DNS stub listener configuration
+DNSStubListener=yes
+DNSStubListenerExtra=
+
+# Read system hosts file
+ReadEtcHosts=yes
+
+# Don't resolve single-label names over DNS
+ResolveUnicastSingleLabel=no

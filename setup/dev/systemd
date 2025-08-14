@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+
+# setup/dev/systemd
+# Configure systemd service hardening overrides for development
+
+set -euo pipefail
+
+source "${HERE}/utils"
+
+utils::is_root
+
+output() {
+    printf '\e[1;34m%-6s\e[m\n' "${@}"
+}
+
+main() {
+    output "=== Development Systemd Hardening Setup ==="
+    
+    # Common development services that need hardening relaxed
+    local dev_services=(
+        "docker"
+        "containerd" 
+        "libvirtd"
+        "code-server"
+        "httpd"
+        "nginx"
+        "postgresql" 
+        "mysql"
+        "redis"
+        "mongodb"
+    )
+    
+    output "Configuring systemd hardening overrides for development services..."
+    
+    # Create override directories and configs for development services
+    for service in "${dev_services[@]}"; do
+        local override_dir="/etc/systemd/system/${service}.service.d"
+        local override_file="${override_dir}/99-development.conf"
+        
+        # Check if service exists on system
+        if systemctl list-unit-files "${service}.service" &>/dev/null; then
+            output "Configuring ${service}.service for development..."
+            
+            # Create override directory
+            mkdir -p "$override_dir"
+            
+            # Create development-friendly override
+            cat > "$override_file" << 'EOF'
+# Development override for restrictive hardening
+# This allows development tools to function properly
+
+[Service]
+# Allow memory execution (needed for JITs, interpreters, build tools)
+MemoryDenyWriteExecute=no
+
+# Relax filesystem protection (needed for development file access)
+ProtectSystem=false
+ProtectHome=no
+
+# Allow broader network access (needed for development servers)
+RestrictAddressFamilies=
+
+# Allow broader syscalls (needed for development and build tools)
+SystemCallFilter=
+
+# Allow namespaces (needed for containers, sandboxing)
+RestrictNamespaces=no
+
+# Allow realtime scheduling if needed
+RestrictRealtime=no
+
+# Grant common development capabilities
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_PTRACE CAP_DAC_OVERRIDE CAP_SETUID CAP_SETGID CAP_NET_BIND_SERVICE
+EOF
+            
+            output "✓ Created development override: $override_file"
+        else
+            output "⊘ Service $service not installed, skipping..."
+        fi
+    done
+    
+    # Also create a generic development service template
+    local template_dir="/etc/systemd/system/development@.service.d"
+    local template_file="${template_dir}/override.conf"
+    
+    output "Creating generic development service template..."
+    mkdir -p "$template_dir"
+    
+    cat > "$template_file" << 'EOF'
+# Generic development service override template
+# Use by creating: systemctl start development@yourapp.service
+
+[Service]
+# Completely disable hardening for development services
+MemoryDenyWriteExecute=no
+ProtectSystem=false
+ProtectHome=no
+PrivateTmp=no
+ProtectKernelTunables=no
+ProtectKernelModules=no 
+ProtectControlGroups=no
+RestrictAddressFamilies=
+SystemCallFilter=
+RestrictNamespaces=no
+NoNewPrivileges=no
+LockPersonality=no
+RestrictRealtime=no
+RemoveIPC=no
+CapabilityBoundingSet=
+EOF
+    
+    output "✓ Created development service template: $template_file"
+    
+    # Reload systemd configuration
+    output "Reloading systemd configuration..."
+    systemctl daemon-reload
+    
+    output ""
+    output "✓ Systemd development hardening configured"
+    output ""
+    output "Usage:"
+    output "  vic run system systemd-status     # Check service hardening status"  
+    output "  systemctl restart docker          # Restart service with new overrides"
+    output "  systemctl start development@app   # Use development template for custom services"
+    output ""
+    output "To add custom service overrides:"
+    output "  1. Create /etc/systemd/system/SERVICE.service.d/99-development.conf"
+    output "  2. Copy settings from /etc/systemd/system/service.d/developer-overrides.conf"
+    output "  3. Run: systemctl daemon-reload && systemctl restart SERVICE"
+}
+
+main "$@"

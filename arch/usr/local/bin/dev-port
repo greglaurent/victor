@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Quick development port management for UFW
+# Usage: dev-port allow 3000 "React app"
+#        dev-port deny 3000
+#        dev-port list
+
+set -euo pipefail
+
+usage() {
+    echo "Usage: $0 <allow|deny|list> [port] [description]"
+    echo "Examples:"
+    echo "  $0 allow 3000 'React dev server'"
+    echo "  $0 allow 8080:8090 'Microservices'"
+    echo "  $0 deny 3000"
+    echo "  $0 list"
+    exit 1
+}
+
+if [[ $# -lt 1 ]]; then
+    usage
+fi
+
+action="$1"
+
+case "$action" in
+    "allow")
+        if [[ $# -lt 2 ]]; then
+            echo "Error: Port required for allow action"
+            usage
+        fi
+        port="$2"
+        comment="${3:-Dev port}"
+        
+        echo "Allowing port $port ($comment)"
+        sudo ufw allow "$port/tcp" comment "$comment"
+        ;;
+        
+    "deny")
+        if [[ $# -lt 2 ]]; then
+            echo "Error: Port required for deny action"
+            usage
+        fi
+        port="$2"
+        
+        echo "Denying port $port"
+        sudo ufw delete allow "$port/tcp"
+        ;;
+        
+    "list")
+        echo "=== UFW Development Rules ==="
+        sudo ufw status numbered | grep -E "(3[0-9]{3}|[4-9][0-9]{3}|8[0-9]{3}|9[0-9]{3})" || echo "No development ports found"
+        ;;
+        
+    *)
+        echo "Error: Unknown action '$action'"
+        usage
+        ;;
+esac

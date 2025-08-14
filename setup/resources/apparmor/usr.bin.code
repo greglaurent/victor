@@ -1,0 +1,21 @@
+# AppArmor local rules for VS Code development
+# File: /etc/apparmor.d/local/usr.bin.code
+
+# Development directory access
+/home/*/dev/** rw,
+/home/*/projects/** rw,
+/home/*/workspace/** rw,
+
+# VS Code configuration
+/home/*/.vscode/** rw,
+/home/*/.config/Code/** rw,
+
+# Extension data
+/home/*/.vscode/extensions/** rw,
+
+# Chromium/Electron requirements
+/tmp/.org.chromium.Chromium.* rw,
+
+# Network access for extensions and Live Server
+network inet stream,
+network inet6 stream,

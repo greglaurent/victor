@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+# run/system/apparmor-logs
+# View AppArmor denial logs for troubleshooting
+
+set -euo pipefail
+
+output() {
+    printf '\e[1;34m%-6s\e[m\n' "${@}"
+}
+
+main() {
+    output "=== AppArmor Denial Logs ==="
+    
+    # Check if AppArmor is active
+    if ! systemctl is-active apparmor >/dev/null 2>&1; then
+        output "AppArmor is not active"
+        exit 0
+    fi
+    
+    local count="${1:-20}"
+    
+    output "Showing last $count AppArmor denials:"
+    output ""
+    
+    # Parse denial logs for easier reading
+    dmesg | grep -i apparmor | grep DENIED | tail -"$count" | while IFS= read -r line; do
+        # Extract key information
+        if [[ $line =~ profile=\"([^\"]+)\".*operation=\"([^\"]+)\".*name=\"([^\"]+)\" ]]; then
+            local profile="${BASH_REMATCH[1]}"
+            local operation="${BASH_REMATCH[2]}"
+            local name="${BASH_REMATCH[3]}"
+            
+            printf "  \e[31mDENIED\e[0m: %s tried to %s %s\n" "$profile" "$operation" "$name"
+        else
+            # Fallback: show raw line if parsing fails
+            echo "  $line"
+        fi
+    done
+    
+    if [[ $(dmesg | grep -i apparmor | grep DENIED | wc -l) -eq 0 ]]; then
+        output "  No denials found"
+    fi
+    
+    output ""
+    output "To fix denials:"
+    output "  vic run system apparmor-fix     # Interactive rule generator"
+    output "  aa-complain /usr/bin/PROGRAM    # Disable enforcement for specific program"
+    output "  journalctl -f | grep apparmor   # Watch denials in real-time"
+}
+
+main "$@"

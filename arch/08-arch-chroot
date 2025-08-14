@@ -102,7 +102,7 @@ detect_gpu_hardware() {
 display_hardware_summary() {
     local cpu_vendor gpu_vendors
     cpu_vendor=$(detect_cpu_vendor)
-    gpu_vendors=($(detect_gpu_hardware))
+    mapfile -t gpu_vendors <<< "$(detect_gpu_hardware)"
     
     output ""
     output "=== Hardware Detection Summary ==="
@@ -200,7 +200,7 @@ configure_graphics_drivers() {
     output "Step 1/8: Configuring graphics drivers..."
     
     local detected_gpus
-    detected_gpus=($(detect_gpu_hardware))
+    mapfile -t detected_gpus <<< "$(detect_gpu_hardware)"
     
     output "  Detected GPU vendors: ${detected_gpus[*]}"
     
@@ -782,7 +782,7 @@ display_installation_summary() {
     output "=== User Account ==="
     output "Username: ${username}"
     output "Full Name: ${fullname}"
-    output "Groups: $(groups ${username} | cut -d: -f2)"
+    output "Groups: $(groups "${username}" | cut -d: -f2)"
     output "Home Directory: /home/${username}"
     output ""
     

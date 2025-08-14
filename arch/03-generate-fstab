@@ -232,8 +232,7 @@ display_fstab_summary() {
     output "=== Mount Options Summary ==="
     while IFS= read -r line; do
         if [[ $line =~ ^[^#] ]]; then
-            local device mount_point fs_type options
-            device=$(echo "$line" | awk '{print $1}')
+            local mount_point fs_type options
             mount_point=$(echo "$line" | awk '{print $2}')
             fs_type=$(echo "$line" | awk '{print $3}')
             options=$(echo "$line" | awk '{print $4}')

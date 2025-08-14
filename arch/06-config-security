@@ -165,24 +165,18 @@ setup_apparmor_foundation() {
         return 1
     fi
     
-    # Create local customization directory structure
-    cat > "$APPARMOR_CONFIG_DIR/local/README" << 'EOF'
-# AppArmor Local Customizations
-
-This directory contains local customizations for AppArmor profiles.
-Files in this directory are included by the main AppArmor profiles
-to allow for site-specific modifications without editing the main profiles.
-
-## Usage:
-- Add local rules to files matching the profile name
-- Example: rules for /usr/bin/firefox go in local/usr.bin.firefox
-- Use include statements in main profiles: #include <local/usr.bin.firefox>
-
-## Profile deployment:
-- Profiles will be deployed post-installation using Victor commands
-- Use: vic setup security apparmor
-- Monitor with: vic run system security-status
-EOF
+    # Copy AppArmor local customization README
+    local apparmor_readme_src="$HERE/arch/etc/apparmor.d/local/README"
+    
+    if [[ ! -f "$apparmor_readme_src" ]]; then
+        output "ERROR: AppArmor local README not found: $apparmor_readme_src"
+        return 1
+    fi
+    
+    if ! cp "$apparmor_readme_src" "$APPARMOR_CONFIG_DIR/local/README"; then
+        output "ERROR: Failed to copy AppArmor local README"
+        return 1
+    fi
 
     # Set proper permissions
     chmod 755 "$APPARMOR_CONFIG_DIR"/{local,abstractions/local,cache}

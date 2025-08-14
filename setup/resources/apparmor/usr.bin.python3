@@ -1,0 +1,22 @@
+# AppArmor local rules for Python development
+# File: /etc/apparmor.d/local/usr.bin.python3
+
+# Development directory access
+/home/*/dev/** rw,
+/home/*/projects/** rw,
+/home/*/workspace/** rw,
+
+# Python virtual environments
+/home/*/venv/** rw,
+/home/*/.local/lib/python*/** rw,
+/home/*/.cache/pip/** rw,
+
+# Python standard library
+/usr/lib/python*/** r,
+
+# Temporary files
+/tmp/** rw,
+
+# Network access for development servers
+network inet stream,
+network inet6 stream,

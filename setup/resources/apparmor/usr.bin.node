@@ -1,0 +1,25 @@
+# AppArmor local rules for Node.js development
+# File: /etc/apparmor.d/local/usr.bin.node
+
+# Development directory access
+/home/*/dev/** rw,
+/home/*/projects/** rw,
+/home/*/workspace/** rw,
+
+# Node.js module access
+/home/*/node_modules/** r,
+/usr/lib/node_modules/** r,
+
+# Package managers
+/home/*/.npm/** rw,
+/home/*/.yarn/** rw,
+/home/*/.pnpm/** rw,
+
+# Temporary files
+/tmp/** rw,
+
+# Network access for development servers
+network inet stream,
+network inet6 stream,
+network inet dgram,
+network inet6 dgram,

@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+# setup/dev/apparmor
+# Configure AppArmor for development environment
+# Balances security with developer tool compatibility
+
+set -euo pipefail
+
+source "${HERE}/utils"
+
+utils::is_root
+
+output() {
+    printf '\e[1;34m%-6s\e[m\n' "${@}"
+}
+
+configure_development_apparmor() {
+    output "Configuring AppArmor for development environment..."
+    
+    # Copy development profile templates
+    local apparmor_local_dir="/etc/apparmor.d/local"
+    local resources_dir="${RESOURCES}/apparmor"
+    
+    if [[ -d "$resources_dir" ]]; then
+        output "Installing development AppArmor profiles..."
+        cp -r "$resources_dir"/* "$apparmor_local_dir/"
+        chmod 644 "$apparmor_local_dir"/*
+        output "  ✓ Development profiles installed"
+    else
+        output "  ! AppArmor resources not found, creating basic setup"
+    fi
+    
+    # Set AppArmor to complain mode for development tools
+    local dev_tools=(
+        "/usr/bin/node"
+        "/usr/bin/python3" 
+        "/usr/bin/docker"
+        "/usr/bin/code"
+        "/usr/bin/cargo"
+        "/usr/bin/rustc"
+        "/usr/bin/go"
+    )
+    
+    output "Setting development tools to complain mode..."
+    for tool in "${dev_tools[@]}"; do
+        if [[ -x "$tool" ]]; then
+            aa-complain "$tool" 2>/dev/null || true
+            output "  ✓ $tool set to complain mode"
+        fi
+    done
+    
+    # Reload AppArmor profiles
+    systemctl reload apparmor
+    
+    output "AppArmor development configuration complete"
+}
+
+main() {
+    output "=== AppArmor Development Setup ==="
+    configure_development_apparmor
+    output ""
+    output "Usage:"
+    output "  vic run system apparmor-status  # Check profile status"
+    output "  vic run system apparmor-logs    # View denied operations"
+    output "  vic run system apparmor-fix     # Generate rules for denied ops"
+    output ""
+}
+
+main "$@"

@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+
+# run/system/systemd-status
+# Show systemd service hardening status and issues
+
+set -euo pipefail
+
+output() {
+    printf '\e[1;34m%-6s\e[m\n' "${@}"
+}
+
+main() {
+    output "=== Systemd Hardening Status ==="
+    
+    # Check if hardening config exists
+    local hardening_conf="/etc/systemd/system/service.d/hardening.conf"
+    if [[ -f "$hardening_conf" ]]; then
+        output "Global hardening: ✓ Active ($hardening_conf)"
+    else
+        output "Global hardening: ✗ Not configured"
+    fi
+    
+    output ""
+    output "=== Development Service Overrides ==="
+    
+    # Check for development overrides
+    local override_dirs=($(find /etc/systemd/system/ -name "*.service.d" 2>/dev/null | sort))
+    local found_overrides=0
+    
+    for dir in "${override_dirs[@]}"; do
+        local service_name=$(basename "$dir" .service.d)
+        local override_files=($(find "$dir" -name "*development*.conf" -o -name "99-development.conf" 2>/dev/null))
+        
+        if [[ ${#override_files[@]} -gt 0 ]]; then
+            output "✓ $service_name - development overrides active"
+            found_overrides=1
+        fi
+    done
+    
+    if [[ $found_overrides -eq 0 ]]; then
+        output "⊘ No development overrides found"
+    fi
+    
+    output ""
+    output "=== Failed Services (Potential Hardening Issues) ==="
+    
+    # Check for failed services that might be hardening-related
+    local failed_services=($(systemctl list-units --failed --no-legend --no-pager | awk '{print $1}' | grep -E '\.(service)$' || true))
+    
+    if [[ ${#failed_services[@]} -gt 0 ]]; then
+        for service in "${failed_services[@]}"; do
+            output "✗ $service - FAILED"
+            
+            # Get recent logs to check for hardening-related errors
+            local logs=$(journalctl -u "$service" --lines=5 --no-pager --quiet 2>/dev/null || true)
+            if echo "$logs" | grep -qi -E "(permission denied|operation not permitted|seccomp|capability|namespace)"; then
+                output "  → Possible hardening conflict detected"
+            fi
+        done
+    else
+        output "✓ No failed services detected"
+    fi
+    
+    output ""
+    output "=== Service Hardening Analysis ==="
+    
+    # Analyze common development services
+    local dev_services=("docker" "containerd" "libvirtd" "code-server" "httpd" "nginx")
+    
+    for service in "${dev_services[@]}"; do
+        if systemctl list-unit-files "${service}.service" &>/dev/null; then
+            local status=$(systemctl is-active "${service}.service" 2>/dev/null || echo "inactive")
+            local override_dir="/etc/systemd/system/${service}.service.d"
+            
+            if [[ -d "$override_dir" ]] && [[ -f "${override_dir}/99-development.conf" ]]; then
+                output "✓ $service - development override configured ($status)"
+            else
+                case $status in
+                    "active")
+                        output "⚠ $service - no development override but running ($status)"
+                        ;;
+                    "failed")
+                        output "✗ $service - FAILED (may need development override)"
+                        ;;
+                    *)
+                        output "⊘ $service - $status"
+                        ;;
+                esac
+            fi
+        fi
+    done
+    
+    output ""
+    output "=== Recommendations ==="
+    
+    if [[ $found_overrides -eq 0 ]]; then
+        output "• Run: vic setup dev systemd  # Configure development overrides"
+    fi
+    
+    if [[ ${#failed_services[@]} -gt 0 ]]; then
+        output "• Check failed services for hardening conflicts"
+        output "• Consider adding development overrides for failing services"
+    fi
+    
+    output ""
+    output "Commands:"
+    output "  vic setup dev systemd           # Setup development hardening overrides"
+    output "  systemctl daemon-reload         # Reload systemd configuration"  
+    output "  journalctl -u SERVICE -f        # Monitor service logs"
+    output "  systemctl restart SERVICE       # Restart service with new config"
+}
+
+main "$@"

@@ -1,0 +1,301 @@
+#!/usr/bin/env bash
+
+# setup/dev/certs
+# Development SSL certificate management
+
+set -euo pipefail
+
+source "${HERE}/utils"
+
+utils::is_root
+
+output() {
+    printf '\e[1;34m%-6s\e[m\n' "${@}"
+}
+
+main() {
+    output "=== Development Certificate Management ==="
+    
+    local cert_dir="/usr/local/share/ca-certificates/development"
+    local key_dir="/etc/ssl/private/development"
+    local config_dir="/etc/ssl/development"
+    
+    # Create directories
+    output "Creating certificate directories..."
+    mkdir -p "$cert_dir" "$key_dir" "$config_dir"
+    chmod 755 "$cert_dir" "$config_dir"
+    chmod 700 "$key_dir"
+    
+    # Create development CA certificate
+    output "Creating development Certificate Authority..."
+    local ca_key="$key_dir/dev-ca.key"
+    local ca_cert="$cert_dir/dev-ca.crt" 
+    local ca_config="$config_dir/dev-ca.conf"
+    
+    if [[ ! -f "$ca_cert" ]]; then
+        # Create CA configuration
+        cat > "$ca_config" << 'EOF'
+[req]
+distinguished_name = req_distinguished_name
+x509_extensions = v3_ca
+prompt = no
+
+[req_distinguished_name]
+C = US
+ST = Development
+L = Local
+O = Development CA
+OU = Development
+CN = Development Root CA
+
+[v3_ca]
+basicConstraints = critical,CA:TRUE
+keyUsage = critical,keyCertSign,cRLSign
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer:always
+EOF
+
+        # Generate CA private key
+        openssl genrsa -out "$ca_key" 4096
+        chmod 600 "$ca_key"
+        
+        # Generate CA certificate
+        openssl req -new -x509 -days 3650 -key "$ca_key" -out "$ca_cert" -config "$ca_config"
+        chmod 644 "$ca_cert"
+        
+        output "✓ Development CA created: $ca_cert"
+    else
+        output "✓ Development CA already exists: $ca_cert"
+    fi
+    
+    # Create localhost certificate
+    output "Creating localhost development certificate..."
+    local localhost_key="$key_dir/localhost.key"
+    local localhost_cert="$cert_dir/localhost.crt"
+    local localhost_csr="$config_dir/localhost.csr"
+    local localhost_config="$config_dir/localhost.conf"
+    
+    if [[ ! -f "$localhost_cert" ]]; then
+        # Create localhost certificate configuration
+        cat > "$localhost_config" << 'EOF'
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+C = US
+ST = Development
+L = Local
+O = Development
+OU = Development
+CN = localhost
+
+[v3_req]
+basicConstraints = CA:FALSE
+keyUsage = critical,digitalSignature,keyEncipherment
+extendedKeyUsage = serverAuth,clientAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = localhost
+DNS.2 = *.localhost
+DNS.3 = dev.local
+DNS.4 = *.dev.local
+DNS.5 = test.local
+DNS.6 = *.test.local
+IP.1 = 127.0.0.1
+IP.2 = ::1
+EOF
+
+        # Generate localhost private key
+        openssl genrsa -out "$localhost_key" 2048
+        chmod 600 "$localhost_key"
+        
+        # Generate certificate signing request
+        openssl req -new -key "$localhost_key" -out "$localhost_csr" -config "$localhost_config"
+        
+        # Sign certificate with development CA
+        openssl x509 -req -in "$localhost_csr" -CA "$ca_cert" -CAkey "$ca_key" \
+                     -CAcreateserial -out "$localhost_cert" -days 365 \
+                     -extensions v3_req -extfile "$localhost_config"
+        
+        chmod 644 "$localhost_cert"
+        rm "$localhost_csr"  # Clean up CSR file
+        
+        output "✓ Localhost certificate created: $localhost_cert"
+    else
+        output "✓ Localhost certificate already exists: $localhost_cert"
+    fi
+    
+    # Install development CA to system trust store
+    output "Installing development CA to system trust store..."
+    if command -v update-ca-certificates >/dev/null 2>&1; then
+        update-ca-certificates
+        output "✓ Development CA installed to system trust store"
+    else
+        output "⚠ update-ca-certificates not available, manual CA installation required"
+    fi
+    
+    # Create certificate utility script
+    local cert_script="/usr/local/bin/dev-cert"
+    output "Creating certificate utility script..."
+    
+    cat > "$cert_script" << 'EOF'
+#!/usr/bin/env bash
+
+# dev-cert - Development certificate utility
+
+set -euo pipefail
+
+CERT_DIR="/usr/local/share/ca-certificates/development"
+KEY_DIR="/etc/ssl/private/development"  
+CONFIG_DIR="/etc/ssl/development"
+CA_CERT="$CERT_DIR/dev-ca.crt"
+CA_KEY="$KEY_DIR/dev-ca.key"
+
+output() {
+    printf '\e[1;34m%-6s\e[m\n' "${@}"
+}
+
+create_cert() {
+    local domain="${1:?Domain required}"
+    local cert_file="$CERT_DIR/${domain}.crt"
+    local key_file="$KEY_DIR/${domain}.key"
+    local config_file="$CONFIG_DIR/${domain}.conf"
+    local csr_file="$CONFIG_DIR/${domain}.csr"
+    
+    if [[ -f "$cert_file" ]]; then
+        output "Certificate already exists: $cert_file"
+        return 0
+    fi
+    
+    output "Creating certificate for: $domain"
+    
+    # Create certificate configuration
+    cat > "$config_file" << EOFCONF
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+C = US
+ST = Development
+L = Local
+O = Development
+OU = Development
+CN = $domain
+
+[v3_req]
+basicConstraints = CA:FALSE
+keyUsage = critical,digitalSignature,keyEncipherment
+extendedKeyUsage = serverAuth,clientAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = $domain
+DNS.2 = *.$domain
+EOFCONF
+
+    # Generate private key
+    openssl genrsa -out "$key_file" 2048
+    chmod 600 "$key_file"
+    
+    # Generate CSR
+    openssl req -new -key "$key_file" -out "$csr_file" -config "$config_file"
+    
+    # Sign certificate
+    openssl x509 -req -in "$csr_file" -CA "$CA_CERT" -CAkey "$CA_KEY" \
+                 -CAcreateserial -out "$cert_file" -days 365 \
+                 -extensions v3_req -extfile "$config_file"
+    
+    chmod 644 "$cert_file"
+    rm "$csr_file"
+    
+    output "✓ Certificate created:"
+    output "  Cert: $cert_file"
+    output "  Key:  $key_file"
+}
+
+list_certs() {
+    output "=== Development Certificates ==="
+    if [[ -d "$CERT_DIR" ]]; then
+        for cert in "$CERT_DIR"/*.crt; do
+            if [[ -f "$cert" ]]; then
+                local name=$(basename "$cert" .crt)
+                local expires=$(openssl x509 -in "$cert" -noout -enddate | cut -d= -f2)
+                output "$name - expires: $expires"
+            fi
+        done
+    else
+        output "No certificates found"
+    fi
+}
+
+show_usage() {
+    output "Usage: dev-cert <command> [args]"
+    output ""
+    output "Commands:"
+    output "  create DOMAIN    Create certificate for domain"
+    output "  list             List all development certificates"
+    output "  trust            Show trust instructions"
+    output ""
+    output "Examples:"
+    output "  dev-cert create api.dev.local"
+    output "  dev-cert create myapp.localhost"
+    output "  dev-cert list"
+}
+
+show_trust_instructions() {
+    output "=== Trust Development CA ==="
+    output "To trust development certificates in browsers:"
+    output ""
+    output "Chrome/Chromium:"
+    output "  1. Go to Settings → Privacy and Security → Security → Manage Certificates"
+    output "  2. Import $CA_CERT to 'Authorities' tab"
+    output ""
+    output "Firefox:"
+    output "  1. Go to Settings → Privacy & Security → Certificates → View Certificates"
+    output "  2. Import $CA_CERT to 'Authorities' tab"
+    output ""
+    output "System (Linux):"
+    output "  Certificate should already be trusted via update-ca-certificates"
+}
+
+case "${1:-}" in
+    create)
+        [[ $# -eq 2 ]] || { show_usage; exit 1; }
+        create_cert "$2"
+        ;;
+    list)
+        list_certs
+        ;;
+    trust)
+        show_trust_instructions
+        ;;
+    *)
+        show_usage
+        ;;
+esac
+EOF
+
+    chmod +x "$cert_script"
+    output "✓ Certificate utility installed: $cert_script"
+    
+    output ""
+    output "✓ Development certificate management setup complete!"
+    output ""
+    output "Usage:"
+    output "  vic run system cert-status      # Check certificate status"
+    output "  dev-cert create api.dev.local   # Create certificate for domain"
+    output "  dev-cert list                   # List all certificates"
+    output "  dev-cert trust                  # Show trust instructions"
+    output ""
+    output "Files created:"
+    output "  CA Certificate: $ca_cert"
+    output "  Localhost Certificate: $localhost_cert"
+    output "  Certificate Utility: $cert_script"
+}
+
+main "$@"

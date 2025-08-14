@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+
+# run/system/apparmor-fix
+# Interactive AppArmor rule generator for denied operations
+
+set -euo pipefail
+
+output() {
+    printf '\e[1;34m%-6s\e[m\n' "${@}"
+}
+
+main() {
+    output "=== AppArmor Fix Tool ==="
+    
+    # Check if AppArmor is active
+    if ! systemctl is-active apparmor >/dev/null 2>&1; then
+        output "AppArmor is not active"
+        exit 0
+    fi
+    
+    # Check for recent denials
+    local denial_count
+    denial_count=$(dmesg | grep -i apparmor | grep DENIED | wc -l)
+    
+    if [[ $denial_count -eq 0 ]]; then
+        output "No AppArmor denials found"
+        output "If you're having issues, try running your development tools first"
+        exit 0
+    fi
+    
+    output "Found $denial_count AppArmor denials"
+    output ""
+    
+    # Show options
+    output "Choose fix method:"
+    output "  1. Run aa-logprof (interactive rule generator)"
+    output "  2. Set specific tool to complain mode"
+    output "  3. Show common development tool fixes"
+    
+    read -p "Choice (1-3): " choice
+    
+    case "$choice" in
+        1)
+            output "Starting aa-logprof..."
+            output "This will scan logs and suggest rules for denied operations"
+            aa-logprof
+            ;;
+        2)
+            output "Common development tools:"
+            output "  node, python3, docker, code, cargo, go"
+            read -p "Enter tool name: " tool
+            
+            local tool_path="/usr/bin/$tool"
+            if [[ -x "$tool_path" ]]; then
+                aa-complain "$tool_path"
+                output "✓ $tool set to complain mode (won't block operations)"
+            else
+                output "Tool $tool not found at $tool_path"
+            fi
+            ;;
+        3)
+            output ""
+            output "=== Common Development Tool Fixes ==="
+            output ""
+            output "# Set all development tools to complain mode:"
+            output "sudo aa-complain /usr/bin/{node,python3,docker,code,cargo,go}"
+            output ""
+            output "# Or fix specific issues by adding rules to local profiles:"
+            output "echo '/home/*/dev/** rw,' | sudo tee -a /etc/apparmor.d/local/usr.bin.node"
+            output "echo 'network inet stream,' | sudo tee -a /etc/apparmor.d/local/usr.bin.node"
+            output ""
+            output "# Reload profiles after changes:"
+            output "sudo systemctl reload apparmor"
+            ;;
+        *)
+            output "Invalid choice"
+            exit 1
+            ;;
+    esac
+    
+    output ""
+    output "Check status with: vic run system apparmor-status"
+}
+
+main "$@"

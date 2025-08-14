@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+# run/system/firewall-status
+# Show firewall status with focus on development ports
+
+set -euo pipefail
+
+output() {
+    printf '\e[1;34m%-6s\e[m\n' "${@}"
+}
+
+main() {
+    output "=== Firewall Status ==="
+    
+    if ! systemctl is-active ufw >/dev/null 2>&1; then
+        output "UFW is not active"
+        exit 0
+    fi
+    
+    output "UFW Status: $(ufw status | head -1 | cut -d: -f2)"
+    output ""
+    
+    output "=== Development Port Rules ==="
+    ufw status numbered | grep -E "(3[0-9]{3}|[4-9][0-9]{3})" || output "No development port rules found"
+    
+    output ""
+    output "=== Container Network Rules ==="
+    ufw status numbered | grep -E "(172\.(17|18|19)\.|10\.88\.)" || output "No container network rules found"
+    
+    output ""
+    output "=== All Rules ==="
+    ufw status numbered
+    
+    output ""
+    output "Commands:"
+    output "  ufw allow 3000 comment 'React'     # Allow port from anywhere"
+    output "  ufw allow from 192.168.1.0/24 to any port 8080  # Local network only"
+    output "  ufw delete [number]                 # Delete rule by number"
+    output ""
+    output "Container Commands:"
+    output "  docker run -p 8080:80 nginx        # Port forwarding works with UFW rules"
+    output "  podman run -p 3000:3000 node-app   # Podman networking allowed"
+}
+
+main "$@"

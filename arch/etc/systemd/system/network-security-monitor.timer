@@ -1,0 +1,19 @@
+[Unit]
+Description=Periodic Network Security Check
+Requires=network-security-monitor.service
+
+[Timer]
+# First check 5 minutes after boot
+OnBootSec=5min
+
+# Subsequent checks every hour
+OnUnitActiveSec=1h
+
+# Ensure timer runs even if system was off
+Persistent=true
+
+# Randomize timing to avoid load spikes
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

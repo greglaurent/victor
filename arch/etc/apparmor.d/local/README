@@ -1,0 +1,39 @@
+# AppArmor Local Customizations
+
+This directory contains local customizations for AppArmor profiles.
+Files in this directory are included by the main AppArmor profiles
+to allow for site-specific modifications without editing the main profiles.
+
+## Usage:
+- Add local rules to files matching the profile name
+- Example: rules for /usr/bin/firefox go in local/usr.bin.firefox  
+- Use include statements in main profiles: #include <local/usr.bin.firefox>
+
+## Profile deployment:
+- Profiles will be deployed post-installation using Victor commands
+- Use: vic setup security apparmor
+- Monitor with: vic run system security-status
+
+## Security Best Practices:
+- Only add rules you explicitly need for your development workflow
+- Document why each rule exists with comments
+- Review local customizations regularly
+- Test profile changes in complain mode first: `aa-complain /path/to/profile`
+- Use the most restrictive rules possible while maintaining functionality
+
+## Common Development Scenarios:
+- Debugger access: May require ptrace permissions
+- Container development: Docker/Podman may need additional capabilities
+- Network services: Local development servers may need network binds
+- File system access: Development tools may need broader file access
+
+## Troubleshooting:
+- Check AppArmor logs: `journalctl | grep -i apparmor`
+- Switch to complain mode: `aa-complain /path/to/profile`
+- Generate profile rules: `aa-genprof /path/to/binary`
+- Update profiles: `aa-logprof`
+
+## Victor Integration:
+- Security status: `vic run system security-status`
+- AppArmor management: `vic setup security apparmor`
+- Profile updates: `vic run security update-profiles`

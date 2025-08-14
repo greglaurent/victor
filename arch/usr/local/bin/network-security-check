@@ -1,0 +1,345 @@
+#!/usr/bin/env bash
+# Network security status checker
+# Enhanced version for developer workstations
+
+set -euo pipefail
+
+# Colors for output (if terminal supports it)
+if [[ -t 1 ]]; then
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[0;33m'
+    BLUE='\033[0;34m'
+    NC='\033[0m' # No Color
+else
+    RED=''
+    GREEN=''
+    YELLOW=''
+    BLUE=''
+    NC=''
+fi
+
+# Helper functions
+success() {
+    echo -e "${GREEN}✓${NC} $1"
+}
+
+warning() {
+    echo -e "${YELLOW}?${NC} $1"
+}
+
+error() {
+    echo -e "${RED}✗${NC} $1"
+}
+
+info() {
+    echo -e "${BLUE}ℹ${NC} $1"
+}
+
+check_dns_resolution() {
+    echo -e "${BLUE}=== DNS Resolution Test ===${NC}"
+    
+    local dns_errors=0
+    
+    # Test systemd-resolved
+    if systemctl is-active systemd-resolved >/dev/null 2>&1; then
+        success "systemd-resolved is running"
+    else
+        error "systemd-resolved is not running"
+        ((dns_errors++))
+    fi
+    
+    # Test unbound
+    if systemctl is-active unbound >/dev/null 2>&1; then
+        success "unbound is running"
+    else
+        error "unbound is not running"
+        ((dns_errors++))
+    fi
+    
+    # Test DNS resolution with multiple methods
+    local test_domains=("cloudflare.com" "example.com" "archlinux.org")
+    local resolution_working=false
+    
+    for domain in "${test_domains[@]}"; do
+        if nslookup "$domain" >/dev/null 2>&1; then
+            success "DNS resolution working (tested: $domain)"
+            resolution_working=true
+            break
+        fi
+    done
+    
+    if [[ "$resolution_working" == false ]]; then
+        error "DNS resolution failed for all test domains"
+        ((dns_errors++))
+    fi
+    
+    # Test DoT functionality
+    if command -v unbound-control >/dev/null 2>&1; then
+        if unbound-control status >/dev/null 2>&1; then
+            success "Unbound control interface working"
+        else
+            warning "Unbound control interface failed"
+        fi
+    else
+        warning "Unbound control not available"
+    fi
+    
+    # Test DNS response time
+    local response_time
+    response_time=$(dig +noall +stats cloudflare.com 2>/dev/null | grep "Query time:" | awk '{print $4}' || echo "unknown")
+    if [[ "$response_time" != "unknown" ]]; then
+        info "DNS response time: ${response_time}ms"
+    fi
+    
+    return $dns_errors
+}
+
+check_network_privacy() {
+    echo -e "${BLUE}=== Network Privacy Status ===${NC}"
+    
+    # Check MAC randomization for WiFi
+    local wifi_devices
+    wifi_devices=$(nmcli device | grep wifi | awk '{print $1}' || echo "")
+    
+    if [[ -n "$wifi_devices" ]]; then
+        for device in $wifi_devices; do
+            local mac_setting
+            mac_setting=$(nmcli -t -f 802-11-wireless.cloned-mac-address device show "$device" 2>/dev/null || echo "unknown")
+            
+            case "$mac_setting" in
+                "random"|"stable-ssid"|"stable")
+                    success "WiFi device $device MAC randomization: $mac_setting"
+                    ;;
+                "preserve"|"permanent")
+                    warning "WiFi device $device using real MAC: $mac_setting"
+                    ;;
+                *)
+                    warning "WiFi device $device MAC setting unknown: $mac_setting"
+                    ;;
+            esac
+        done
+    else
+        info "No WiFi devices found"
+    fi
+    
+    # Check Ethernet MAC randomization
+    local ethernet_devices
+    ethernet_devices=$(nmcli device | grep ethernet | awk '{print $1}' || echo "")
+    
+    if [[ -n "$ethernet_devices" ]]; then
+        for device in $ethernet_devices; do
+            local mac_setting
+            mac_setting=$(nmcli -t -f 802-3-ethernet.cloned-mac-address device show "$device" 2>/dev/null || echo "unknown")
+            
+            if [[ "$mac_setting" =~ random|stable ]]; then
+                success "Ethernet device $device MAC randomization: $mac_setting"
+            else
+                info "Ethernet device $device MAC setting: $mac_setting"
+            fi
+        done
+    else
+        info "No Ethernet devices found"
+    fi
+    
+    # Check hostname privacy
+    local hostname_mode
+    hostname_mode=$(grep -E "^hostname-mode" /etc/NetworkManager/conf.d/*.conf 2>/dev/null | head -1 | cut -d= -f2 || echo "default")
+    
+    case "$hostname_mode" in
+        "none")
+            success "Hostname privacy enabled (not sent to DHCP)"
+            ;;
+        *)
+            warning "Hostname privacy: $hostname_mode"
+            ;;
+    esac
+}
+
+check_dns_security() {
+    echo -e "${BLUE}=== DNS Security Status ===${NC}"
+    
+    # Check DNSSEC with multiple test domains
+    local dnssec_domains=("cloudflare.com" "internetsociety.org")
+    local dnssec_working=false
+    
+    for domain in "${dnssec_domains[@]}"; do
+        if command -v dig >/dev/null 2>&1; then
+            if dig +dnssec "$domain" | grep -q "ad" 2>/dev/null; then
+                success "DNSSEC validation working (tested: $domain)"
+                dnssec_working=true
+                break
+            fi
+        fi
+    done
+    
+    if [[ "$dnssec_working" == false ]]; then
+        if command -v dig >/dev/null 2>&1; then
+            warning "DNSSEC status unclear (may be working but not detectable)"
+        else
+            warning "dig command not available for DNSSEC testing"
+        fi
+    fi
+    
+    # Check DoT/TLS statistics
+    if command -v unbound-control >/dev/null 2>&1; then
+        local unbound_stats
+        unbound_stats=$(unbound-control stats 2>/dev/null || echo "unavailable")
+        if [[ "$unbound_stats" != "unavailable" ]]; then
+            success "Unbound statistics available"
+            
+            local tls_queries
+            tls_queries=$(echo "$unbound_stats" | grep "num.query.tls" | awk '{print $2}' || echo "0")
+            if [[ "$tls_queries" -gt 0 ]]; then
+                success "DNS-over-TLS queries: $tls_queries"
+            else
+                info "DNS-over-TLS queries: $tls_queries (may be starting up)"
+            fi
+        else
+            warning "Unbound statistics unavailable"
+        fi
+    else
+        warning "unbound-control not available"
+    fi
+    
+    # Check DNS resolver configuration
+    if [[ -f /etc/systemd/resolved.conf.d/unbound-integration.conf ]]; then
+        success "systemd-resolved → unbound integration configured"
+    else
+        warning "systemd-resolved → unbound integration not found"
+    fi
+    
+    # Check secure DNS fallback
+    local fallback_dns
+    fallback_dns=$(grep "FallbackDNS" /etc/systemd/resolved.conf.d/*.conf 2>/dev/null | head -1 || echo "")
+    if [[ -n "$fallback_dns" ]]; then
+        success "Secure DNS fallback configured"
+    else
+        warning "No DNS fallback configured"
+    fi
+}
+
+check_system_integration() {
+    echo -e "${BLUE}=== System Integration Status ===${NC}"
+    
+    # Check if this monitoring service is enabled
+    if systemctl is-enabled network-security-monitor.timer >/dev/null 2>&1; then
+        success "Automated monitoring enabled"
+    else
+        warning "Automated monitoring not enabled"
+        info "Enable with: systemctl enable network-security-monitor.timer"
+    fi
+    
+    # Check firewall status
+    if command -v ufw >/dev/null 2>&1; then
+        local ufw_status
+        ufw_status=$(ufw status | head -1 | awk '{print $2}' || echo "unknown")
+        case "$ufw_status" in
+            "active")
+                success "UFW firewall is active"
+                ;;
+            "inactive")
+                warning "UFW firewall is inactive"
+                info "Enable with: ufw enable"
+                ;;
+            *)
+                warning "UFW firewall status: $ufw_status"
+                ;;
+        esac
+    else
+        warning "UFW firewall not available"
+    fi
+    
+    # Check AppArmor status
+    if command -v aa-status >/dev/null 2>&1; then
+        if aa-status --enabled 2>/dev/null; then
+            success "AppArmor is enabled"
+        else
+            warning "AppArmor is not enabled"
+        fi
+    else
+        info "AppArmor status command not available"
+    fi
+}
+
+show_troubleshooting_info() {
+    echo -e "${BLUE}=== Troubleshooting Commands ===${NC}"
+    echo "DNS Resolution:"
+    echo "  resolvectl status"
+    echo "  resolvectl query example.com"
+    echo "  systemctl status systemd-resolved unbound"
+    echo ""
+    echo "Network Configuration:"
+    echo "  nmcli device status"
+    echo "  nmcli connection show"
+    echo "  ip addr show"
+    echo ""
+    echo "Security Status:"
+    echo "  ufw status verbose"
+    echo "  aa-status"
+    echo "  journalctl -u unbound -f"
+    echo ""
+    echo "Manual DNS Test:"
+    echo "  dig @127.0.0.1 example.com"
+    echo "  dig @1.1.1.1 example.com"
+}
+
+main() {
+    echo -e "${BLUE}Network Security Status Check${NC}"
+    echo "============================="
+    echo ""
+    
+    local total_errors=0
+    
+    check_dns_resolution || ((total_errors++))
+    echo ""
+    
+    check_network_privacy
+    echo ""
+    
+    check_dns_security
+    echo ""
+    
+    check_system_integration
+    echo ""
+    
+    if [[ "$total_errors" -eq 0 ]]; then
+        echo -e "${GREEN}=== Overall Status: HEALTHY ===${NC}"
+    else
+        echo -e "${YELLOW}=== Overall Status: $total_errors ISSUES DETECTED ===${NC}"
+        echo ""
+        show_troubleshooting_info
+    fi
+    
+    echo ""
+    echo "Check complete at $(date)"
+}
+
+# Handle command line arguments
+case "${1:-}" in
+    --help|-h)
+        echo "Network Security Check - Enhanced version"
+        echo ""
+        echo "Usage: $0 [option]"
+        echo ""
+        echo "Options:"
+        echo "  --help, -h     Show this help message"
+        echo "  --quiet, -q    Suppress colors and extra output"
+        echo "  --troubleshoot Show troubleshooting commands"
+        echo ""
+        exit 0
+        ;;
+    --quiet|-q)
+        RED=''
+        GREEN=''
+        YELLOW=''
+        BLUE=''
+        NC=''
+        ;;
+    --troubleshoot)
+        show_troubleshooting_info
+        exit 0
+        ;;
+esac
+
+main "$@"

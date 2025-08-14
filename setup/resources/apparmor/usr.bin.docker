@@ -1,0 +1,21 @@
+# AppArmor local rules for Docker development
+# File: /etc/apparmor.d/local/usr.bin.docker
+
+# Docker socket access
+/var/run/docker.sock rw,
+
+# Docker data directories
+/var/lib/docker/** rw,
+
+# Development projects (for bind mounts)
+/home/*/dev/** rw,
+/home/*/projects/** rw,
+/home/*/workspace/** rw,
+
+# Required capabilities
+capability sys_admin,
+capability dac_override,
+
+# Network access
+network inet stream,
+network inet6 stream,

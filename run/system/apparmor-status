@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+
+# run/system/apparmor-status  
+# Show AppArmor status for development tools
+
+set -euo pipefail
+
+output() {
+    printf '\e[1;34m%-6s\e[m\n' "${@}"
+}
+
+main() {
+    output "=== AppArmor Development Status ==="
+    
+    # Check overall AppArmor status
+    if systemctl is-active apparmor >/dev/null 2>&1; then
+        output "AppArmor: ACTIVE"
+    else
+        output "AppArmor: INACTIVE"
+        exit 0
+    fi
+    
+    output ""
+    output "=== Development Tool Profiles ==="
+    
+    local dev_tools=(
+        "/usr/bin/node:Node.js"
+        "/usr/bin/python3:Python"
+        "/usr/bin/docker:Docker"
+        "/usr/bin/code:VS Code"
+        "/usr/bin/cargo:Rust Cargo"
+        "/usr/bin/go:Go"
+    )
+    
+    for tool_info in "${dev_tools[@]}"; do
+        local tool="${tool_info%:*}"
+        local name="${tool_info#*:}"
+        
+        if [[ -x "$tool" ]]; then
+            local status
+            if aa-status | grep -q "^$tool" 2>/dev/null; then
+                if aa-status | grep -q "^$tool.*complain" 2>/dev/null; then
+                    status="COMPLAIN (dev-friendly)"
+                elif aa-status | grep -q "^$tool.*enforce" 2>/dev/null; then
+                    status="ENFORCE (may block dev tools)"
+                else
+                    status="UNKNOWN"
+                fi
+            else
+                status="NO PROFILE"
+            fi
+            printf "  %-15s %s\n" "$name:" "$status"
+        fi
+    done
+    
+    output ""
+    output "=== Recent Denials (Last 10) ==="
+    dmesg | grep -i apparmor | grep DENIED | tail -10 || output "  No recent denials found"
+    
+    output ""
+    output "Commands:"
+    output "  vic run system apparmor-logs    # View all denial logs"
+    output "  vic run system apparmor-fix     # Generate rules for denials"
+    output "  aa-complain /usr/bin/TOOL       # Set tool to complain mode"
+}
+
+main "$@"

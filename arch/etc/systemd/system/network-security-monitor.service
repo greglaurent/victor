@@ -1,0 +1,30 @@
+[Unit]
+Description=Network Security Monitoring
+After=network-online.target unbound.service systemd-resolved.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/network-security-check --quiet
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+User=nobody
+Group=nogroup
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+RemoveIPC=true
+
+# Network access required for DNS tests
+PrivateNetwork=false
+
+[Install]
+WantedBy=multi-user.target

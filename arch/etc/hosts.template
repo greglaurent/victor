@@ -1,0 +1,79 @@
+# Static table lookup for hostnames.
+# See hosts(5) for details.
+#
+# Security Note: This file provides local hostname resolution before DNS queries.
+# Entries here bypass DNS resolution, which can be useful for development but
+# also represents a potential security consideration.
+
+# =====================================
+# CRITICAL SYSTEM ENTRIES - DO NOT MODIFY
+# =====================================
+
+# IPv4 loopback
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+
+# IPv6 loopback  
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6 ip6-localhost ip6-loopback
+
+# Local hostname (systemd compatibility)
+# Note: 127.0.1.1 is used instead of 127.0.0.1 to avoid conflicts with services binding to localhost
+127.0.1.1   {{HOSTNAME}}.localdomain {{HOSTNAME}}
+
+# =====================================
+# IPv6 PROTOCOL ENTRIES
+# =====================================
+
+# Link-local
+fe00::0     ip6-localnet
+ff00::0     ip6-mcastprefix
+
+# Multicast
+ff02::1     ip6-allnodes
+ff02::2     ip6-allrouters
+ff02::3     ip6-allhosts
+
+# =====================================
+# DEVELOPMENT ENTRIES
+# =====================================
+
+# Common development aliases (uncomment as needed)
+# 127.0.0.1   dev.local
+# 127.0.0.1   api.dev.local
+# 127.0.0.1   db.dev.local
+# ::1         dev.local
+# ::1         api.dev.local
+# ::1         db.dev.local
+
+# Docker/Kubernetes development (examples)
+# 127.0.0.1   kubernetes.docker.internal
+# 127.0.0.1   host.docker.internal
+
+# =====================================
+# SECURITY ENTRIES
+# =====================================
+
+# Prevent common tracking/telemetry domains from resolving
+# Uncomment entries as needed for privacy/development
+
+# Windows telemetry (for VMs/Wine)
+# 0.0.0.0     telemetry.microsoft.com
+# 0.0.0.0     vortex.data.microsoft.com
+# 0.0.0.0     settings-win.data.microsoft.com
+
+# Common analytics (for testing ad-free environments)
+# 0.0.0.0     google-analytics.com
+# 0.0.0.0     googletagmanager.com
+# 0.0.0.0     doubleclick.net
+
+# =====================================
+# CUSTOM ENTRIES
+# =====================================
+# Add your custom entries below this line
+# Format: IP_ADDRESS HOSTNAME [ALIASES...]
+#
+# Security Best Practices:
+# - Only add entries you explicitly need
+# - Document why each entry exists
+# - Review regularly and remove stale entries
+# - Be cautious with wildcard-like patterns
+# - Remember: entries here bypass DNSSEC validation

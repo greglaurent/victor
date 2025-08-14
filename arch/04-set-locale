@@ -124,7 +124,8 @@ backup_existing_config() {
     local file="${1:?}"
     
     if [[ -f "$file" ]]; then
-        local backup_file="${file}.backup.$(date +%s)"
+        local backup_file
+        backup_file="${file}.backup.$(date +%s)"
         cp "$file" "$backup_file"
         output "  Backed up existing $file to $backup_file"
     fi
@@ -146,7 +147,7 @@ create_hostname_config() {
     
     # Verify content was written correctly
     local written_hostname
-    written_hostname=$(cat "$hostname_file" 2>/dev/null | tr -d '\n')
+    written_hostname=$(tr -d '\n' < "$hostname_file" 2>/dev/null)
     if [[ "$written_hostname" != "${hostname}" ]]; then
         output "ERROR: Hostname not written correctly"
         output "Expected: ${hostname}"
@@ -165,30 +166,22 @@ create_hosts_file() {
     output "Step 2/5: Creating hosts file..."
     
     local hosts_file="/mnt/etc/hosts"
+    local template_file="$HERE/arch/etc/hosts.template"
     
     # Backup existing file
     backup_existing_config "$hosts_file"
     
-    # Create comprehensive hosts file
-    cat > "$hosts_file" << EOF
-# Static table lookup for hostnames.
-# See hosts(5) for details.
-
-# Loopback entries; do not change.
-# For historical reasons, localhost precedes localhost.localdomain:
-127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
-127.0.1.1   ${hostname:?}.localdomain ${hostname:?}
-::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
-
-# The following lines are desirable for IPv6 capable hosts
-::1         ip6-localhost ip6-loopback
-fe00::0     ip6-localnet
-ff00::0     ip6-mcastprefix
-ff02::1     ip6-allnodes
-ff02::2     ip6-allrouters
-
-# Custom entries can be added below this line
-EOF
+    # Verify template exists
+    if [[ ! -f "$template_file" ]]; then
+        output "ERROR: hosts template file not found: $template_file"
+        return 1
+    fi
+    
+    # Create hosts file from template
+    if ! sed "s/{{HOSTNAME}}/${hostname:?}/g" "$template_file" > "$hosts_file"; then
+        output "ERROR: Failed to create hosts file from template"
+        return 1
+    fi
 
     # Verify hosts file was created correctly
     if [[ ! -f "$hosts_file" ]]; then

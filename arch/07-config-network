@@ -6,11 +6,38 @@
 set -euo pipefail
 
 # =====================================
+# SCRIPT INITIALIZATION  
+# =====================================
+
+# Detect script location and set HERE variable
+if [[ -n "${HERE:-}" ]]; then
+  # HERE is already set (called from install script)
+  :
+else
+  # Detect current directory context
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [[ -f "$SCRIPT_DIR/../vic" ]]; then
+    # We're in arch/ subdirectory of Victor
+    HERE="$(cd "$SCRIPT_DIR/.." && pwd)"
+    export HERE
+  else
+    # Standalone installation
+    export HERE="$SCRIPT_DIR"
+  fi
+fi
+
+# Define output function if not already available
+if ! declare -f output >/dev/null; then
+  output() {
+    printf '\e[1;34m%-6s\e[m\n' "${@}"
+  }
+fi
+
+# =====================================
 # NETWORK CONFIGURATION CONSTANTS
 # =====================================
 
 readonly UNBOUND_PORT="5353"
-readonly SYSTEMD_RESOLVED_PORT="53"
 readonly NETWORKMANAGER_CONFIG_DIR="/mnt/etc/NetworkManager/conf.d"
 readonly UNBOUND_CONFIG_DIR="/mnt/etc/unbound"
 readonly SYSTEMD_RESOLVED_CONFIG_DIR="/mnt/etc/systemd/resolved.conf.d"
@@ -80,94 +107,26 @@ configure_unbound_resolver() {
     output "Step 1/4: Configuring Unbound DNS resolver..."
     
     local unbound_conf="$UNBOUND_CONFIG_DIR/unbound.conf"
+    local unbound_template="$HERE/etc/unbound/unbound.conf.template"
+    local local_conf_src="$HERE/etc/unbound/unbound.conf.d/local.conf"
     
-    # Main unbound configuration
-    cat > "$unbound_conf" << EOF
-# Unbound DNS resolver configuration
-# Optimized for developer workstations with security focus
-
-server:
-    # Network configuration
-    interface: 127.0.0.1@${UNBOUND_PORT}
-    interface: ::1@${UNBOUND_PORT}
+    # Verify template files exist
+    if [[ ! -f "$unbound_template" ]]; then
+        output "ERROR: Unbound template not found: $unbound_template"
+        return 1
+    fi
     
-    # Only allow local access
-    access-control: 127.0.0.0/8 allow
-    access-control: ::1 allow
-    access-control: 0.0.0.0/0 refuse
-    access-control: ::/0 refuse
+    if [[ ! -f "$local_conf_src" ]]; then
+        output "ERROR: Unbound local configuration not found: $local_conf_src"
+        return 1
+    fi
     
-    # Performance settings
-    num-threads: 2
-    msg-cache-slabs: 2
-    rrset-cache-slabs: 2
-    infra-cache-slabs: 2
-    key-cache-slabs: 2
+    # Create unbound configuration from template
+    if ! sed "s/{{UNBOUND_PORT}}/${UNBOUND_PORT}/g" "$unbound_template" > "$unbound_conf"; then
+        output "ERROR: Failed to create unbound configuration from template"
+        return 1
+    fi
     
-    # Cache settings (optimal for development)
-    cache-min-ttl: 60
-    cache-max-ttl: 86400
-    msg-cache-size: 64m
-    rrset-cache-size: 128m
-    
-    # Security settings
-    hide-identity: yes
-    hide-version: yes
-    hide-trustanchor: yes
-    harden-glue: yes
-    harden-dnssec-stripped: yes
-    harden-below-nxdomain: yes
-    harden-referral-path: yes
-    harden-algo-downgrade: yes
-    harden-large-queries: yes
-    harden-short-bufsize: yes
-    
-    # Privacy settings
-    qname-minimisation: yes
-    qname-minimisation-strict: yes
-    aggressive-nsec: yes
-    
-    # DNSSEC validation
-    auto-trust-anchor-file: "/var/lib/unbound/root.key"
-    trust-anchor-signaling: yes
-    root-key-sentinel: yes
-    
-    # Performance optimizations
-    prefetch: yes
-    prefetch-key: yes
-    serve-expired: yes
-    serve-expired-ttl: 3600
-    
-    # TLS configuration
-    tls-cert-bundle: /etc/ssl/certs/ca-certificates.crt
-    
-    # Logging (for development/debugging)
-    verbosity: 1
-    log-queries: no
-    log-replies: no
-    
-    # Local development settings
-    do-not-query-localhost: no
-    domain-insecure: "localhost"
-    private-address: 127.0.0.0/8
-    private-address: 10.0.0.0/8
-    private-address: 172.16.0.0/12
-    private-address: 192.168.0.0/16
-    private-address: fd00::/8
-    private-address: fe80::/10
-
-# Remote control (for unbound-control)
-remote-control:
-    control-enable: yes
-    control-interface: 127.0.0.1
-    control-port: 8953
-
-# Forward all queries to secure DNS servers with DoT
-forward-zone:
-    name: "."
-    forward-tls-upstream: yes
-EOF
-
     # Add forward addresses for secure DNS servers
     for server in "${SECURE_DNS_SERVERS[@]}"; do
         echo "    forward-addr: $server" >> "$unbound_conf"
@@ -176,18 +135,11 @@ EOF
     # Create unbound control keys directory
     mkdir -p "$UNBOUND_CONFIG_DIR/unbound_control.d"
     
-    # Create local configuration directory for custom zones
-    cat > "$UNBOUND_CONFIG_DIR/unbound.conf.d/local.conf" << 'EOF'
-# Local DNS configuration
-# Add custom zones and overrides here
-
-# Example local development zone:
-# local-zone: "dev.local" static
-# local-data: "app.dev.local A 127.0.0.1"
-
-# Block known malicious domains (uncomment to enable)
-# include: /etc/unbound/unbound.conf.d/blocklist.conf
-EOF
+    # Copy local configuration file
+    if ! cp "$local_conf_src" "$UNBOUND_CONFIG_DIR/unbound.conf.d/local.conf"; then
+        output "ERROR: Failed to copy unbound local configuration"
+        return 1
+    fi
 
     # Set proper permissions
     chmod 644 "$unbound_conf"
@@ -220,56 +172,31 @@ configure_systemd_resolved() {
     output "Step 2/4: Configuring systemd-resolved integration..."
     
     local resolved_conf="$SYSTEMD_RESOLVED_CONFIG_DIR/unbound-integration.conf"
+    local resolved_template="$HERE/etc/systemd/resolved.conf.d/unbound-integration.conf.template"
+    local backup_conf_src="$HERE/etc/systemd/resolved.conf.d/backup-dns.conf"
     
-    # Configure systemd-resolved to use unbound as upstream
-    cat > "$resolved_conf" << EOF
-# systemd-resolved configuration for unbound integration
-# systemd-resolved acts as a proxy to unbound for better integration
-
-[Resolve]
-# Use unbound as upstream DNS server
-DNS=127.0.0.1:${UNBOUND_PORT}
-
-# Fallback to secure public DNS if unbound fails
-FallbackDNS=1.1.1.2#security.cloudflare-dns.com 9.9.9.9#dns.quad9.net
-
-# Enable DNS over TLS (unbound handles this)
-DNSOverTLS=no
-
-# Let unbound handle DNSSEC
-DNSSEC=no
-
-# Disable conflicting features (unbound handles these)
-MulticastDNS=no
-LLMNR=no
-
-# Cache settings (minimal since unbound does the heavy caching)
-Cache=yes
-CacheFromLocalhost=no
-
-# DNS stub listener configuration
-DNSStubListener=yes
-DNSStubListenerExtra=
-
-# Read system hosts file
-ReadEtcHosts=yes
-
-# Don't resolve single-label names over DNS
-ResolveUnicastSingleLabel=no
-EOF
-
-    # Create backup resolv.conf configuration
-    cat > "/mnt/etc/systemd/resolved.conf.d/backup-dns.conf" << 'EOF'
-# Backup DNS configuration
-# This file provides fallback DNS configuration if unbound fails
-
-[Resolve]
-# These settings are only used if the primary DNS configuration fails
-# They are overridden by unbound-integration.conf when unbound is running
-
-# Backup secure DNS servers
-#FallbackDNS=1.1.1.1#cloudflare-dns.com 9.9.9.9#dns.quad9.net
-EOF
+    # Verify template files exist
+    if [[ ! -f "$resolved_template" ]]; then
+        output "ERROR: systemd-resolved template not found: $resolved_template"
+        return 1
+    fi
+    
+    if [[ ! -f "$backup_conf_src" ]]; then
+        output "ERROR: backup DNS configuration not found: $backup_conf_src"
+        return 1
+    fi
+    
+    # Create systemd-resolved configuration from template
+    if ! sed "s/{{UNBOUND_PORT}}/${UNBOUND_PORT}/g" "$resolved_template" > "$resolved_conf"; then
+        output "ERROR: Failed to create systemd-resolved configuration from template"
+        return 1
+    fi
+    
+    # Copy backup DNS configuration
+    if ! cp "$backup_conf_src" "/mnt/etc/systemd/resolved.conf.d/backup-dns.conf"; then
+        output "ERROR: Failed to copy backup DNS configuration"
+        return 1
+    fi
 
     # Verify configuration was created
     if [[ ! -s "$resolved_conf" ]]; then
@@ -295,90 +222,37 @@ EOF
 configure_networkmanager() {
     output "Step 3/4: Configuring NetworkManager security and privacy..."
     
-    # Main NetworkManager configuration
-    cat > "$NETWORKMANAGER_CONFIG_DIR/security.conf" << 'EOF'
-# NetworkManager security and privacy configuration
-
-[main]
-# Use systemd-resolved for DNS (which uses unbound)
-dns=systemd-resolved
-
-# Don't send hostname to DHCP servers
-hostname-mode=none
-
-# Security settings
-dhcp=internal
-
-[device]
-# WiFi privacy settings
-wifi.scan-rand-mac-address=yes
-wifi.cloned-mac-address=stable-ssid
-
-# Ethernet privacy settings  
-ethernet.cloned-mac-address=stable
-
-[connection]
-# Connection-specific privacy settings
-connection.stable-id=${CONNECTION}/${BOOT}
-
-# IPv6 privacy extensions
-ipv6.ip6-privacy=2
-
-# Don't leak DNS queries during connection setup
-connection.mdns=no
-connection.llmnr=no
-EOF
-
-    # Advanced connection security
-    cat > "$NETWORKMANAGER_CONFIG_DIR/connection-security.conf" << 'EOF'
-# Advanced connection security settings
-
-[connection-security]
-# Additional security for untrusted networks
-
-[device-security]
-# Device-level security settings
-
-# Disable wake-on-lan by default (security)
-ethernet.wake-on-lan=ignore
-
-# WiFi security settings
-wifi.wake-on-wlan=ignore
-wifi.powersave=default
-
-[logging]
-# Security-relevant logging
-level=INFO
-domains=DEVICE,WIFI,DHCP4,DHCP6,DNS
-EOF
-
-    # WiFi-specific security configuration
-    cat > "$NETWORKMANAGER_CONFIG_DIR/wifi-security.conf" << 'EOF'
-# WiFi-specific security configuration
-
-[device-wifi-security]
-# WiFi scanning and connection security
-
-# Randomize MAC during scans
-wifi.scan-rand-mac-address=yes
-
-# Use random MAC for connections
-wifi.cloned-mac-address=random
-
-# Disable MAC address randomization for trusted networks (uncomment if needed)
-# wifi.cloned-mac-address=preserve
-
-[connection-wifi-security]
-# Connection-specific WiFi security
-
-# Prefer secure connection methods
-wifi-sec.key-mgmt=wpa-psk,wpa-eap,sae
-
-# Disable legacy security
-wifi-sec.proto=rsn
-wifi-sec.pairwise=ccmp
-wifi-sec.group=ccmp
-EOF
+    local nm_security_src="$HERE/etc/NetworkManager/conf.d/security.conf"
+    local nm_conn_sec_src="$HERE/etc/NetworkManager/conf.d/connection-security.conf"
+    local nm_wifi_sec_src="$HERE/etc/NetworkManager/conf.d/wifi-security.conf"
+    
+    # Verify source files exist
+    local missing_files=()
+    [[ ! -f "$nm_security_src" ]] && missing_files+=("$nm_security_src")
+    [[ ! -f "$nm_conn_sec_src" ]] && missing_files+=("$nm_conn_sec_src")
+    [[ ! -f "$nm_wifi_sec_src" ]] && missing_files+=("$nm_wifi_sec_src")
+    
+    if [[ ${#missing_files[@]} -gt 0 ]]; then
+        output "ERROR: Missing NetworkManager configuration files:"
+        printf '  %s\n' "${missing_files[@]}"
+        return 1
+    fi
+    
+    # Copy NetworkManager configuration files
+    if ! cp "$nm_security_src" "$NETWORKMANAGER_CONFIG_DIR/security.conf"; then
+        output "ERROR: Failed to copy NetworkManager security configuration"
+        return 1
+    fi
+    
+    if ! cp "$nm_conn_sec_src" "$NETWORKMANAGER_CONFIG_DIR/connection-security.conf"; then
+        output "ERROR: Failed to copy NetworkManager connection security configuration"
+        return 1
+    fi
+    
+    if ! cp "$nm_wifi_sec_src" "$NETWORKMANAGER_CONFIG_DIR/wifi-security.conf"; then
+        output "ERROR: Failed to copy NetworkManager WiFi security configuration"
+        return 1
+    fi
 
     # Set proper permissions
     chmod 644 "$NETWORKMANAGER_CONFIG_DIR"/*.conf
@@ -408,138 +282,41 @@ EOF
 integrate_network_security() {
     output "Step 4/4: Integrating with system security configuration..."
     
-    # Create network security monitoring script
-    cat > "/mnt/usr/local/bin/network-security-check" << 'EOF'
-#!/usr/bin/env bash
-# Network security status checker
-
-set -euo pipefail
-
-check_dns_resolution() {
-    echo "=== DNS Resolution Test ==="
+    local monitor_script_src="$HERE/usr/local/bin/network-security-check"
+    local monitor_service_src="$HERE/etc/systemd/system/network-security-monitor.service"
+    local monitor_timer_src="$HERE/etc/systemd/system/network-security-monitor.timer"
     
-    # Test systemd-resolved
-    if systemctl is-active systemd-resolved >/dev/null 2>&1; then
-        echo "✓ systemd-resolved is running"
-    else
-        echo "✗ systemd-resolved is not running"
+    # Verify source files exist
+    local missing_files=()
+    [[ ! -f "$monitor_script_src" ]] && missing_files+=("$monitor_script_src")
+    [[ ! -f "$monitor_service_src" ]] && missing_files+=("$monitor_service_src")
+    [[ ! -f "$monitor_timer_src" ]] && missing_files+=("$monitor_timer_src")
+    
+    if [[ ${#missing_files[@]} -gt 0 ]]; then
+        output "ERROR: Missing network monitoring files:"
+        printf '  %s\n' "${missing_files[@]}"
         return 1
     fi
     
-    # Test unbound
-    if systemctl is-active unbound >/dev/null 2>&1; then
-        echo "✓ unbound is running"
-    else
-        echo "✗ unbound is not running"
+    # Copy network security monitoring script
+    if ! cp "$monitor_script_src" "/mnt/usr/local/bin/network-security-check"; then
+        output "ERROR: Failed to copy network security monitoring script"
         return 1
     fi
     
-    # Test DNS resolution
-    if nslookup cloudflare.com >/dev/null 2>&1; then
-        echo "✓ DNS resolution working"
-    else
-        echo "✗ DNS resolution failed"
-        return 1
-    fi
-    
-    # Test DoT functionality
-    if unbound-control status >/dev/null 2>&1; then
-        echo "✓ Unbound control interface working"
-    else
-        echo "✗ Unbound control interface failed"
-    fi
-}
-
-check_network_privacy() {
-    echo "=== Network Privacy Status ==="
-    
-    # Check MAC randomization
-    local wifi_devices
-    wifi_devices=$(nmcli device | grep wifi | awk '{print $1}' || echo "")
-    
-    if [[ -n "$wifi_devices" ]]; then
-        for device in $wifi_devices; do
-            local mac_setting
-            mac_setting=$(nmcli -t -f 802-11-wireless.cloned-mac-address device show "$device" 2>/dev/null || echo "unknown")
-            echo "WiFi device $device MAC setting: $mac_setting"
-        done
-    else
-        echo "No WiFi devices found"
-    fi
-}
-
-check_dns_security() {
-    echo "=== DNS Security Status ==="
-    
-    # Check DNSSEC
-    if dig +dnssec cloudflare.com | grep -q "ad" 2>/dev/null; then
-        echo "✓ DNSSEC validation working"
-    else
-        echo "? DNSSEC status unclear"
-    fi
-    
-    # Check DoT
-    local unbound_stats
-    unbound_stats=$(unbound-control stats 2>/dev/null || echo "unavailable")
-    if [[ "$unbound_stats" != "unavailable" ]]; then
-        echo "✓ Unbound statistics available"
-        echo "  $(echo "$unbound_stats" | grep "num.query.tls" || echo "TLS query count: unknown")"
-    else
-        echo "? Unbound statistics unavailable"
-    fi
-}
-
-main() {
-    echo "Network Security Status Check"
-    echo "============================="
-    echo
-    
-    check_dns_resolution
-    echo
-    check_network_privacy  
-    echo
-    check_dns_security
-    echo
-    echo "Check complete."
-}
-
-main "$@"
-EOF
-
     # Make the script executable
     chmod 755 "/mnt/usr/local/bin/network-security-check"
     
-    # Create network monitoring configuration for systemd
-    cat > "/mnt/etc/systemd/system/network-security-monitor.service" << 'EOF'
-[Unit]
-Description=Network Security Monitoring
-After=network-online.target unbound.service systemd-resolved.service
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/network-security-check
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    # Create timer for periodic checks
-    cat > "/mnt/etc/systemd/system/network-security-monitor.timer" << 'EOF'
-[Unit]
-Description=Periodic Network Security Check
-Requires=network-security-monitor.service
-
-[Timer]
-OnBootSec=5min
-OnUnitActiveSec=1h
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-EOF
+    # Copy systemd service files
+    if ! cp "$monitor_service_src" "/mnt/etc/systemd/system/network-security-monitor.service"; then
+        output "ERROR: Failed to copy network security monitor service"
+        return 1
+    fi
+    
+    if ! cp "$monitor_timer_src" "/mnt/etc/systemd/system/network-security-monitor.timer"; then
+        output "ERROR: Failed to copy network security monitor timer"
+        return 1
+    fi
 
     # Verify integration files were created
     if [[ ! -x "/mnt/usr/local/bin/network-security-check" ]]; then

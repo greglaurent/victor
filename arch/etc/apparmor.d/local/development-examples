@@ -1,0 +1,110 @@
+# AppArmor local development profile examples
+# Copy the relevant sections to the appropriate local/PROGRAM files
+
+# ==============================================
+# Node.js Development (local/usr.bin.node)
+# ==============================================
+# Node.js servers need network access and file system access
+/home/*/dev/** rw,
+/home/*/projects/** rw,
+/tmp/** rw,
+network inet stream,
+network inet6 stream,
+network inet dgram,
+network inet6 dgram,
+
+# ==============================================
+# Python Development (local/usr.bin.python3)
+# ==============================================
+# Python needs module access and development files
+/usr/lib/python*/** r,
+/home/*/dev/** rw,
+/home/*/venv/** rw,
+/home/*/.local/lib/python*/** rw,
+
+# ==============================================
+# Docker Development (local/usr.bin.docker)
+# ==============================================
+# Docker needs container access and socket communication
+/var/run/docker.sock rw,
+/var/lib/docker/** rw,
+capability sys_admin,
+capability dac_override,
+
+# ==============================================
+# VS Code / Code Editors (local/usr.bin.code)
+# ==============================================
+# Editors need broad file access and extension management
+/home/*/dev/** rw,
+/home/*/.vscode/** rw,
+/home/*/.config/Code/** rw,
+/tmp/.org.chromium.Chromium.* rw,
+network inet stream,
+
+# ==============================================
+# Git Development (local/usr.bin.git)
+# ==============================================
+# Git needs repository access and network for remotes
+/home/*/dev/** rw,
+/home/*/projects/** rw,
+/home/*/.gitconfig r,
+/home/*/.ssh/** r,
+network inet stream,
+
+# ==============================================
+# Database Development (local/usr.bin.psql, local/usr.bin.mongo)
+# ==============================================
+# Database clients need network and data directory access
+/home/*/dev/** rw,
+/var/lib/postgresql/** rw,
+/var/lib/mongodb/** rw,
+network inet stream,
+
+# ==============================================
+# Rust Development (local/usr.bin.cargo)
+# ==============================================
+# Cargo needs target directory and registry access
+/home/*/dev/** rw,
+/home/*/.cargo/** rw,
+/home/*/target/** rw,
+network inet stream,
+
+# ==============================================
+# Debugging Tools (local/usr.bin.gdb, local/usr.bin.strace)
+# ==============================================
+# Debuggers need ptrace and process access
+capability sys_ptrace,
+ptrace,
+/proc/*/maps r,
+/proc/*/mem r,
+/home/*/dev/** rw,
+
+# ==============================================
+# Kubernetes/kubectl (local/usr.bin.kubectl)
+# ==============================================
+# Kubectl needs config and network access
+/home/*/.kube/** rw,
+/home/*/.config/kubectl/** rw,
+network inet stream,
+
+# ==============================================
+# Common Issues and Solutions
+# ==============================================
+
+# If getting "permission denied" errors:
+# 1. Check AppArmor logs: dmesg | grep -i apparmor | grep DENIED
+# 2. Look for the specific file/capability being blocked
+# 3. Add the minimal rule needed
+# 4. Example denied log:
+#    apparmor="DENIED" operation="open" profile="usr.bin.node" name="/home/user/dev/app.js"
+#    Solution: Add "/home/*/dev/** r," to local/usr.bin.node
+
+# If development server won't bind to port:
+# 1. Look for "bind" or "network" denials in logs
+# 2. Add network rules: network inet stream, network inet6 stream
+# 3. For specific ports: network inet stream bind 3000,
+
+# If file watcher/IDE indexing breaks:
+# 1. Check for "inotify" denials
+# 2. Add broad read access: /home/*/dev/** r,
+# 3. For write access: /home/*/dev/** rw,

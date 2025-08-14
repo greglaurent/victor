@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+
+# run/system/cert-status  
+# Show development certificate status
+
+set -euo pipefail
+
+output() {
+    printf '\e[1;34m%-6s\e[m\n' "${@}"
+}
+
+main() {
+    output "=== Development Certificate Status ==="
+    
+    local cert_dir="/usr/local/share/ca-certificates/development"
+    local key_dir="/etc/ssl/private/development"
+    local ca_cert="$cert_dir/dev-ca.crt"
+    local localhost_cert="$cert_dir/localhost.crt"
+    
+    # Check if certificate management is set up
+    if [[ ! -d "$cert_dir" ]]; then
+        output "✗ Development certificates not set up"
+        output "  Run: vic setup dev certs"
+        return 1
+    fi
+    
+    output "Certificate directories:"
+    output "  Certificates: $cert_dir"
+    output "  Private keys: $key_dir"
+    
+    output ""
+    output "=== Development CA Status ==="
+    
+    if [[ -f "$ca_cert" ]]; then
+        output "✓ Development CA certificate exists"
+        
+        # Get CA certificate info
+        local ca_subject=$(openssl x509 -in "$ca_cert" -noout -subject | cut -d= -f2-)
+        local ca_expires=$(openssl x509 -in "$ca_cert" -noout -enddate | cut -d= -f2)
+        
+        output "  Subject: $ca_subject"
+        output "  Expires: $ca_expires"
+        
+        # Check if CA is trusted by system
+        if openssl verify "$ca_cert" >/dev/null 2>&1; then
+            output "  System trust: ✓ Trusted"
+        else
+            output "  System trust: ⚠ Not trusted (expected for self-signed)"
+        fi
+    else
+        output "✗ Development CA certificate missing"
+    fi
+    
+    output ""
+    output "=== Development Certificates ==="
+    
+    local cert_count=0
+    if [[ -d "$cert_dir" ]]; then
+        for cert in "$cert_dir"/*.crt; do
+            if [[ -f "$cert" ]] && [[ "$cert" != "$ca_cert" ]]; then
+                local name=$(basename "$cert" .crt)
+                local subject=$(openssl x509 -in "$cert" -noout -subject | cut -d= -f2- | sed 's/^[[:space:]]*//')
+                local expires=$(openssl x509 -in "$cert" -noout -enddate | cut -d= -f2)
+                local key_file="$key_dir/${name}.key"
+                
+                output "Certificate: $name"
+                output "  Subject: $subject"
+                output "  Expires: $expires"
+                
+                if [[ -f "$key_file" ]]; then
+                    output "  Private key: ✓ Present"
+                else
+                    output "  Private key: ✗ Missing"
+                fi
+                
+                # Check certificate validity
+                if openssl x509 -in "$cert" -checkend 86400 >/dev/null 2>&1; then
+                    output "  Validity: ✓ Valid (expires in >24h)"
+                else
+                    output "  Validity: ⚠ Expires within 24 hours"
+                fi
+                
+                cert_count=$((cert_count + 1))
+                output ""
+            fi
+        done
+    fi
+    
+    if [[ $cert_count -eq 0 ]]; then
+        output "⊘ No development certificates found (except CA)"
+    else
+        output "Total certificates: $cert_count"
+    fi
+    
+    output ""
+    output "=== Certificate Utility Status ==="
+    
+    if command -v dev-cert >/dev/null 2>&1; then
+        output "✓ dev-cert utility available"
+        output "  Location: $(which dev-cert)"
+    else
+        output "✗ dev-cert utility not found"
+    fi
+    
+    output ""
+    output "=== Browser Trust Status ==="
+    output "To check if browsers trust the development CA:"
+    output "  • Chrome: chrome://settings/certificates → Authorities tab"
+    output "  • Firefox: about:preferences#privacy → View Certificates → Authorities"
+    output "  • Safari: Keychain Access → System → Certificates"
+    
+    output ""
+    output "Commands:"
+    output "  vic setup dev certs              # Setup certificate management"
+    output "  dev-cert create api.dev.local    # Create domain certificate"
+    output "  dev-cert list                    # List all certificates"
+    output "  dev-cert trust                   # Show trust instructions"
+    output "  openssl x509 -in CERT -text     # View certificate details"
+}
+
+main "$@"

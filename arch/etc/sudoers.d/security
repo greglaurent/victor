@@ -11,8 +11,12 @@ Defaults logfile="/var/log/sudo.log"
 # Secure path
 Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# Don't allow shell escapes
-Defaults noexec
+# Don't allow shell escapes (commented for developer compatibility)
+# Defaults noexec
 
-# Require tty
-Defaults requiretty
+# Require tty (commented for automation/scripts)
+# Defaults requiretty
+
+# Developer-friendly: Allow specific commands without restrictions
+# Uncomment the noexec line above if you need maximum security
+# Uncomment requiretty if all sudo usage is interactive

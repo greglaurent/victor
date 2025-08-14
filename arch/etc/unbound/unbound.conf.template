@@ -1,0 +1,87 @@
+# Unbound DNS resolver configuration
+# Optimized for developer workstations with security focus
+#
+# Template variables:
+# {{UNBOUND_PORT}} - Port for unbound to listen on
+
+server:
+    # Network configuration
+    interface: 127.0.0.1@{{UNBOUND_PORT}}
+    interface: ::1@{{UNBOUND_PORT}}
+    
+    # Only allow local access
+    access-control: 127.0.0.0/8 allow
+    access-control: ::1 allow
+    access-control: 0.0.0.0/0 refuse
+    access-control: ::/0 refuse
+    
+    # Performance settings
+    num-threads: 2
+    msg-cache-slabs: 2
+    rrset-cache-slabs: 2
+    infra-cache-slabs: 2
+    key-cache-slabs: 2
+    
+    # Cache settings (optimal for development)
+    cache-min-ttl: 60
+    cache-max-ttl: 86400
+    msg-cache-size: 64m
+    rrset-cache-size: 128m
+    
+    # Security settings
+    hide-identity: yes
+    hide-version: yes
+    hide-trustanchor: yes
+    harden-glue: yes
+    harden-dnssec-stripped: yes
+    harden-below-nxdomain: yes
+    harden-referral-path: yes
+    harden-algo-downgrade: yes
+    harden-large-queries: yes
+    harden-short-bufsize: yes
+    
+    # Privacy settings
+    qname-minimisation: yes
+    qname-minimisation-strict: yes
+    aggressive-nsec: yes
+    
+    # DNSSEC validation
+    auto-trust-anchor-file: "/var/lib/unbound/root.key"
+    trust-anchor-signaling: yes
+    root-key-sentinel: yes
+    
+    # Performance optimizations
+    prefetch: yes
+    prefetch-key: yes
+    serve-expired: yes
+    serve-expired-ttl: 3600
+    
+    # TLS configuration
+    tls-cert-bundle: /etc/ssl/certs/ca-certificates.crt
+    
+    # Logging (for development/debugging)
+    verbosity: 1
+    log-queries: no
+    log-replies: no
+    
+    # Local development settings
+    do-not-query-localhost: no
+    domain-insecure: "localhost"
+    private-address: 127.0.0.0/8
+    private-address: 10.0.0.0/8
+    private-address: 172.16.0.0/12
+    private-address: 192.168.0.0/16
+    private-address: fd00::/8
+    private-address: fe80::/10
+
+# Remote control (for unbound-control)
+remote-control:
+    control-enable: yes
+    control-interface: 127.0.0.1
+    control-port: 8953
+
+# Forward all queries to secure DNS servers with DoT
+forward-zone:
+    name: "."
+    forward-tls-upstream: yes
+    # Forward addresses will be added dynamically by the installation script
