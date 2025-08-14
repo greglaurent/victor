@@ -506,7 +506,11 @@ output "Full name: ${fullname}"
 output "Locale: ${locale}"
 output "Keyboard: ${kblayout}"
 output "Timezone: ${timezone}"
-output "Encryption: $([[ $use_luks -eq 1 ]] && echo "enabled" || echo "disabled")"
+if [[ $use_luks -eq 1 ]]; then
+  output "Encryption: enabled"
+else
+  output "Encryption: disabled"
+fi
 output "Install mode: ${install_mode}"
 output ""
 
