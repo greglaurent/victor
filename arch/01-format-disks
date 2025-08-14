@@ -1,256 +1,128 @@
 #!/usr/bin/env bash
 
-# arch/01-format-disks
-# Disk partitioning and BTRFS filesystem setup
+### PARTIAL SCRIPT ######
+### REQUIRES PROMPTS ####
 
-set -euo pipefail
+pacman -Sy
 
-# Source echo function
+## Installing curl
+pacman -S --noconfirm curl
 
-# Ensure required variables are defined
-use_luks=${use_luks:-0}
-luks_passphrase=${luks_passphrase:-""}
-disk=${disk:-""}
-installation_date=${installation_date:-"$(date '+%Y-%m-%d %H:%M:%S')"}
+## Wipe the disk
+sgdisk --zap-all "${disk:?}"
 
-# Validate required variables
-if [[ -z "$disk" ]]; then
-    echo "ERROR: Disk variable not set. This script requires disk to be defined."
-    exit 1
-fi
-
-# =====================================
-# BTRFS MOUNT OPTIONS (SSD/NVMe Optimized)
-# =====================================
-readonly BTRFS_OPTS="ssd,noatime,compress=zstd:1,space_cache=v2,discard=async"
-readonly BTRFS_OPTS_NOCOW="ssd,noatime,nodatacow,space_cache=v2,discard=async"
-
-# =====================================
-# VALIDATION FUNCTIONS
-# =====================================
-validate_disk() {
-    local disk="${1:?}"
-    
-    # Check if disk exists
-    if [[ ! -b "$disk" ]]; then
-        echo "ERROR: Disk $disk does not exist or is not a block device."
-        exit 1
-    fi
-    
-    # Check if disk is mounted
-    if mount | grep -q "^$disk"; then
-        echo "ERROR: Disk $disk appears to be mounted. Unmount it first."
-        exit 1
-    fi
-    
-    # Check minimum disk size (20GB)
-    local size_bytes
-    size_bytes=$(blockdev --getsize64 "$disk")
-    local size_gb=$((size_bytes / 1024 / 1024 / 1024))
-    
-    if [[ $size_gb -lt 20 ]]; then
-        echo "ERROR: Disk $disk is too small (${size_gb}GB). Minimum 20GB required."
-        exit 1
-    fi
-    
-    echo "Disk validation passed: $disk (${size_gb}GB)"
-}
-
-validate_partition_creation() {
-    local esp="${1:?}"
-    local rootfs="${2:?}"
-    
-    # Wait for udev to settle
-    sleep 2
-    udevadm settle
-    
-    # Check if partitions exist
-    if [[ ! -b "$esp" ]]; then
-        echo "ERROR: ESP partition $esp was not created successfully."
-        exit 1
-    fi
-    
-    if [[ ! -b "$rootfs" ]]; then
-        echo "ERROR: Root partition $rootfs was not created successfully."
-        exit 1
-    fi
-    
-    echo "Partition creation validated successfully."
-}
-
-validate_filesystem_creation() {
-    local device="${1:?}"
-    local fstype="${2:?}"
-    
-    local actual_fstype
-    actual_fstype=$(blkid -o value -s TYPE "$device" 2>/dev/null || echo "unknown")
-    
-    if [[ "$actual_fstype" != "$fstype" ]]; then
-        echo "ERROR: Filesystem creation failed. Expected $fstype, got $actual_fstype"
-        exit 1
-    fi
-    
-    echo "Filesystem creation validated: $device ($fstype)"
-}
-
-# =====================================
-# CLEANUP FUNCTIONS
-# =====================================
-cleanup_on_failure() {
-    echo "Cleaning up after failure..."
-    
-    # Unmount any mounted filesystems
-    if mountpoint -q /mnt 2>/dev/null; then
-        umount -R /mnt || true
-    fi
-    
-    # Close LUKS container if it exists
-    if [[ $use_luks -eq 1 ]] && [[ -e /dev/mapper/cryptroot ]]; then
-        cryptsetup close cryptroot || true
-    fi
-}
-
-trap cleanup_on_failure ERR
-
-# =====================================
-# MAIN DISK FORMATTING PROCESS
-# =====================================
-
-echo "Step 1/8: Installing required packages..."
-pacman -Sy --noconfirm --needed curl
-
-echo "Step 2/8: Validating disk..."
-validate_disk "$disk"
-
-echo "Step 3/8: Wiping disk ${disk}..."
-sgdisk --zap-all "${disk}"
-
-echo "Step 4/8: Creating new partition scheme..."
+## Creating a new partition scheme
+output "Creating new partition scheme on ${disk}."
 sgdisk -g "${disk}"
 sgdisk -I -n 1:0:+2G -t 1:ef00 -c 1:'ESP' "${disk}"
 sgdisk -I -n 2:0:0 -c 2:'rootfs' "${disk}"
 
-# Set partition paths
 ESP='/dev/disk/by-partlabel/ESP'
-rootfs_partition='/dev/disk/by-partlabel/rootfs'
 
-# Inform kernel of changes
-echo "Step 5/8: Updating partition table..."
-partprobe "${disk}"
-sleep 2
-udevadm settle
-
-# Validate partition creation
-validate_partition_creation "$ESP" "$rootfs_partition"
-
-echo "Step 6/8: Creating filesystems..."
-
-# Format ESP as FAT32
-echo "  Creating ESP filesystem..."
-mkfs.fat -F 32 -s 2 "${ESP}"
-validate_filesystem_creation "${ESP}" "vfat"
-
-# Handle LUKS encryption if enabled
-if [[ $use_luks -eq 1 ]]; then
-    echo "  Creating LUKS container..."
-    if [[ -z "$luks_passphrase" ]]; then
-        echo "ERROR: LUKS passphrase not set but encryption is enabled"
-        exit 1
-    fi
-    echo -n "$luks_passphrase" | cryptsetup luksFormat --pbkdf pbkdf2 "${rootfs_partition}" -d -
-    
-    echo "  Opening LUKS container..."
-    echo -n "$luks_passphrase" | cryptsetup open "${rootfs_partition}" cryptroot -d -
-    BTRFS='/dev/mapper/cryptroot'
-else
-    BTRFS="${rootfs_partition}"
+if [ "${use_luks:?}" = '1' ]; then
+  cryptroot='/dev/disk/by-partlabel/rootfs'
 fi
 
-# Export BTRFS device for other scripts
-export BTRFS
+## Informing the Kernel of the changes
+output 'Informing the Kernel about the disk changes.'
+partprobe "${disk}"
 
-# Create BTRFS filesystem
-echo "  Creating BTRFS filesystem..."
+## Formatting the ESP as FAT32
+output 'Formatting the EFI Partition as FAT32.'
+mkfs.fat -F 32 -s 2 "${ESP}"
+
+## Creating a LUKS Container for the root partition
+if [ "${use_luks}" = '1' ]; then
+  output 'Creating LUKS Container for the root partition.'
+  echo -n "${luks_passphrase:?}" | cryptsetup luksFormat --pbkdf pbkdf2 "${cryptroot}" -d -
+  echo -n "${luks_passphrase}" | cryptsetup open "${cryptroot}" cryptroot -d -
+  BTRFS='/dev/mapper/cryptroot'
+else
+  BTRFS='/dev/disk/by-partlabel/rootfs'
+fi
+
+export "BTRFS=${BTRFS}"
+
+## Formatting the partition as BTRFS
+output 'Formatting the rootfs as BTRFS.'
 mkfs.btrfs -f "${BTRFS}"
-validate_filesystem_creation "${BTRFS}" "btrfs"
-
-echo "Step 7/8: Creating BTRFS subvolumes..."
-
-# Mount BTRFS root for subvolume creation
 mount "${BTRFS}" /mnt
 
-# Create subvolume structure matching original working script
-btrfs subvolume create /mnt/@
-btrfs subvolume create /mnt/@/.snapshots
-mkdir -p /mnt/@/.snapshots/1
-btrfs subvolume create /mnt/@/.snapshots/1/snapshot
-btrfs subvolume create /mnt/@/home
-btrfs subvolume create /mnt/@/var_log
+## Creating BTRFS subvolumes
+output 'Creating BTRFS subvolumes.'
 
-# Disable COW for performance-sensitive subvolumes
+btrfs su cr /mnt/@
+btrfs su cr /mnt/@/.snapshots
+mkdir -p /mnt/@/.snapshots/1
+btrfs su cr /mnt/@/.snapshots/1/snapshot
+btrfs su cr /mnt/@/boot/
+btrfs su cr /mnt/@/home
+btrfs su cr /mnt/@/root
+btrfs su cr /mnt/@/var_log
+
+# if [ "${install_mode}" = 'desktop' ]; then
+#   btrfs su cr /mnt/@/var_lib_gdm
+# fi
+
+if [ "${use_luks}" = '1' ]; then
+  btrfs su cr /mnt/@/cryptkey
+fi
+
+## Disable CoW on subvols we are not taking snapshots of
+chattr +C /mnt/@/boot
+chattr +C /mnt/@/home
+chattr +C /mnt/@/root
 chattr +C /mnt/@/var_log
 
-# Set default subvolume to snapshot 1 (for snapper)
+# if [ "${install_mode}" = 'desktop' ]; then
+#   chattr +C /mnt/@/var_lib_gdm
+# fi
+
+if [ "${use_luks}" = '1' ]; then
+  chattr +C /mnt/@/cryptkey
+fi
+
+## Set the default BTRFS Subvol to Snapshot 1 before pacstrapping
 btrfs subvolume set-default "$(btrfs subvolume list /mnt | grep "@/.snapshots/1/snapshot" | grep -oP '(?<=ID )[0-9]+')" /mnt
 
-# Create snapper info file
 echo "<?xml version=\"1.0\"?>
 <snapshot>
   <type>single</type>
   <num>1</num>
-  <date>$installation_date</date>
+  <date>${installation_date:?}</date>
   <description>First Root Filesystem</description>
   <cleanup>number</cleanup>
-</snapshot>" > /mnt/@snapshots/1/info.xml
+</snapshot>" >/mnt/@/.snapshots/1/info.xml
 
-chmod 600 /mnt/@snapshots/1/info.xml
+chmod 600 /mnt/@/.snapshots/1/info.xml
 
-echo "Step 8/8: Mounting subvolumes with optimized options..."
-
-# Unmount and remount with proper structure
+## Mounting the newly created subvolumes
 umount /mnt
+output 'Mounting the newly created subvolumes.'
+mount -o ssd,noatime,compress=zstd "${BTRFS}" /mnt
+mkdir -p /mnt/{boot,root,home,.snapshots,var/log}
+#mkdir -p /mnt/{var/lib/gdm,var/lib/AccountsService}
 
-# Mount root subvolume (uses default subvolume which is the snapshot)
-mount -o "${BTRFS_OPTS}" "${BTRFS}" /mnt
-
-# Create mount points
-mkdir -p /mnt/{home,var/log,.snapshots,boot/efi}
-
-# Mount subvolumes with appropriate options
-mount -o "${BTRFS_OPTS},subvol=@/home" "${BTRFS}" /mnt/home
-mount -o "${BTRFS_OPTS_NOCOW},nodev,nosuid,noexec,subvol=@/var_log" "${BTRFS}" /mnt/var/log
-mount -o "${BTRFS_OPTS},subvol=@/.snapshots" "${BTRFS}" /mnt/.snapshots
-
-# Mount ESP
-mount -o nodev,nosuid,noexec "${ESP}" /mnt/boot/efi
-
-# Verify all mounts
-echo "Verifying mount structure..."
-if ! mountpoint -q /mnt; then
-    echo "ERROR: Root filesystem not mounted properly."
-    exit 1
+if [ "${use_luks}" = '1' ]; then
+  mkdir -p /mnt/cryptkey
 fi
 
-for mount_point in /mnt/home /mnt/var/log /mnt/swap /mnt/.snapshots /mnt/boot/efi; do
-    if ! mountpoint -q "$mount_point"; then
-        echo "ERROR: Mount point $mount_point not mounted properly."
-        exit 1
-    fi
-done
+mount -o ssd,noatime,compress=zstd,nodev,nosuid,noexec,subvol=@/boot "${BTRFS}" /mnt/boot
+mount -o ssd,noatime,compress=zstd,nodev,nosuid,subvol=@/root "${BTRFS}" /mnt/root
+mount -o ssd,noatime,compress=zstd,nodev,nosuid,subvol=@/home "${BTRFS}" /mnt/home
+mount -o ssd,noatime,compress=zstd,subvol=@/.snapshots "${BTRFS}" /mnt/.snapshots
+mount -o ssd,noatime,compress=zstd,subvol=@/srv "${BTRFS}" /mnt/
+mount -o ssd,noatime,compress=zstd,nodatacow,nodev,nosuid,noexec,subvol=@/var_log "${BTRFS}" /mnt/var/log
 
-# Display mount summary
-echo ""
-echo "=== BTRFS Mount Structure ==="
-echo "Root (@):          $(findmnt -n -o OPTIONS /mnt)"
-echo "Home (@home):      $(findmnt -n -o OPTIONS /mnt/home)"
-echo "Logs (@var_log):   $(findmnt -n -o OPTIONS /mnt/var/log)"
-echo "Swap (@swap):      $(findmnt -n -o OPTIONS /mnt/swap)"
-echo "Snapshots:         $(findmnt -n -o OPTIONS /mnt/.snapshots)"
-echo "ESP:               $(findmnt -n -o OPTIONS /mnt/boot/efi)"
-echo ""
+# GNOME requires /var/lib/gdm and /var/lib/AccountsService to be writeable when booting into a readonly snapshot
+# if [ "${install_mode}" = 'desktop' ]; then
+#   mount -o ssd,noatime,compress=zstd,nodatacow,nodev,nosuid,noexec,subvol=@/var_lib_gdm $BTRFS /mnt/var/lib/gdm
+# fi
 
-echo "Disk formatting completed successfully!"
-echo "BTRFS device: ${BTRFS}"
-echo "Encryption: $([[ $use_luks -eq 1 ]] && echo "enabled" || echo "disabled")"
-echo "Subvolumes: 5 essential subvolumes created"
-echo "Mount options: Optimized for SSD/NVMe performance and lifespan"
+### The encryption is split; we do not want to include it in the backup with snap-pac.
+if [ "${use_luks}" = '1' ]; then
+  mount -o ssd,noatime,compress=zstd,nodatacow,nodev,nosuid,noexec,subvol=@/cryptkey "${BTRFS}" /mnt/cryptkey
+fi
+
+mkdir -p /mnt/boot/efi
+mount -o nodev,nosuid,noexec "${ESP}" /mnt/boot/efi
