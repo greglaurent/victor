@@ -492,10 +492,6 @@ locale_prompt
 keyboard_prompt
 timezone_prompt
 
-# Export variables for subscripts
-export use_luks kblayout locale timezone install_mode installation_date
-export disk hostname username fullname user_password luks_passphrase
-
 # Display configuration summary
 output ""
 output "=== Installation Configuration ==="
@@ -506,11 +502,6 @@ output "Full name: ${fullname}"
 output "Locale: ${locale}"
 output "Keyboard: ${kblayout}"
 output "Timezone: ${timezone}"
-if [[ $use_luks -eq 1 ]]; then
-  output "Encryption: enabled"
-else
-  output "Encryption: disabled"
-fi
 output "Install mode: ${install_mode}"
 output ""
 
