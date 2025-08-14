@@ -173,7 +173,6 @@ validate_required_packages() {
 
   echo "All required packages are available"
 }
-# No output function - use echo directly
 
 unpriv() {
   sudo -u nobody "${@}"
@@ -222,7 +221,7 @@ is_in_array() {
 luks_passphrase_prompt() {
   if [[ $use_luks -eq 1 && -z $luks_passphrase ]]; then
     echo 'Enter your encryption passphrase (the passphrase will not be shown on the screen):'
-    read -r -s luks_passphrase
+    read -r -s luks_passphrase </dev/tty
 
     if [[ -z $luks_passphrase ]]; then
       echo 'To use encryption, you need to enter a passphrase.'
@@ -231,7 +230,7 @@ luks_passphrase_prompt() {
     fi
 
     echo 'Confirm your encryption passphrase (the passphrase will not be shown on the screen):'
-    read -r -s luks_passphrase2
+    read -r -s luks_passphrase2 </dev/tty
     if [[ $luks_passphrase != "$luks_passphrase2" ]]; then
       echo 'Passphrases do not match, please try again.'
       luks_passphrase_prompt
@@ -272,7 +271,7 @@ disk_prompt() {
       # Confirmation for destructive operation
       echo "WARNING: This will DESTROY all data on ${disk}!"
       confirmation=""
-      read -r -p "Type 'YES' to continue: " confirmation
+      read -r -p "Type 'YES' to continue: " confirmation </dev/tty
       if [[ $confirmation != "YES" ]]; then
         echo "Installation cancelled."
         exit 1
@@ -294,7 +293,7 @@ timezone_prompt() {
   select tz in "${SUPPORTED_TIMEZONES[@]}" "Other"; do
     if [[ $tz == "Other" ]]; then
       echo 'Enter timezone (e.g., America/Chicago):'
-      read -r custom_timezone
+      read -r custom_timezone </dev/tty
       if [[ -f /usr/share/zoneinfo/$custom_timezone ]]; then
         timezone="$custom_timezone"
         break
@@ -318,7 +317,7 @@ username_prompt() {
 
   while true; do
     echo 'Please enter the username:'
-    read -r username
+    read -r username </dev/tty
 
     if [[ -z $username ]]; then
       echo 'You need to enter a username.'
@@ -339,7 +338,7 @@ user_password_prompt() {
 
   while true; do
     echo 'Enter your user password (the password will not be shown on the screen):'
-    read -r -s user_password
+    read -r -s user_password </dev/tty
 
     if [[ -z $user_password ]]; then
       echo 'You need to enter a password.'
@@ -347,7 +346,7 @@ user_password_prompt() {
     fi
 
     echo 'Confirm your user password (the password will not be shown on the screen):'
-    read -r -s user_password2
+    read -r -s user_password2 </dev/tty
     if [[ $user_password == "$user_password2" ]]; then
       break
     else
@@ -364,7 +363,7 @@ fullname_prompt() {
 
   while true; do
     echo 'Please enter the full name for the account:'
-    read -r fullname
+    read -r fullname </dev/tty
 
     if [[ -n $fullname ]]; then
       break
@@ -377,7 +376,7 @@ fullname_prompt() {
 hostname_prompt() {
   while true; do
     echo 'Enter your hostname:'
-    read -r hostname
+    read -r hostname </dev/tty
 
     if [[ -z $hostname ]]; then
       echo 'You need to enter a hostname.'
@@ -433,7 +432,7 @@ encryption_prompt() {
   fi
 
   echo 'Enable disk encryption? (y/N)'
-  read -r response
+  read -r response </dev/tty
   case "$response" in
   [yY][eE][sS] | [yY])
     use_luks=1
@@ -504,7 +503,7 @@ echo "Install mode: ${install_mode}"
 echo ""
 
 confirm=""
-read -r -p "Proceed with installation? (y/N): " confirm
+read -r -p "Proceed with installation? (y/N): " confirm </dev/tty
 echo ""
 if [[ $confirm != [yY] ]]; then
   echo "Installation cancelled."
@@ -552,7 +551,7 @@ if [[ -f "$INSTALL_PROGRESS_FILE" ]]; then
     if [[ $last_completed -gt 0 ]]; then
         echo "Found previous installation attempt that completed $last_completed steps"
         echo "Do you want to resume from step $((last_completed + 1))? (y/N)"
-        read -r resume_response
+        read -r resume_response </dev/tty
         if [[ $resume_response == [yY] ]]; then
             echo "Resuming installation from step $((last_completed + 1))"
             RESUME_FROM_STEP=$last_completed
@@ -638,7 +637,7 @@ fi
 echo ""
 
 reboot_confirm=""
-read -r -p "Reboot now? (y/N): " reboot_confirm
+read -r -p "Reboot now? (y/N): " reboot_confirm </dev/tty
 if [[ $reboot_confirm == [yY] ]]; then
   reboot
 fi
