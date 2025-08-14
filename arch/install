@@ -238,6 +238,7 @@ disk_prompt() {
 
       # Confirmation for destructive operation
       output "WARNING: This will DESTROY all data on ${disk}!"
+      confirmation=""
       read -r -p "Type 'YES' to continue: " confirmation
       if [[ $confirmation != "YES" ]]; then
         output "Installation cancelled."
@@ -474,6 +475,7 @@ output "Encryption: $([[ $use_luks -eq 1 ]] && echo "enabled" || echo "disabled"
 output "Install mode: ${install_mode}"
 output ""
 
+confirm=""
 read -r -p "Proceed with installation? (y/N): " confirm
 if [[ $confirm != [yY] ]]; then
   output "Installation cancelled."
@@ -509,6 +511,7 @@ if [[ $use_luks -eq 1 ]]; then
 fi
 output ""
 
+reboot_confirm=""
 read -r -p "Reboot now? (y/N): " reboot_confirm
 if [[ $reboot_confirm == [yY] ]]; then
   reboot
