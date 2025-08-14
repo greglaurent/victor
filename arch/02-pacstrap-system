@@ -212,22 +212,14 @@ output "Microcode package: ${microcode_package:-"none detected"}"
 output "Target: /mnt"
 output ""
 
-# Perform installation in groups for better error tracking
-install_package_group "Base System" "${BASE_PACKAGES[@]}"
-
-if [[ -n $microcode_package ]]; then
-    install_package_group "Microcode" "$microcode_package"
+# Install ALL packages in one pacstrap call
+output "Installing all packages with pacstrap..."
+if ! pacstrap /mnt "${all_packages[@]}"; then
+    output "ERROR: Failed to install packages to new root"
+    output "Packages attempted: ${all_packages[*]}"
+    return 1
 fi
-
-install_package_group "Filesystem Support" "${FILESYSTEM_PACKAGES[@]}"
-install_package_group "Hardware Support" "${HARDWARE_PACKAGES[@]}"
-install_package_group "Bootloader (Limine)" "${BOOTLOADER_PACKAGES[@]}"
-install_package_group "Security Framework" "${SECURITY_PACKAGES[@]}"
-install_package_group "Network Support" "${NETWORK_PACKAGES[@]}"
-install_package_group "Printing Support" "${PRINTING_PACKAGES[@]}"
-install_package_group "Administration Tools" "${ADMIN_TOOLS[@]}"
-install_package_group "Desktop Integration" "${DESKTOP_PACKAGES[@]}"
-install_package_group "System Monitoring" "${MONITORING_PACKAGES[@]}"
+output "✓ All packages installed successfully"
 
 # Validate installation
 output ""
