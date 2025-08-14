@@ -512,14 +512,14 @@ output ""
 
 confirm=""
 read -r -p "Proceed with installation? (y/N): " confirm
+echo ""
 if [[ $confirm != [yY] ]]; then
   output "Installation cancelled."
   exit 0
 fi
 
-output ""
-
 # Export all variables that child scripts need
+output "Preparing installation variables..."
 export use_luks
 export luks_passphrase
 export disk
@@ -533,6 +533,7 @@ export user_password
 export install_mode
 export installation_date
 export HERE
+output "Variables exported successfully."
 
 # Installation steps with error handling
 installation_steps=(
