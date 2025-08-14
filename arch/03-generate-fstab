@@ -38,7 +38,7 @@ validate_current_mounts() {
     if [[ $mount_errors -gt 0 ]]; then
         echo "ERROR: $mount_errors mount points are missing"
         echo "Cannot generate fstab with incomplete mount structure"
-        return 1
+        exit 1
     fi
     
     echo "Mount structure validation passed"
@@ -53,7 +53,7 @@ verify_filesystem_types() {
     root_fstype=$(findmnt -n -o FSTYPE /mnt)
     if [[ "$root_fstype" != "btrfs" ]]; then
         echo "ERROR: Root filesystem is not BTRFS (found: $root_fstype)"
-        return 1
+        exit 1
     fi
     
     # Check ESP
@@ -61,7 +61,7 @@ verify_filesystem_types() {
     esp_fstype=$(findmnt -n -o FSTYPE /mnt/boot/efi)
     if [[ "$esp_fstype" != "vfat" ]]; then
         echo "ERROR: ESP is not FAT32 (found: $esp_fstype)"
-        return 1
+        exit 1
     fi
     
     echo "Filesystem types verified correctly"
@@ -78,7 +78,7 @@ generate_fstab() {
     # Generate fstab using genfstab directly to /mnt/etc/fstab
     if ! genfstab -U /mnt >> /mnt/etc/fstab; then
         echo "ERROR: Failed to generate fstab"
-        return 1
+        exit 1
     fi
     
     # Clean up snapshot subvolume references that cause boot issues
@@ -120,7 +120,7 @@ validate_fstab() {
             echo "Found trailing commas in mount options (lines shown above)"
         fi
         
-        return 1
+        exit 1
     fi
     
     # Check for duplicate mount points
@@ -129,7 +129,7 @@ validate_fstab() {
     if [[ -n $duplicate_mounts ]]; then
         echo "ERROR: Duplicate mount points found in fstab:"
         echo "$duplicate_mounts"
-        return 1
+        exit 1
     fi
     
     # Verify all our expected mount points are in fstab
@@ -145,7 +145,7 @@ validate_fstab() {
     if [[ ${#missing_mounts[@]} -gt 0 ]]; then
         echo "ERROR: Missing expected mount points in fstab:"
         printf '  %s\n' "${missing_mounts[@]}"
-        return 1
+        exit 1
     fi
     
     echo "fstab validation passed - syntax and content verified"
@@ -161,7 +161,7 @@ install_fstab() {
     # Install the validated fstab
     if ! cp /tmp/fstab.new /mnt/etc/fstab; then
         echo "ERROR: Failed to install fstab to /mnt/etc/fstab"
-        return 1
+        exit 1
     fi
     
     # Set proper permissions

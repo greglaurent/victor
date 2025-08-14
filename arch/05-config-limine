@@ -59,14 +59,14 @@ validate_esp_mount() {
     
     if ! mountpoint -q "$esp_path"; then
         echo "ERROR: ESP not mounted at $esp_path"
-        return 1
+        exit 1
     fi
     
     local esp_fstype
     esp_fstype=$(findmnt -n -o FSTYPE "$esp_path")
     if [[ "$esp_fstype" != "vfat" ]]; then
         echo "ERROR: ESP is not FAT32 filesystem (found: $esp_fstype)"
-        return 1
+        exit 1
     fi
     
     echo "ESP validation passed: $esp_path (vfat)"
@@ -87,7 +87,7 @@ validate_kernel_files() {
     for file in "${required_files[@]}"; do
         if [[ ! -f "$file" ]]; then
             echo "ERROR: Required kernel file missing: $file"
-            return 1
+            exit 1
         fi
         echo "  ✓ Found: $(basename "$file")"
     done
@@ -99,7 +99,7 @@ check_limine_package() {
     if ! arch-chroot /mnt pacman -Q limine &>/dev/null; then
         echo "ERROR: Limine package not installed"
         echo "This should have been installed in pacstrap phase"
-        return 1
+        exit 1
     fi
     
     echo "Limine package confirmed installed"
@@ -124,13 +124,13 @@ configure_mkinitcpio() {
     # Verify template file exists
     if [[ ! -f "$template_file" ]]; then
         echo "ERROR: mkinitcpio template not found: $template_file"
-        return 1
+        exit 1
     fi
     
     # Copy template to target location
     if ! cp "$template_file" "$mkinitcpio_conf"; then
         echo "ERROR: Failed to copy mkinitcpio template"
-        return 1
+        exit 1
     fi
 
     # Add LUKS hook if encryption is enabled
@@ -143,18 +143,18 @@ configure_mkinitcpio() {
     # Verify configuration was written correctly
     if [[ ! -s "$mkinitcpio_conf" ]]; then
         echo "ERROR: mkinitcpio configuration is empty"
-        return 1
+        exit 1
     fi
     
     if ! grep -q "COMPRESSION=\"zstd\"" "$mkinitcpio_conf"; then
         echo "ERROR: mkinitcpio configuration not written correctly"
-        return 1
+        exit 1
     fi
     
     # Verify essential modules are present
     if ! grep -q "usbhid xhci_hcd" "$mkinitcpio_conf"; then
         echo "ERROR: Essential USB modules missing from mkinitcpio"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ mkinitcpio configured for Limine with BTRFS support"
@@ -204,7 +204,7 @@ create_limine_config() {
     # Verify template exists
     if [[ ! -f "$template_file" ]]; then
         echo "ERROR: Limine template file not found: $template_file"
-        return 1
+        exit 1
     fi
     
     # Generate kernel parameters
@@ -235,19 +235,19 @@ create_limine_config() {
     
     if [[ ! -s "$limine_cfg" ]]; then
         echo "ERROR: Failed to create Limine configuration from template"
-        return 1
+        exit 1
     fi
     
     # Verify configuration was created
     if [[ ! -s "$limine_cfg" ]]; then
         echo "ERROR: Limine configuration is empty"
-        return 1
+        exit 1
     fi
     
     # Validate configuration syntax
     if ! grep -q "DEFAULT_ENTRY=1" "$limine_cfg"; then
         echo "ERROR: Limine configuration malformed"
-        return 1
+        exit 1
     fi
     
     local entry_count
@@ -279,13 +279,13 @@ install_limine_uefi() {
     # Copy Limine EFI binary
     if ! cp /mnt/usr/share/limine/BOOTX64.EFI "$limine_efi_dir/"; then
         echo "ERROR: Failed to copy Limine EFI binary"
-        return 1
+        exit 1
     fi
     
     # Verify EFI binary was copied
     if [[ ! -f "$limine_efi_dir/BOOTX64.EFI" ]]; then
         echo "ERROR: Limine EFI binary not found after copy"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ Limine UEFI binary installed to ESP"
@@ -298,7 +298,7 @@ install_limine_bios() {
     # Install Limine to disk MBR for BIOS boot compatibility
     if ! arch-chroot /mnt limine bios-install "$disk"; then
         echo "ERROR: Failed to install Limine to disk MBR"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ Limine BIOS compatibility installed to ${disk}"
@@ -312,7 +312,7 @@ regenerate_initramfs() {
     if ! arch-chroot /mnt mkinitcpio -P; then
         echo "ERROR: Failed to regenerate initramfs"
         echo "Check the mkinitcpio echo above for details"
-        return 1
+        exit 1
     fi
     
     # Verify initramfs files exist and are not empty
@@ -324,7 +324,7 @@ regenerate_initramfs() {
     for file in "${initramfs_files[@]}"; do
         if [[ ! -s "$file" ]]; then
             echo "ERROR: Initramfs file missing or empty: $file"
-            return 1
+            exit 1
         fi
     done
     
@@ -397,7 +397,7 @@ verify_limine_installation() {
         return 0
     else
         echo "Verification failed: $checks_passed/$total_checks checks passed"
-        return 1
+        exit 1
     fi
 }
 
@@ -457,19 +457,19 @@ echo "Replacing GRUB with modern Limine bootloader"
 echo ""
 
 # Pre-installation validation
-check_limine_package || return 1
-validate_esp_mount || return 1
+check_limine_package || exit 1
+validate_esp_mount || exit 1
 
 # Main configuration steps
-configure_mkinitcpio || return 1
-regenerate_initramfs || return 1
-validate_kernel_files || return 1
-create_limine_config || return 1
-install_limine_uefi || return 1
-install_limine_bios || return 1
+configure_mkinitcpio || exit 1
+regenerate_initramfs || exit 1
+validate_kernel_files || exit 1
+create_limine_config || exit 1
+install_limine_uefi || exit 1
+install_limine_bios || exit 1
 
 # Post-installation verification
-verify_limine_installation || return 1
+verify_limine_installation || exit 1
 
 # Display summary
 display_limine_summary

@@ -32,7 +32,7 @@ validate_locale() {
     if [[ ! $locale =~ ^[a-z]{2}_[A-Z]{2}$ ]]; then
         echo "ERROR: Invalid locale format: $locale"
         echo "Expected format: xx_XX (e.g., en_US, de_DE)"
-        return 1
+        exit 1
     fi
     
     # Check if locale is supported by checking available locales
@@ -54,7 +54,7 @@ validate_timezone() {
     if [[ ! -f "/usr/share/zoneinfo/$tz" ]]; then
         echo "ERROR: Invalid timezone: $tz"
         echo "Timezone file not found: /usr/share/zoneinfo/$tz"
-        return 1
+        exit 1
     fi
     
     # Validate timezone format (should have at least one slash)
@@ -75,7 +75,7 @@ validate_keyboard() {
     # Check keyboard layout format (alphanumeric and hyphens only)
     if [[ ! $kb =~ ^[a-zA-Z0-9_-]+$ ]]; then
         echo "ERROR: Invalid keyboard layout format: $kb"
-        return 1
+        exit 1
     fi
     
     # List of common keyboard layouts for validation
@@ -113,7 +113,7 @@ validate_hostname() {
         echo "ERROR: Invalid hostname format: $hostname"
         echo "Hostname must be 1-63 characters, alphanumeric and hyphens only"
         echo "Cannot start or end with hyphen"
-        return 1
+        exit 1
     fi
     
     # Check for reserved hostnames
@@ -156,7 +156,7 @@ create_hostname_config() {
     # Create hostname file
     if ! echo "$hostname" > "$hostname_file"; then
         echo "ERROR: Failed to create hostname file"
-        return 1
+        exit 1
     fi
     
     # Verify content was written correctly
@@ -166,7 +166,7 @@ create_hostname_config() {
         echo "ERROR: Hostname not written correctly"
         echo "Expected: ${hostname}"
         echo "Found: $written_hostname"
-        return 1
+        exit 1
     fi
     
     # Set proper permissions
@@ -188,19 +188,19 @@ create_hosts_file() {
     # Verify template exists
     if [[ ! -f "$template_file" ]]; then
         echo "ERROR: hosts template file not found: $template_file"
-        return 1
+        exit 1
     fi
     
     # Create hosts file from template
     if ! sed "s/{{HOSTNAME}}/$hostname/g" "$template_file" > "$hosts_file"; then
         echo "ERROR: Failed to create hosts file from template"
-        return 1
+        exit 1
     fi
 
     # Verify hosts file was created correctly
     if [[ ! -f "$hosts_file" ]]; then
         echo "ERROR: Hosts file was not created"
-        return 1
+        exit 1
     fi
     
     # Check for required entries
@@ -208,7 +208,7 @@ create_hosts_file() {
     for entry in "${required_entries[@]}"; do
         if ! grep -q "$entry" "$hosts_file"; then
             echo "ERROR: Required entry '$entry' not found in hosts file"
-            return 1
+            exit 1
         fi
     done
     
@@ -233,26 +233,26 @@ create_locale_config() {
     # Create locale.gen
     if ! echo "$locale_line" > "$locale_gen_file"; then
         echo "ERROR: Failed to create locale.gen"
-        return 1
+        exit 1
     fi
     
     # Verify locale.gen content
     if ! grep -q "$locale_line" "$locale_gen_file"; then
         echo "ERROR: Locale configuration not written correctly to locale.gen"
-        return 1
+        exit 1
     fi
     
     # Create locale.conf
     local locale_conf_content="LANG=${locale}.UTF-8"
     if ! echo "$locale_conf_content" > "$locale_conf_file"; then
         echo "ERROR: Failed to create locale.conf"
-        return 1
+        exit 1
     fi
     
     # Verify locale.conf content
     if ! grep -q "LANG=${locale}.UTF-8" "$locale_conf_file"; then
         echo "ERROR: Locale configuration not written correctly to locale.conf"
-        return 1
+        exit 1
     fi
     
     # Set proper permissions
@@ -274,13 +274,13 @@ create_keyboard_config() {
     # Create vconsole.conf
     if ! echo "$keymap_line" > "$vconsole_file"; then
         echo "ERROR: Failed to create vconsole.conf"
-        return 1
+        exit 1
     fi
     
     # Verify content was written correctly
     if ! grep -q "KEYMAP=${kblayout}" "$vconsole_file"; then
         echo "ERROR: Keyboard configuration not written correctly"
-        return 1
+        exit 1
     fi
     
     # Set proper permissions
@@ -299,7 +299,7 @@ configure_timezone() {
     # Verify timezone file exists (should have been validated earlier)
     if [[ ! -f "$timezone_path" ]]; then
         echo "ERROR: Timezone file not found: $timezone_path"
-        return 1
+        exit 1
     fi
     
     # Remove existing localtime if it exists
@@ -310,13 +310,13 @@ configure_timezone() {
     # Create timezone symlink
     if ! ln -sf "$timezone_path" "$localtime_link"; then
         echo "ERROR: Failed to create timezone symlink"
-        return 1
+        exit 1
     fi
     
     # Verify symlink was created correctly
     if [[ ! -L "$localtime_link" ]]; then
         echo "ERROR: Timezone symlink not created"
-        return 1
+        exit 1
     fi
     
     local link_target
@@ -325,7 +325,7 @@ configure_timezone() {
         echo "ERROR: Timezone symlink points to wrong target"
         echo "Expected: $timezone_path"
         echo "Found: $link_target"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ Timezone configured: ${timezone}"
@@ -374,7 +374,7 @@ verify_all_configuration() {
     
     if [[ $verification_errors -gt 0 ]]; then
         echo "ERROR: $verification_errors configuration verification failures"
-        return 1
+        exit 1
     fi
     
     echo "All configuration files verified successfully"
@@ -408,23 +408,23 @@ display_configuration_summary() {
 echo "=== Locale and System Configuration ==="
 
 # Validate all input parameters
-validate_hostname "$hostname" || return 1
-validate_locale "$locale" || return 1
-validate_keyboard "$kblayout" || return 1
-validate_timezone "$timezone" || return 1
+validate_hostname "$hostname" || exit 1
+validate_locale "$locale" || exit 1
+validate_keyboard "$kblayout" || exit 1
+validate_timezone "$timezone" || exit 1
 
 echo "All input parameters validated successfully"
 echo ""
 
 # Create configuration files
-create_hostname_config || return 1
-create_hosts_file || return 1
-create_locale_config || return 1
-create_keyboard_config || return 1
-configure_timezone || return 1
+create_hostname_config || exit 1
+create_hosts_file || exit 1
+create_locale_config || exit 1
+create_keyboard_config || exit 1
+configure_timezone || exit 1
 
 # Verify all configurations
-verify_all_configuration || return 1
+verify_all_configuration || exit 1
 
 # Display summary
 display_configuration_summary

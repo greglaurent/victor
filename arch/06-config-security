@@ -33,7 +33,7 @@ validate_target_directories() {
     for dir in "${required_dirs[@]}"; do
         if [[ ! -d "$dir" ]]; then
             echo "ERROR: Required directory missing: $dir"
-            return 1
+            exit 1
         fi
     done
     
@@ -56,7 +56,7 @@ check_security_packages() {
     if [[ ${#missing_packages[@]} -gt 0 ]]; then
         echo "ERROR: Missing security packages: ${missing_packages[*]}"
         echo "These should have been installed in pacstrap phase"
-        return 1
+        exit 1
     fi
     
     echo "All required security packages confirmed installed"
@@ -94,7 +94,7 @@ validate_config_templates() {
     if [[ ${#missing_files[@]} -gt 0 ]]; then
         echo "ERROR: Missing configuration templates:"
         printf '  %s\n' "${missing_files[@]}"
-        return 1
+        exit 1
     fi
     
     echo "All security configuration templates found"
@@ -121,18 +121,18 @@ install_sysctl_security() {
     # Copy configuration from template
     if ! cp "$template_file" "$sysctl_file"; then
         echo "ERROR: Failed to copy sysctl configuration"
-        return 1
+        exit 1
     fi
     
     # Verify configuration was copied correctly
     if [[ ! -s "$sysctl_file" ]]; then
         echo "ERROR: sysctl configuration file is empty"
-        return 1
+        exit 1
     fi
     
     if ! grep -q "kernel.yama.ptrace_scope = 1" "$sysctl_file"; then
         echo "ERROR: sysctl configuration not copied correctly"
-        return 1
+        exit 1
     fi
     
     # Set proper permissions
@@ -156,7 +156,7 @@ setup_apparmor_foundation() {
     # Copy AppArmor parser configuration
     if ! cp "$HERE/arch/etc/apparmor/parser.conf" "/mnt/etc/apparmor/parser.conf"; then
         echo "ERROR: Failed to copy AppArmor parser configuration"
-        return 1
+        exit 1
     fi
     
     # Set up audit logging configuration
@@ -164,7 +164,7 @@ setup_apparmor_foundation() {
     
     if ! cp "$HERE/arch/etc/audit/rules.d/apparmor.rules" "$AUDIT_CONFIG_DIR/rules.d/apparmor.rules"; then
         echo "ERROR: Failed to copy AppArmor audit rules"
-        return 1
+        exit 1
     fi
     
     # Copy AppArmor local customization README
@@ -172,12 +172,12 @@ setup_apparmor_foundation() {
     
     if [[ ! -f "$apparmor_readme_src" ]]; then
         echo "ERROR: AppArmor local README not found: $apparmor_readme_src"
-        return 1
+        exit 1
     fi
     
     if ! cp "$apparmor_readme_src" "$APPARMOR_CONFIG_DIR/local/README"; then
         echo "ERROR: Failed to copy AppArmor local README"
-        return 1
+        exit 1
     fi
 
     # Set proper permissions
@@ -189,7 +189,7 @@ setup_apparmor_foundation() {
     # Verify AppArmor structure was created
     if [[ ! -d "$APPARMOR_CONFIG_DIR/local" ]]; then
         echo "ERROR: AppArmor directory structure not created"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ AppArmor directory structure created"
@@ -211,19 +211,19 @@ configure_ssh_security() {
     # Copy SSH client configuration
     if ! cp "$HERE/arch/etc/ssh/ssh_config.d/10-custom.conf" "$SSH_CONFIG_DIR/ssh_config.d/10-custom.conf"; then
         echo "ERROR: Failed to copy SSH client configuration"
-        return 1
+        exit 1
     fi
     
     # Copy SSH server configuration
     if ! cp "$HERE/arch/etc/ssh/sshd_config.d/10-custom.conf" "$SSH_CONFIG_DIR/sshd_config.d/10-custom.conf"; then
         echo "ERROR: Failed to copy SSH server configuration"
-        return 1
+        exit 1
     fi
     
     # Copy security banner
     if ! cp "$HERE/arch/etc/issue.net" "/mnt/etc/issue.net"; then
         echo "ERROR: Failed to copy security banner"
-        return 1
+        exit 1
     fi
     
     # Set proper permissions
@@ -234,7 +234,7 @@ configure_ssh_security() {
     # Verify SSH configuration files were created
     if [[ ! -f "$SSH_CONFIG_DIR/sshd_config.d/10-custom.conf" ]]; then
         echo "ERROR: SSH server security configuration not created"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ SSH client security configuration installed"
@@ -256,13 +256,13 @@ configure_fail2ban() {
     # Copy fail2ban SSH jail configuration
     if ! cp "$HERE/arch/etc/fail2ban/jail.d/sshd.local" "$FAIL2BAN_CONFIG_DIR/jail.d/sshd.local"; then
         echo "ERROR: Failed to copy fail2ban jail configuration"
-        return 1
+        exit 1
     fi
     
     # Copy fail2ban main configuration
     if ! cp "$HERE/arch/etc/fail2ban/fail2ban.local" "$FAIL2BAN_CONFIG_DIR/fail2ban.local"; then
         echo "ERROR: Failed to copy fail2ban main configuration"
-        return 1
+        exit 1
     fi
     
     # Set proper permissions
@@ -272,7 +272,7 @@ configure_fail2ban() {
     # Verify fail2ban configuration
     if [[ ! -f "$FAIL2BAN_CONFIG_DIR/jail.d/sshd.local" ]]; then
         echo "ERROR: Fail2ban configuration not created"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ Fail2ban intrusion prevention configured"
@@ -292,7 +292,7 @@ setup_network_security() {
     
     if ! cp "$HERE/arch/etc/ufw/user.rules" "/mnt/etc/ufw/user.rules"; then
         echo "ERROR: Failed to copy UFW configuration"
-        return 1
+        exit 1
     fi
     
     # Configure secure DNS resolution
@@ -300,7 +300,7 @@ setup_network_security() {
     
     if ! cp "$HERE/arch/etc/systemd/resolved.conf.d/backup-dns.conf" "/mnt/etc/systemd/resolved.conf.d/backup-dns.conf"; then
         echo "ERROR: Failed to copy DNS security configuration"
-        return 1
+        exit 1
     fi
     
     # Configure NetworkManager security
@@ -308,13 +308,13 @@ setup_network_security() {
     
     if ! cp "$HERE/arch/etc/NetworkManager/conf.d/security.conf" "/mnt/etc/NetworkManager/conf.d/security.conf"; then
         echo "ERROR: Failed to copy NetworkManager security configuration"
-        return 1
+        exit 1
     fi
 
     # Copy time synchronization configuration  
     if ! cp "$HERE/arch/etc/systemd/timesyncd.conf" "/mnt/etc/systemd/timesyncd.conf"; then
         echo "ERROR: Failed to copy timesyncd configuration"
-        return 1
+        exit 1
     fi
     
     # Set proper permissions
@@ -340,7 +340,7 @@ configure_filesystem_security() {
     
     if ! cp "$HERE/arch/etc/sudoers.d/security" "/mnt/etc/sudoers.d/security"; then
         echo "ERROR: Failed to copy sudo security configuration"
-        return 1
+        exit 1
     fi
     
     # Configure systemd service hardening template
@@ -348,13 +348,13 @@ configure_filesystem_security() {
     
     if ! cp "$HERE/arch/etc/systemd/system/service.d/hardening.conf" "/mnt/etc/systemd/system/service.d/hardening.conf"; then
         echo "ERROR: Failed to copy systemd service hardening configuration"
-        return 1
+        exit 1
     fi
     
     # Copy AIDE configuration
     if ! cp "$HERE/arch/etc/aide.conf" "/mnt/etc/aide.conf"; then
         echo "ERROR: Failed to copy AIDE configuration"
-        return 1
+        exit 1
     fi
     
     # Set proper permissions
@@ -436,7 +436,7 @@ validate_security_configuration() {
     
     if [[ $validation_errors -gt 0 ]]; then
         echo "ERROR: $validation_errors security configuration failures"
-        return 1
+        exit 1
     fi
     
     echo "All security configurations validated successfully"
@@ -510,20 +510,20 @@ echo "Implementing practical, developer-friendly security measures"
 echo ""
 
 # Pre-configuration validation
-validate_target_directories || return 1
-check_security_packages || return 1
-validate_config_templates || return 1
+validate_target_directories || exit 1
+check_security_packages || exit 1
+validate_config_templates || exit 1
 
 # Main security configuration steps
-install_sysctl_security || return 1
-setup_apparmor_foundation || return 1
-configure_ssh_security || return 1
-configure_fail2ban || return 1
-setup_network_security || return 1
-configure_filesystem_security || return 1
+install_sysctl_security || exit 1
+setup_apparmor_foundation || exit 1
+configure_ssh_security || exit 1
+configure_fail2ban || exit 1
+setup_network_security || exit 1
+configure_filesystem_security || exit 1
 
 # Post-configuration validation
-validate_security_configuration || return 1
+validate_security_configuration || exit 1
 
 # Display summary
 display_security_summary

@@ -65,13 +65,13 @@ validate_systemctl_environment() {
     # Ensure systemctl is available
     if ! systemctl --version &>/dev/null; then
         echo "ERROR: systemctl not available"
-        return 1
+        exit 1
     fi
     
     # Ensure we can operate on the target system
     if [[ ! -d /mnt/etc/systemd/system ]]; then
         echo "ERROR: Target systemd directory not found"
-        return 1
+        exit 1
     fi
     
     echo "systemctl environment validated"
@@ -131,13 +131,13 @@ enable_service_with_validation() {
     # Enable the service
     if ! systemctl enable "$service" --root=/mnt 2>/dev/null; then
         echo "    ✗ Failed to enable $service"
-        return 1
+        exit 1
     fi
     
     # Verify service was enabled
     if ! systemctl is-enabled "$service" --root=/mnt &>/dev/null; then
         echo "    ✗ Service $service not enabled after command"
-        return 1
+        exit 1
     fi
     
     echo "    ✓ $service enabled successfully"
@@ -188,7 +188,7 @@ enable_service_category() {
     
     if [[ $failed_count -gt 0 && "$category" == "Critical" ]]; then
         echo "ERROR: Critical service failures detected"
-        return 1
+        exit 1
     fi
     
     return 0
@@ -210,7 +210,7 @@ configure_dns_resolution() {
     # Create systemd-resolved symlink
     if ! ln -sf /run/systemd/resolve/stub-resolv.conf /mnt/etc/resolv.conf; then
         echo "ERROR: Failed to create DNS resolution symlink"
-        return 1
+        exit 1
     fi
     
     # Verify symlink was created correctly
@@ -220,7 +220,7 @@ configure_dns_resolution() {
         echo "ERROR: DNS resolution symlink incorrect"
         echo "Expected: /run/systemd/resolve/stub-resolv.conf"
         echo "Found: $link_target"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ DNS resolution chain configured:"
@@ -241,13 +241,13 @@ configure_zram() {
     # Verify zram configuration exists
     if [[ ! -f "$zram_config" ]]; then
         echo "ERROR: zram configuration file missing: $zram_config"
-        return 1
+        exit 1
     fi
     
     # Verify zram configuration content
     if ! grep -q "zram-size" "$zram_config"; then
         echo "ERROR: zram configuration appears invalid"
-        return 1
+        exit 1
     fi
     
     # zram-generator automatically enables itself when config file exists
@@ -438,7 +438,7 @@ echo "Enabling services for secure, modern Arch Linux system"
 echo ""
 
 # Pre-configuration validation
-validate_systemctl_environment || return 1
+validate_systemctl_environment || exit 1
 validate_service_units
 
 # Disable conflicting services first
@@ -449,15 +449,15 @@ for service in "${DISABLED_SERVICES[@]}"; do
 done
 
 # Enable services by category (order matters)
-enable_service_category "Critical" "${CRITICAL_SERVICES[@]}" || return 1
-enable_service_category "Security" "${SECURITY_SERVICES[@]}" || return 1
-enable_service_category "Network" "${NETWORK_SERVICES[@]}" || return 1
-enable_service_category "Hardware" "${HARDWARE_SERVICES[@]}" || return 1
-enable_service_category "Snapshot" "${SNAPSHOT_SERVICES[@]}" || return 1
+enable_service_category "Critical" "${CRITICAL_SERVICES[@]}" || exit 1
+enable_service_category "Security" "${SECURITY_SERVICES[@]}" || exit 1
+enable_service_category "Network" "${NETWORK_SERVICES[@]}" || exit 1
+enable_service_category "Hardware" "${HARDWARE_SERVICES[@]}" || exit 1
+enable_service_category "Snapshot" "${SNAPSHOT_SERVICES[@]}" || exit 1
 
 # Configure additional system services
-configure_dns_resolution || return 1
-configure_zram || return 1
+configure_dns_resolution || exit 1
+configure_zram || exit 1
 
 # Validation and verification
 validate_service_dependencies

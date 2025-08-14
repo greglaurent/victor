@@ -36,7 +36,7 @@ validate_chroot_environment() {
     # Verify we're in Arch Linux chroot
     if [[ ! -f /etc/arch-release ]]; then
         echo "ERROR: Not running in Arch Linux chroot environment"
-        return 1
+        exit 1
     fi
     
     # Verify critical directories exist
@@ -44,14 +44,14 @@ validate_chroot_environment() {
     for dir in "${required_dirs[@]}"; do
         if [[ ! -d "$dir" ]]; then
             echo "ERROR: Required directory missing in chroot: $dir"
-            return 1
+            exit 1
         fi
     done
     
     # Verify package manager is functional
     if ! pacman -V &>/dev/null; then
         echo "ERROR: Package manager not functional in chroot"
-        return 1
+        exit 1
     fi
     
     echo "Chroot environment validated successfully"
@@ -72,7 +72,7 @@ validate_required_variables() {
     
     if [[ ${#missing_vars[@]} -gt 0 ]]; then
         echo "ERROR: Missing required variables: ${missing_vars[*]}"
-        return 1
+        exit 1
     fi
     
     echo "All required variables validated"
@@ -151,7 +151,7 @@ install_intel_graphics() {
     
     if ! pacman -S --noconfirm "${intel_packages[@]}"; then
         echo "ERROR: Failed to install Intel graphics drivers"
-        return 1
+        exit 1
     fi
     
     echo "    ✓ Intel graphics drivers installed"
@@ -171,7 +171,7 @@ install_amd_graphics() {
     
     if ! pacman -S --noconfirm "${amd_packages[@]}"; then
         echo "ERROR: Failed to install AMD graphics drivers"
-        return 1
+        exit 1
     fi
     
     echo "    ✓ AMD graphics drivers installed"
@@ -190,7 +190,7 @@ install_nvidia_graphics() {
     
     if ! pacman -S --noconfirm "${nvidia_packages[@]}"; then
         echo "ERROR: Failed to install NVIDIA graphics drivers"
-        return 1
+        exit 1
     fi
     
     # Add nvidia modules to mkinitcpio
@@ -210,7 +210,7 @@ install_mesa_fallback() {
     
     if ! pacman -S --noconfirm "${mesa_packages[@]}"; then
         echo "ERROR: Failed to install Mesa fallback drivers"
-        return 1
+        exit 1
     fi
     
     echo "    ✓ Mesa fallback drivers installed"
@@ -229,16 +229,16 @@ configure_graphics_drivers() {
     for gpu in "${detected_gpus[@]}"; do
         case "$gpu" in
             "intel")
-                install_intel_graphics || return 1
+                install_intel_graphics || exit 1
                 ;;
             "amd")
-                install_amd_graphics || return 1
+                install_amd_graphics || exit 1
                 ;;
             "nvidia")
-                install_nvidia_graphics || return 1
+                install_nvidia_graphics || exit 1
                 ;;
             "mesa")
-                install_mesa_fallback || return 1
+                install_mesa_fallback || exit 1
                 ;;
             *)
                 echo "  WARNING: Unknown GPU vendor: $gpu"
@@ -255,7 +255,7 @@ configure_graphics_drivers() {
     
     if ! pacman -S --noconfirm "${common_packages[@]}"; then
         echo "ERROR: Failed to install common graphics packages"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ Graphics drivers configured for detected hardware"
@@ -274,19 +274,19 @@ configure_timezone() {
     # Verify timezone exists
     if [[ ! -f "$timezone_path" ]]; then
         echo "ERROR: Invalid timezone: ${timezone}"
-        return 1
+        exit 1
     fi
     
     # Set timezone
     if ! ln -sf "$timezone_path" /etc/localtime; then
         echo "ERROR: Failed to set timezone"
-        return 1
+        exit 1
     fi
     
     # Set hardware clock
     if ! hwclock --systohc; then
         echo "ERROR: Failed to set hardware clock"
-        return 1
+        exit 1
     fi
     
     # Verify timezone was set correctly
@@ -296,7 +296,7 @@ configure_timezone() {
         echo "ERROR: Timezone not set correctly"
         echo "Expected: ${timezone}"
         echo "Current: $current_timezone"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ Timezone configured: ${timezone}"
@@ -309,24 +309,24 @@ generate_locales() {
     # Verify locale.gen exists and contains our locale
     if [[ ! -f /etc/locale.gen ]]; then
         echo "ERROR: /etc/locale.gen not found"
-        return 1
+        exit 1
     fi
     
     if ! grep -q "$locale.UTF-8" /etc/locale.gen; then
         echo "ERROR: Locale ${locale}.UTF-8 not configured in locale.gen"
-        return 1
+        exit 1
     fi
     
     # Generate locales
     if ! locale-gen; then
         echo "ERROR: Locale generation failed"
-        return 1
+        exit 1
     fi
     
     # Verify locale was generated
     if ! locale -a | grep -q "${locale}.utf8"; then
         echo "ERROR: Locale ${locale} not available after generation"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ Locales generated successfully"
@@ -343,7 +343,7 @@ regenerate_initramfs() {
     if ! mkinitcpio -P; then
         echo "ERROR: Failed to regenerate initramfs"
         echo "Check the mkinitcpio echo above for details"
-        return 1
+        exit 1
     fi
     
     # Verify initramfs files were created
@@ -351,7 +351,7 @@ regenerate_initramfs() {
     for file in "${initramfs_files[@]}"; do
         if [[ ! -s "$file" ]]; then
             echo "ERROR: Initramfs file missing or empty: $file"
-            return 1
+            exit 1
         fi
     done
     
@@ -365,7 +365,7 @@ install_limine_bootloader() {
     # Install Limine to ESP for UEFI
     if ! limine bios-install /dev/disk/by-partlabel/ESP; then
         echo "ERROR: Failed to install Limine to ESP"
-        return 1
+        exit 1
     fi
     
     # Install Limine to disk for BIOS compatibility
@@ -374,14 +374,14 @@ install_limine_bootloader() {
     if [[ -n "$disk_device" ]]; then
         if ! limine bios-install "/dev/$disk_device"; then
             echo "ERROR: Failed to install Limine to disk"
-            return 1
+            exit 1
         fi
     fi
     
     # Verify Limine configuration exists
     if [[ ! -f /boot/limine.cfg ]]; then
         echo "ERROR: Limine configuration not found"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ Limine bootloader installed (UEFI + BIOS compatible)"
@@ -399,13 +399,13 @@ create_user_account() {
     if ! [[ "$username" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
         echo "ERROR: Invalid username format: ${username}"
         echo "Username must start with letter/underscore, contain only lowercase letters, numbers, underscore, hyphen"
-        return 1
+        exit 1
     fi
     
     # Check if user already exists
     if id "${username}" &>/dev/null; then
         echo "ERROR: User ${username} already exists"
-        return 1
+        exit 1
     fi
     
     # Create user with appropriate groups
@@ -413,19 +413,19 @@ create_user_account() {
     
     if ! useradd -c "$fullname" -m -G "$user_groups" "$username"; then
         echo "ERROR: Failed to create user account"
-        return 1
+        exit 1
     fi
     
     # Verify user was created
     if ! id "${username}" &>/dev/null; then
         echo "ERROR: User creation verification failed"
-        return 1
+        exit 1
     fi
     
     # Verify home directory was created
     if [[ ! -d "/home/${username}" ]]; then
         echo "ERROR: User home directory not created"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ User account created: ${username}"
@@ -440,13 +440,13 @@ set_user_password() {
     # Set user password
     if ! echo -e "$user_password\n$user_password" | passwd "$username"; then
         echo "ERROR: Failed to set user password"
-        return 1
+        exit 1
     fi
     
     # Verify password was set (user should not be locked)
     if passwd -S "${username}" | grep -q " L "; then
         echo "ERROR: User account is locked after password set"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ User password configured"
@@ -459,19 +459,19 @@ configure_sudo_access() {
     # Enable wheel group sudo access
     if ! sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/g' /etc/sudoers; then
         echo "ERROR: Failed to configure sudo access"
-        return 1
+        exit 1
     fi
     
     # Verify sudo configuration
     if ! grep -q "^%wheel ALL=(ALL:ALL) ALL" /etc/sudoers; then
         echo "ERROR: Sudo configuration not applied correctly"
-        return 1
+        exit 1
     fi
     
     # Test sudo configuration syntax
     if ! visudo -c; then
         echo "ERROR: Sudo configuration syntax error"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ Sudo access configured for wheel group"
@@ -512,19 +512,19 @@ install_additional_packages() {
     echo "  Installing system utilities..."
     if ! pacman -S --noconfirm "${system_packages[@]}"; then
         echo "ERROR: Failed to install system packages"
-        return 1
+        exit 1
     fi
     
     echo "  Installing network utilities..."
     if ! pacman -S --noconfirm "${network_packages[@]}"; then
         echo "ERROR: Failed to install network packages"
-        return 1
+        exit 1
     fi
     
     echo "  Installing development tools..."
     if ! pacman -S --noconfirm "${dev_packages[@]}"; then
         echo "ERROR: Failed to install development packages"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ Additional system packages installed"
@@ -572,7 +572,7 @@ configure_snapper() {
     # Create snapper configuration
     if ! snapper --no-dbus -c root create-config /; then
         echo "ERROR: Failed to create snapper configuration"
-        return 1
+        exit 1
     fi
     
     # Remove snapper's auto-created subvolume
@@ -586,7 +586,7 @@ configure_snapper() {
     # Remount all filesystems to ensure snapshots subvolume is available
     if ! mount -a; then
         echo "ERROR: Failed to remount filesystems"
-        return 1
+        exit 1
     fi
     
     # Set proper permissions
@@ -595,7 +595,7 @@ configure_snapper() {
     # Verify snapper configuration
     if ! snapper -c root list &>/dev/null; then
         echo "ERROR: Snapper configuration verification failed"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ Snapper configured for BTRFS snapshots"
@@ -674,7 +674,7 @@ validate_critical_files() {
     
     if [[ ${#missing_files[@]} -gt 0 ]]; then
         echo "ERROR: Critical files missing: ${missing_files[*]}"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ All critical system files present"
@@ -687,19 +687,19 @@ validate_user_configuration() {
     # Check user exists and has proper groups
     if ! id "$username" &>/dev/null; then
         echo "ERROR: User ${username} does not exist"
-        return 1
+        exit 1
     fi
     
     # Check user is in wheel group
     if ! groups "${username}" | grep -q "wheel"; then
         echo "ERROR: User ${username} not in wheel group"
-        return 1
+        exit 1
     fi
     
     # Check home directory exists
     if [[ ! -d "/home/${username}" ]]; then
         echo "ERROR: User home directory missing"
-        return 1
+        exit 1
     fi
     
     # Check user can sudo
@@ -707,7 +707,7 @@ validate_user_configuration() {
         # This is expected to fail, but user should exist in sudoers
         if ! sudo -l -U "${username}" &>/dev/null; then
             echo "ERROR: User ${username} not configured for sudo"
-            return 1
+            exit 1
         fi
     fi
     
@@ -721,7 +721,7 @@ validate_bootloader_configuration() {
     # Check Limine configuration exists
     if [[ ! -f /boot/limine.cfg ]]; then
         echo "ERROR: Limine configuration missing"
-        return 1
+        exit 1
     fi
     
     # Check Limine configuration has required entries
@@ -729,7 +729,7 @@ validate_bootloader_configuration() {
     for entry in "${required_entries[@]}"; do
         if ! grep -q ":$entry" /boot/limine.cfg; then
             echo "ERROR: Limine configuration missing entry: $entry"
-            return 1
+            exit 1
         fi
     done
     
@@ -738,7 +738,7 @@ validate_bootloader_configuration() {
     for file in "${kernel_files[@]}"; do
         if [[ ! -f "$file" ]]; then
             echo "ERROR: Kernel file missing: $file"
-            return 1
+            exit 1
         fi
     done
     
@@ -752,19 +752,19 @@ validate_network_configuration() {
     # Check NetworkManager configuration
     if [[ ! -f /etc/NetworkManager/conf.d/security.conf ]]; then
         echo "ERROR: NetworkManager security configuration missing"
-        return 1
+        exit 1
     fi
     
     # Check unbound configuration
     if [[ ! -f /etc/unbound/unbound.conf ]]; then
         echo "ERROR: Unbound configuration missing"
-        return 1
+        exit 1
     fi
     
     # Check systemd-resolved configuration
     if [[ ! -f /etc/systemd/resolved.conf.d/unbound-integration.conf ]]; then
         echo "ERROR: systemd-resolved integration missing"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ Network configuration validated"
@@ -775,10 +775,10 @@ final_system_validation() {
     echo ""
     echo "=== Final System Validation ==="
     
-    validate_critical_files || return 1
-    validate_user_configuration || return 1
-    validate_bootloader_configuration || return 1
-    validate_network_configuration || return 1
+    validate_critical_files || exit 1
+    validate_user_configuration || exit 1
+    validate_bootloader_configuration || exit 1
+    validate_network_configuration || exit 1
     
     echo "=== Validation Complete ==="
     echo ""
@@ -852,28 +852,28 @@ echo "Finalizing Arch Linux installation with modern security"
 echo ""
 
 # Pre-configuration validation
-validate_chroot_environment || return 1
-validate_required_variables || return 1
+validate_chroot_environment || exit 1
+validate_required_variables || exit 1
 
 # Display hardware detection summary
 display_hardware_summary
 
 # Main configuration steps
-configure_graphics_drivers || return 1
-configure_timezone || return 1
-generate_locales || return 1
-regenerate_initramfs || return 1
-install_limine_bootloader || return 1
-create_user_account || return 1
+configure_graphics_drivers || exit 1
+configure_timezone || exit 1
+generate_locales || exit 1
+regenerate_initramfs || exit 1
+install_limine_bootloader || exit 1
+create_user_account || exit 1
 set_user_password
-configure_sudo_access || return 1
-install_additional_packages || return 1
+configure_sudo_access || exit 1
+install_additional_packages || exit 1
 configure_desktop_integration
-configure_snapper || return 1
-finalize_security_setup || return 1
+configure_snapper || exit 1
+finalize_security_setup || exit 1
 
 # Final validation
-final_system_validation || return 1
+final_system_validation || exit 1
 
 # Display summary
 display_installation_summary

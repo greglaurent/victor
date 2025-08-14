@@ -103,7 +103,7 @@ validate_pacstrap_success() {
     for package in "${critical_packages[@]}"; do
         if ! arch-chroot /mnt pacman -Q "$package" &>/dev/null; then
             echo "ERROR: Critical package '$package' not found after pacstrap"
-            return 1
+            exit 1
         fi
     done
     
@@ -142,7 +142,7 @@ install_package_group() {
         echo "  - Repository sync problems"  
         echo "  - Package conflicts"
         echo "  - Insufficient disk space"
-        return 1
+        exit 1
     fi
     
     echo "  ✓ $group_name packages installed successfully"
@@ -163,7 +163,7 @@ if ! pacman -Syy; then
     echo "  1. No internet connection"
     echo "  2. Repository mirrors are unreachable" 
     echo "  3. Pacman keyring issues"
-    return 1
+    exit 1
 fi
 
 # Test repository access
@@ -171,7 +171,7 @@ echo "Testing repository access..."
 if ! pacman -Ss base >/dev/null 2>&1; then
     echo "ERROR: Cannot access package repositories"
     echo "Repository database may not be properly synced"
-    return 1
+    exit 1
 fi
 
 echo "Package database updated successfully"
@@ -221,7 +221,7 @@ echo "=== Installation Validation ==="
 if ! validate_pacstrap_success; then
     echo "ERROR: Package installation validation failed"
     echo "Critical system packages are missing"
-    return 1
+    exit 1
 fi
 
 # Check remaining space
