@@ -84,19 +84,14 @@ detect_microcode() {
     local cpu_vendor
     cpu_vendor=$(grep -m1 "vendor_id" /proc/cpuinfo | cut -d: -f2 | tr -d ' ' || echo "unknown")
     
-    output "DEBUG: CPU vendor detection: '$cpu_vendor'"
-    
     case "$cpu_vendor" in
         "AuthenticAMD")
             echo "amd-ucode"
-            output "Detected AMD processor - adding AMD microcode"
             ;;
         "GenuineIntel")
             echo "intel-ucode"
-            output "Detected Intel processor - adding Intel microcode"
             ;;
         *)
-            output "WARNING: Unknown CPU vendor ($cpu_vendor) - skipping microcode"
             echo ""
             ;;
     esac
@@ -186,7 +181,6 @@ output "Package database updated successfully"
 
 # Detect microcode package
 microcode_package=$(detect_microcode)
-output "DEBUG: Microcode detection returned: '$microcode_package'"
 
 # Create complete package list
 all_packages=(
@@ -204,31 +198,22 @@ all_packages=(
 
 # Add microcode if detected
 if [[ -n $microcode_package ]]; then
-    output "DEBUG: Adding microcode package '$microcode_package' to array"
     all_packages+=("$microcode_package")
-    output "DEBUG: Array now has ${#all_packages[@]} packages"
-else
-    output "DEBUG: No microcode package to add (empty string)"
 fi
 
 # Display installation summary
-output ""
-output "=== Installation Summary ==="
-output "Total packages to install: ${#all_packages[@]}"
-output "Microcode package: ${microcode_package:-"none detected"}"
-output "Target: /mnt"
-output ""
-
-# Debug: Show the actual package array contents
-output "DEBUG: Package array contents:"
-printf '  %s\n' "${all_packages[@]}"
-output ""
+echo ""
+echo "=== Installation Summary ==="
+echo "Total packages to install: ${#all_packages[@]}"
+echo "Microcode package: ${microcode_package:-"none detected"}"
+echo "Target: /mnt"
+echo ""
 
 # Install ALL packages in one pacstrap call
-output "Installing all packages with pacstrap..."
+echo "Installing all packages with pacstrap..."
 if ! pacstrap /mnt "${all_packages[@]}"; then
-    output "ERROR: Failed to install packages to new root"
-    output "Packages attempted: ${all_packages[*]}"
+    echo "ERROR: Failed to install packages to new root"
+    echo "Packages attempted: ${all_packages[*]}"
     exit 1
 fi
 output "✓ All packages installed successfully"
