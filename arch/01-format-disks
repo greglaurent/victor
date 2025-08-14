@@ -215,7 +215,7 @@ echo "Step 8/8: Mounting subvolumes with optimized options..."
 umount /mnt
 
 # Mount root subvolume
-mount -o "${BTRFS_OPTS}" "${BTRFS}" /mnt
+mount -o "${BTRFS_OPTS},subvol=@" "${BTRFS}" /mnt
 
 # Create mount points
 mkdir -p /mnt/{home,var/log,swap,.snapshots,boot/efi}
