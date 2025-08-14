@@ -156,14 +156,7 @@ unpriv() {
   sudo -u nobody "${@}"
 }
 
-cleanup() {
-  if mountpoint -q /mnt 2>/dev/null; then
-    echo "Cleaning up mounts..."
-    umount -R /mnt || true
-  fi
-}
-
-trap cleanup EXIT
+# No automatic cleanup - mounts need to persist between scripts
 
 validate_hostname() {
   local hostname="$1"
