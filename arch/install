@@ -22,7 +22,7 @@ kblayout=${KBLAYOUT:-$DEFAULT_KBLAYOUT}
 locale=${LOCALE:-$DEFAULT_LOCALE}
 timezone=${TIMEZONE:-$DEFAULT_TIMEZONE}
 install_mode=${INSTALL_MODE:-$DEFAULT_INSTALL_MODE}
-hostname=${HOSTNAME:-""}
+hostname=""
 username=${USERNAME:-""}
 fullname=${FULLNAME:-""}
 user_password=${USER_PASSWORD:-""}
@@ -341,11 +341,6 @@ fullname_prompt() {
 }
 
 hostname_prompt() {
-  if [[ -n $hostname ]]; then
-    output "Using hostname from environment: ${hostname}"
-    return
-  fi
-
   while true; do
     output 'Enter your hostname:'
     read -r hostname
