@@ -136,9 +136,10 @@ install_package_group() {
     output "Installing $group_name packages..."
     output "  Packages: ${packages[*]}"
     
-    if ! pacstrap /mnt "${packages[@]}"; then
+    if ! pacstrap /mnt "${packages[@]}" 2>&1; then
         output "ERROR: Failed to install $group_name packages"
         output "Failed packages: ${packages[*]}"
+        output "Check the pacstrap output above for details"
         exit 1
     fi
     

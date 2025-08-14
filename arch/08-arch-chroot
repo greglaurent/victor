@@ -319,8 +319,9 @@ regenerate_initramfs() {
     chmod 600 /boot/initramfs-linux*
     
     # Regenerate initramfs with new configuration
-    if ! mkinitcpio -P; then
+    if ! mkinitcpio -P 2>&1; then
         output "ERROR: Failed to regenerate initramfs"
+        output "Check the mkinitcpio output above for details"
         return 1
     fi
     

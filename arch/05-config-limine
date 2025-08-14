@@ -297,8 +297,9 @@ regenerate_initramfs() {
     output "Regenerating initramfs with new configuration..."
     
     # Generate initramfs for both kernels
-    if ! arch-chroot /mnt mkinitcpio -P; then
+    if ! arch-chroot /mnt mkinitcpio -P 2>&1; then
         output "ERROR: Failed to regenerate initramfs"
+        output "Check the mkinitcpio output above for details"
         return 1
     fi
     
