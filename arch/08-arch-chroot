@@ -5,10 +5,7 @@
 
 set -euo pipefail
 
-# Source output function and ensure required variables
-output() {
-    echo "$@"
-}
+# Source echo function and ensure required variables
 
 # Ensure required variables are defined  
 timezone=${timezone:-\"America/Los_Angeles\"}
@@ -20,12 +17,12 @@ install_mode=${install_mode:-\"desktop\"}
 
 # Validate required variables
 if [[ -z \"$username\" ]]; then
-    output \"ERROR: Username variable not set. This script requires username to be defined.\"
+    echo \"ERROR: Username variable not set. This script requires username to be defined.\"
     exit 1
 fi
 
 if [[ -z \"$user_password\" ]]; then
-    output \"ERROR: User password variable not set. This script requires user_password to be defined.\"
+    echo \"ERROR: User password variable not set. This script requires user_password to be defined.\"
     exit 1
 fi
 
@@ -34,11 +31,11 @@ fi
 # =====================================
 
 validate_chroot_environment() {
-    output "Validating chroot environment..."
+    echo "Validating chroot environment..."
     
     # Verify we're in Arch Linux chroot
     if [[ ! -f /etc/arch-release ]]; then
-        output "ERROR: Not running in Arch Linux chroot environment"
+        echo "ERROR: Not running in Arch Linux chroot environment"
         return 1
     fi
     
@@ -46,23 +43,23 @@ validate_chroot_environment() {
     local required_dirs=("/proc" "/sys" "/dev" "/boot" "/etc")
     for dir in "${required_dirs[@]}"; do
         if [[ ! -d "$dir" ]]; then
-            output "ERROR: Required directory missing in chroot: $dir"
+            echo "ERROR: Required directory missing in chroot: $dir"
             return 1
         fi
     done
     
     # Verify package manager is functional
     if ! pacman -V &>/dev/null; then
-        output "ERROR: Package manager not functional in chroot"
+        echo "ERROR: Package manager not functional in chroot"
         return 1
     fi
     
-    output "Chroot environment validated successfully"
+    echo "Chroot environment validated successfully"
     return 0
 }
 
 validate_required_variables() {
-    output "Validating required installation variables..."
+    echo "Validating required installation variables..."
     
     local required_vars=("timezone" "username" "fullname" "user_password" "locale" "install_mode")
     local missing_vars=()
@@ -74,11 +71,11 @@ validate_required_variables() {
     done
     
     if [[ ${#missing_vars[@]} -gt 0 ]]; then
-        output "ERROR: Missing required variables: ${missing_vars[*]}"
+        echo "ERROR: Missing required variables: ${missing_vars[*]}"
         return 1
     fi
     
-    output "All required variables validated"
+    echo "All required variables validated"
     return 0
 }
 
@@ -128,13 +125,13 @@ display_hardware_summary() {
     cpu_vendor=$(detect_cpu_vendor)
     mapfile -t gpu_vendors <<< "$(detect_gpu_hardware)"
     
-    output ""
-    output "=== Hardware Detection Summary ==="
-    output "CPU Vendor: $cpu_vendor"
-    output "GPU Vendors: ${gpu_vendors[*]}"
-    output "Microcode Package: ${MICROCODE_PACKAGE:-"none detected"}"
-    output "=================================="
-    output ""
+    echo ""
+    echo "=== Hardware Detection Summary ==="
+    echo "CPU Vendor: $cpu_vendor"
+    echo "GPU Vendors: ${gpu_vendors[*]}"
+    echo "Microcode Package: ${MICROCODE_PACKAGE:-"none detected"}"
+    echo "=================================="
+    echo ""
 }
 
 # =====================================
@@ -142,7 +139,7 @@ display_hardware_summary() {
 # =====================================
 
 install_intel_graphics() {
-    output "  Installing Intel graphics drivers..."
+    echo "  Installing Intel graphics drivers..."
     
     local intel_packages=(
         "intel-gmmlib"
@@ -153,16 +150,16 @@ install_intel_graphics() {
     )
     
     if ! pacman -S --noconfirm "${intel_packages[@]}"; then
-        output "ERROR: Failed to install Intel graphics drivers"
+        echo "ERROR: Failed to install Intel graphics drivers"
         return 1
     fi
     
-    output "    ✓ Intel graphics drivers installed"
+    echo "    ✓ Intel graphics drivers installed"
     return 0
 }
 
 install_amd_graphics() {
-    output "  Installing AMD graphics drivers..."
+    echo "  Installing AMD graphics drivers..."
     
     local amd_packages=(
         "xf86-video-amdgpu"
@@ -173,16 +170,16 @@ install_amd_graphics() {
     )
     
     if ! pacman -S --noconfirm "${amd_packages[@]}"; then
-        output "ERROR: Failed to install AMD graphics drivers"
+        echo "ERROR: Failed to install AMD graphics drivers"
         return 1
     fi
     
-    output "    ✓ AMD graphics drivers installed"
+    echo "    ✓ AMD graphics drivers installed"
     return 0
 }
 
 install_nvidia_graphics() {
-    output "  Installing NVIDIA graphics drivers..."
+    echo "  Installing NVIDIA graphics drivers..."
     
     local nvidia_packages=(
         "nvidia"
@@ -192,19 +189,19 @@ install_nvidia_graphics() {
     )
     
     if ! pacman -S --noconfirm "${nvidia_packages[@]}"; then
-        output "ERROR: Failed to install NVIDIA graphics drivers"
+        echo "ERROR: Failed to install NVIDIA graphics drivers"
         return 1
     fi
     
     # Add nvidia modules to mkinitcpio
     sed -i 's/MODULES=(btrfs)/MODULES=(btrfs nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' /etc/mkinitcpio.conf
     
-    output "    ✓ NVIDIA graphics drivers installed"
+    echo "    ✓ NVIDIA graphics drivers installed"
     return 0
 }
 
 install_mesa_fallback() {
-    output "  Installing Mesa fallback drivers..."
+    echo "  Installing Mesa fallback drivers..."
     
     local mesa_packages=(
         "mesa"
@@ -212,21 +209,21 @@ install_mesa_fallback() {
     )
     
     if ! pacman -S --noconfirm "${mesa_packages[@]}"; then
-        output "ERROR: Failed to install Mesa fallback drivers"
+        echo "ERROR: Failed to install Mesa fallback drivers"
         return 1
     fi
     
-    output "    ✓ Mesa fallback drivers installed"
+    echo "    ✓ Mesa fallback drivers installed"
     return 0
 }
 
 configure_graphics_drivers() {
-    output "Step 1/8: Configuring graphics drivers..."
+    echo "Step 1/8: Configuring graphics drivers..."
     
     local detected_gpus
     mapfile -t detected_gpus <<< "$(detect_gpu_hardware)"
     
-    output "  Detected GPU vendors: ${detected_gpus[*]}"
+    echo "  Detected GPU vendors: ${detected_gpus[*]}"
     
     # Install drivers for each detected GPU vendor
     for gpu in "${detected_gpus[@]}"; do
@@ -244,7 +241,7 @@ configure_graphics_drivers() {
                 install_mesa_fallback || return 1
                 ;;
             *)
-                output "  WARNING: Unknown GPU vendor: $gpu"
+                echo "  WARNING: Unknown GPU vendor: $gpu"
                 ;;
         esac
     done
@@ -257,11 +254,11 @@ configure_graphics_drivers() {
     )
     
     if ! pacman -S --noconfirm "${common_packages[@]}"; then
-        output "ERROR: Failed to install common graphics packages"
+        echo "ERROR: Failed to install common graphics packages"
         return 1
     fi
     
-    output "  ✓ Graphics drivers configured for detected hardware"
+    echo "  ✓ Graphics drivers configured for detected hardware"
     return 0
 }
 
@@ -270,25 +267,25 @@ configure_graphics_drivers() {
 # =====================================
 
 configure_timezone() {
-    output "Step 2/8: Configuring timezone..."
+    echo "Step 2/8: Configuring timezone..."
     
     local timezone_path="/usr/share/zoneinfo/$timezone"
     
     # Verify timezone exists
     if [[ ! -f "$timezone_path" ]]; then
-        output "ERROR: Invalid timezone: ${timezone}"
+        echo "ERROR: Invalid timezone: ${timezone}"
         return 1
     fi
     
     # Set timezone
     if ! ln -sf "$timezone_path" /etc/localtime; then
-        output "ERROR: Failed to set timezone"
+        echo "ERROR: Failed to set timezone"
         return 1
     fi
     
     # Set hardware clock
     if ! hwclock --systohc; then
-        output "ERROR: Failed to set hardware clock"
+        echo "ERROR: Failed to set hardware clock"
         return 1
     fi
     
@@ -296,56 +293,56 @@ configure_timezone() {
     local current_timezone
     current_timezone=$(readlink /etc/localtime | sed 's|/usr/share/zoneinfo/||')
     if [[ "$current_timezone" != "${timezone}" ]]; then
-        output "ERROR: Timezone not set correctly"
-        output "Expected: ${timezone}"
-        output "Current: $current_timezone"
+        echo "ERROR: Timezone not set correctly"
+        echo "Expected: ${timezone}"
+        echo "Current: $current_timezone"
         return 1
     fi
     
-    output "  ✓ Timezone configured: ${timezone}"
+    echo "  ✓ Timezone configured: ${timezone}"
     return 0
 }
 
 generate_locales() {
-    output "Step 3/8: Generating locales..."
+    echo "Step 3/8: Generating locales..."
     
     # Verify locale.gen exists and contains our locale
     if [[ ! -f /etc/locale.gen ]]; then
-        output "ERROR: /etc/locale.gen not found"
+        echo "ERROR: /etc/locale.gen not found"
         return 1
     fi
     
     if ! grep -q "$locale.UTF-8" /etc/locale.gen; then
-        output "ERROR: Locale ${locale}.UTF-8 not configured in locale.gen"
+        echo "ERROR: Locale ${locale}.UTF-8 not configured in locale.gen"
         return 1
     fi
     
     # Generate locales
     if ! locale-gen; then
-        output "ERROR: Locale generation failed"
+        echo "ERROR: Locale generation failed"
         return 1
     fi
     
     # Verify locale was generated
     if ! locale -a | grep -q "${locale}.utf8"; then
-        output "ERROR: Locale ${locale} not available after generation"
+        echo "ERROR: Locale ${locale} not available after generation"
         return 1
     fi
     
-    output "  ✓ Locales generated successfully"
+    echo "  ✓ Locales generated successfully"
     return 0
 }
 
 regenerate_initramfs() {
-    output "Step 4/8: Regenerating initramfs..."
+    echo "Step 4/8: Regenerating initramfs..."
     
     # Set proper permissions for initramfs files
     chmod 600 /boot/initramfs-linux*
     
     # Regenerate initramfs with new configuration
     if ! mkinitcpio -P; then
-        output "ERROR: Failed to regenerate initramfs"
-        output "Check the mkinitcpio output above for details"
+        echo "ERROR: Failed to regenerate initramfs"
+        echo "Check the mkinitcpio echo above for details"
         return 1
     fi
     
@@ -353,21 +350,21 @@ regenerate_initramfs() {
     local initramfs_files=("/boot/initramfs-linux.img" "/boot/initramfs-linux-lts.img")
     for file in "${initramfs_files[@]}"; do
         if [[ ! -s "$file" ]]; then
-            output "ERROR: Initramfs file missing or empty: $file"
+            echo "ERROR: Initramfs file missing or empty: $file"
             return 1
         fi
     done
     
-    output "  ✓ Initramfs regenerated with updated configuration"
+    echo "  ✓ Initramfs regenerated with updated configuration"
     return 0
 }
 
 install_limine_bootloader() {
-    output "Step 5/8: Installing Limine bootloader..."
+    echo "Step 5/8: Installing Limine bootloader..."
     
     # Install Limine to ESP for UEFI
     if ! limine bios-install /dev/disk/by-partlabel/ESP; then
-        output "ERROR: Failed to install Limine to ESP"
+        echo "ERROR: Failed to install Limine to ESP"
         return 1
     fi
     
@@ -376,18 +373,18 @@ install_limine_bootloader() {
     disk_device=$(lsblk -no PKNAME /dev/disk/by-partlabel/ESP | head -n1)
     if [[ -n "$disk_device" ]]; then
         if ! limine bios-install "/dev/$disk_device"; then
-            output "ERROR: Failed to install Limine to disk"
+            echo "ERROR: Failed to install Limine to disk"
             return 1
         fi
     fi
     
     # Verify Limine configuration exists
     if [[ ! -f /boot/limine.cfg ]]; then
-        output "ERROR: Limine configuration not found"
+        echo "ERROR: Limine configuration not found"
         return 1
     fi
     
-    output "  ✓ Limine bootloader installed (UEFI + BIOS compatible)"
+    echo "  ✓ Limine bootloader installed (UEFI + BIOS compatible)"
     return 0
 }
 
@@ -396,18 +393,18 @@ install_limine_bootloader() {
 # =====================================
 
 create_user_account() {
-    output "Step 6/8: Creating user account..."
+    echo "Step 6/8: Creating user account..."
     
     # Validate username format
     if ! [[ "$username" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
-        output "ERROR: Invalid username format: ${username}"
-        output "Username must start with letter/underscore, contain only lowercase letters, numbers, underscore, hyphen"
+        echo "ERROR: Invalid username format: ${username}"
+        echo "Username must start with letter/underscore, contain only lowercase letters, numbers, underscore, hyphen"
         return 1
     fi
     
     # Check if user already exists
     if id "${username}" &>/dev/null; then
-        output "ERROR: User ${username} already exists"
+        echo "ERROR: User ${username} already exists"
         return 1
     fi
     
@@ -415,69 +412,69 @@ create_user_account() {
     local user_groups="wheel,adm,ftp,games,http,log,rfkill,sys,systemd-journal,uucp"
     
     if ! useradd -c "$fullname" -m -G "$user_groups" "$username"; then
-        output "ERROR: Failed to create user account"
+        echo "ERROR: Failed to create user account"
         return 1
     fi
     
     # Verify user was created
     if ! id "${username}" &>/dev/null; then
-        output "ERROR: User creation verification failed"
+        echo "ERROR: User creation verification failed"
         return 1
     fi
     
     # Verify home directory was created
     if [[ ! -d "/home/${username}" ]]; then
-        output "ERROR: User home directory not created"
+        echo "ERROR: User home directory not created"
         return 1
     fi
     
-    output "  ✓ User account created: ${username}"
-    output "  ✓ Home directory: /home/${username}"
-    output "  ✓ Groups: $user_groups"
+    echo "  ✓ User account created: ${username}"
+    echo "  ✓ Home directory: /home/${username}"
+    echo "  ✓ Groups: $user_groups"
     return 0
 }
 
 set_user_password() {
-    output "Setting user password..."
+    echo "Setting user password..."
     
     # Set user password
     if ! echo -e "$user_password\n$user_password" | passwd "$username"; then
-        output "ERROR: Failed to set user password"
+        echo "ERROR: Failed to set user password"
         return 1
     fi
     
     # Verify password was set (user should not be locked)
     if passwd -S "${username}" | grep -q " L "; then
-        output "ERROR: User account is locked after password set"
+        echo "ERROR: User account is locked after password set"
         return 1
     fi
     
-    output "  ✓ User password configured"
+    echo "  ✓ User password configured"
     return 0
 }
 
 configure_sudo_access() {
-    output "Configuring sudo access..."
+    echo "Configuring sudo access..."
     
     # Enable wheel group sudo access
     if ! sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/g' /etc/sudoers; then
-        output "ERROR: Failed to configure sudo access"
+        echo "ERROR: Failed to configure sudo access"
         return 1
     fi
     
     # Verify sudo configuration
     if ! grep -q "^%wheel ALL=(ALL:ALL) ALL" /etc/sudoers; then
-        output "ERROR: Sudo configuration not applied correctly"
+        echo "ERROR: Sudo configuration not applied correctly"
         return 1
     fi
     
     # Test sudo configuration syntax
     if ! visudo -c; then
-        output "ERROR: Sudo configuration syntax error"
+        echo "ERROR: Sudo configuration syntax error"
         return 1
     fi
     
-    output "  ✓ Sudo access configured for wheel group"
+    echo "  ✓ Sudo access configured for wheel group"
     return 0
 }
 
@@ -486,7 +483,7 @@ configure_sudo_access() {
 # =====================================
 
 install_additional_packages() {
-    output "Step 7/8: Installing additional system packages..."
+    echo "Step 7/8: Installing additional system packages..."
     
     # System utilities and hardware support
     local system_packages=(
@@ -512,25 +509,25 @@ install_additional_packages() {
     )
     
     # Install packages in groups for better error tracking
-    output "  Installing system utilities..."
+    echo "  Installing system utilities..."
     if ! pacman -S --noconfirm "${system_packages[@]}"; then
-        output "ERROR: Failed to install system packages"
+        echo "ERROR: Failed to install system packages"
         return 1
     fi
     
-    output "  Installing network utilities..."
+    echo "  Installing network utilities..."
     if ! pacman -S --noconfirm "${network_packages[@]}"; then
-        output "ERROR: Failed to install network packages"
+        echo "ERROR: Failed to install network packages"
         return 1
     fi
     
-    output "  Installing development tools..."
+    echo "  Installing development tools..."
     if ! pacman -S --noconfirm "${dev_packages[@]}"; then
-        output "ERROR: Failed to install development packages"
+        echo "ERROR: Failed to install development packages"
         return 1
     fi
     
-    output "  ✓ Additional system packages installed"
+    echo "  ✓ Additional system packages installed"
     return 0
 }
 
@@ -540,18 +537,18 @@ install_additional_packages() {
 
 configure_desktop_integration() {
     if [[ "$install_mode" == "desktop" ]]; then
-        output "Configuring desktop integration..."
+        echo "Configuring desktop integration..."
         
         # Update dconf database
         if command -v dconf &>/dev/null; then
             dconf update
-            output "  ✓ dconf database updated"
+            echo "  ✓ dconf database updated"
         fi
         
         # Create user directories
         if command -v xdg-user-dirs-update &>/dev/null; then
             sudo -u "$username" xdg-user-dirs-update
-            output "  ✓ User directories configured"
+            echo "  ✓ User directories configured"
         fi
     fi
 }
@@ -561,7 +558,7 @@ configure_desktop_integration() {
 # =====================================
 
 configure_snapper() {
-    output "Step 8/8: Configuring Snapper snapshots..."
+    echo "Step 8/8: Configuring Snapper snapshots..."
     
     # Remove default snapshots subvolume (we manage this manually)
     if mountpoint -q /.snapshots; then
@@ -574,7 +571,7 @@ configure_snapper() {
     
     # Create snapper configuration
     if ! snapper --no-dbus -c root create-config /; then
-        output "ERROR: Failed to create snapper configuration"
+        echo "ERROR: Failed to create snapper configuration"
         return 1
     fi
     
@@ -588,7 +585,7 @@ configure_snapper() {
     
     # Remount all filesystems to ensure snapshots subvolume is available
     if ! mount -a; then
-        output "ERROR: Failed to remount filesystems"
+        echo "ERROR: Failed to remount filesystems"
         return 1
     fi
     
@@ -597,11 +594,11 @@ configure_snapper() {
     
     # Verify snapper configuration
     if ! snapper -c root list &>/dev/null; then
-        output "ERROR: Snapper configuration verification failed"
+        echo "ERROR: Snapper configuration verification failed"
         return 1
     fi
     
-    output "  ✓ Snapper configured for BTRFS snapshots"
+    echo "  ✓ Snapper configured for BTRFS snapshots"
     return 0
 }
 
@@ -610,7 +607,7 @@ configure_snapper() {
 # =====================================
 
 finalize_security_setup() {
-    output "Finalizing security framework integration..."
+    echo "Finalizing security framework integration..."
     
     # Set proper permissions on security-sensitive files
     chmod 600 /etc/ssh/ssh_host_*_key 2>/dev/null || true
@@ -637,11 +634,11 @@ finalize_security_setup() {
     
     for config in "${security_configs[@]}"; do
         if [[ ! -e "$config" ]]; then
-            output "WARNING: Security configuration missing: $config"
+            echo "WARNING: Security configuration missing: $config"
         fi
     done
     
-    output "  ✓ Security framework permissions configured"
+    echo "  ✓ Security framework permissions configured"
     return 0
 }
 
@@ -650,7 +647,7 @@ finalize_security_setup() {
 # =====================================
 
 validate_critical_files() {
-    output "Validating critical system files..."
+    echo "Validating critical system files..."
     
     local critical_files=(
         "/etc/locale.gen"
@@ -671,37 +668,37 @@ validate_critical_files() {
         if [[ ! -f "$file" ]]; then
             missing_files+=("$file")
         elif [[ ! -s "$file" ]]; then
-            output "WARNING: Critical file is empty: $file"
+            echo "WARNING: Critical file is empty: $file"
         fi
     done
     
     if [[ ${#missing_files[@]} -gt 0 ]]; then
-        output "ERROR: Critical files missing: ${missing_files[*]}"
+        echo "ERROR: Critical files missing: ${missing_files[*]}"
         return 1
     fi
     
-    output "  ✓ All critical system files present"
+    echo "  ✓ All critical system files present"
     return 0
 }
 
 validate_user_configuration() {
-    output "Validating user configuration..."
+    echo "Validating user configuration..."
     
     # Check user exists and has proper groups
     if ! id "$username" &>/dev/null; then
-        output "ERROR: User ${username} does not exist"
+        echo "ERROR: User ${username} does not exist"
         return 1
     fi
     
     # Check user is in wheel group
     if ! groups "${username}" | grep -q "wheel"; then
-        output "ERROR: User ${username} not in wheel group"
+        echo "ERROR: User ${username} not in wheel group"
         return 1
     fi
     
     # Check home directory exists
     if [[ ! -d "/home/${username}" ]]; then
-        output "ERROR: User home directory missing"
+        echo "ERROR: User home directory missing"
         return 1
     fi
     
@@ -709,21 +706,21 @@ validate_user_configuration() {
     if ! sudo -u "${username}" sudo -n true 2>/dev/null; then
         # This is expected to fail, but user should exist in sudoers
         if ! sudo -l -U "${username}" &>/dev/null; then
-            output "ERROR: User ${username} not configured for sudo"
+            echo "ERROR: User ${username} not configured for sudo"
             return 1
         fi
     fi
     
-    output "  ✓ User configuration validated"
+    echo "  ✓ User configuration validated"
     return 0
 }
 
 validate_bootloader_configuration() {
-    output "Validating bootloader configuration..."
+    echo "Validating bootloader configuration..."
     
     # Check Limine configuration exists
     if [[ ! -f /boot/limine.cfg ]]; then
-        output "ERROR: Limine configuration missing"
+        echo "ERROR: Limine configuration missing"
         return 1
     fi
     
@@ -731,7 +728,7 @@ validate_bootloader_configuration() {
     local required_entries=("Arch Linux" "Arch Linux LTS")
     for entry in "${required_entries[@]}"; do
         if ! grep -q ":$entry" /boot/limine.cfg; then
-            output "ERROR: Limine configuration missing entry: $entry"
+            echo "ERROR: Limine configuration missing entry: $entry"
             return 1
         fi
     done
@@ -740,51 +737,51 @@ validate_bootloader_configuration() {
     local kernel_files=("/boot/vmlinuz-linux" "/boot/vmlinuz-linux-lts" "/boot/initramfs-linux.img" "/boot/initramfs-linux-lts.img")
     for file in "${kernel_files[@]}"; do
         if [[ ! -f "$file" ]]; then
-            output "ERROR: Kernel file missing: $file"
+            echo "ERROR: Kernel file missing: $file"
             return 1
         fi
     done
     
-    output "  ✓ Bootloader configuration validated"
+    echo "  ✓ Bootloader configuration validated"
     return 0
 }
 
 validate_network_configuration() {
-    output "Validating network configuration..."
+    echo "Validating network configuration..."
     
     # Check NetworkManager configuration
     if [[ ! -f /etc/NetworkManager/conf.d/security.conf ]]; then
-        output "ERROR: NetworkManager security configuration missing"
+        echo "ERROR: NetworkManager security configuration missing"
         return 1
     fi
     
     # Check unbound configuration
     if [[ ! -f /etc/unbound/unbound.conf ]]; then
-        output "ERROR: Unbound configuration missing"
+        echo "ERROR: Unbound configuration missing"
         return 1
     fi
     
     # Check systemd-resolved configuration
     if [[ ! -f /etc/systemd/resolved.conf.d/unbound-integration.conf ]]; then
-        output "ERROR: systemd-resolved integration missing"
+        echo "ERROR: systemd-resolved integration missing"
         return 1
     fi
     
-    output "  ✓ Network configuration validated"
+    echo "  ✓ Network configuration validated"
     return 0
 }
 
 final_system_validation() {
-    output ""
-    output "=== Final System Validation ==="
+    echo ""
+    echo "=== Final System Validation ==="
     
     validate_critical_files || return 1
     validate_user_configuration || return 1
     validate_bootloader_configuration || return 1
     validate_network_configuration || return 1
     
-    output "=== Validation Complete ==="
-    output ""
+    echo "=== Validation Complete ==="
+    echo ""
     return 0
 }
 
@@ -793,66 +790,66 @@ final_system_validation() {
 # =====================================
 
 display_installation_summary() {
-    output ""
-    output "=== Arch Linux Installation Summary ==="
-    output ""
+    echo ""
+    echo "=== Arch Linux Installation Summary ==="
+    echo ""
     
-    output "=== System Configuration ==="
-    output "Hostname: $(cat /etc/hostname)"
-    output "Timezone: $(readlink /etc/localtime | sed 's|/usr/share/zoneinfo/||')"
-    output "Locale: $(grep LANG /etc/locale.conf | cut -d= -f2)"
-    output "Install Mode: ${install_mode}"
-    output ""
+    echo "=== System Configuration ==="
+    echo "Hostname: $(cat /etc/hostname)"
+    echo "Timezone: $(readlink /etc/localtime | sed 's|/usr/share/zoneinfo/||')"
+    echo "Locale: $(grep LANG /etc/locale.conf | cut -d= -f2)"
+    echo "Install Mode: ${install_mode}"
+    echo ""
     
-    output "=== User Account ==="
-    output "Username: ${username}"
-    output "Full Name: ${fullname}"
-    output "Groups: $(groups "${username}" | cut -d: -f2)"
-    output "Home Directory: /home/${username}"
-    output ""
+    echo "=== User Account ==="
+    echo "Username: ${username}"
+    echo "Full Name: ${fullname}"
+    echo "Groups: $(groups "${username}" | cut -d: -f2)"
+    echo "Home Directory: /home/${username}"
+    echo ""
     
-    output "=== Hardware Support ==="
-    output "CPU: $(detect_cpu_vendor)"
-    output "GPU: $(detect_gpu_hardware)"
-    output "Microcode: ${MICROCODE_PACKAGE:-"none"}"
-    output ""
+    echo "=== Hardware Support ==="
+    echo "CPU: $(detect_cpu_vendor)"
+    echo "GPU: $(detect_gpu_hardware)"
+    echo "Microcode: ${MICROCODE_PACKAGE:-"none"}"
+    echo ""
     
-    output "=== Security Features ==="
-    output "  • Limine bootloader (modern, secure)"
-    output "  • AppArmor security framework prepared"
-    output "  • Unbound DNS resolver with DoT"
-    output "  • SSH hardening enabled"
-    output "  • Fail2ban intrusion prevention"
-    output "  • Network privacy (MAC randomization)"
-    output "  • BTRFS snapshots with Snapper"
-    output ""
+    echo "=== Security Features ==="
+    echo "  • Limine bootloader (modern, secure)"
+    echo "  • AppArmor security framework prepared"
+    echo "  • Unbound DNS resolver with DoT"
+    echo "  • SSH hardening enabled"
+    echo "  • Fail2ban intrusion prevention"
+    echo "  • Network privacy (MAC randomization)"
+    echo "  • BTRFS snapshots with Snapper"
+    echo ""
     
-    output "=== Post-Installation Steps ==="
-    output "1. Reboot into the new system"
-    output "2. Log in as: ${username}"
-    output "3. Deploy security profiles: vic setup security apparmor"
-    output "4. Configure firewall: ufw allow ssh && ufw enable"
-    output "5. Check system status: vic run system security-status"
-    output ""
+    echo "=== Post-Installation Steps ==="
+    echo "1. Reboot into the new system"
+    echo "2. Log in as: ${username}"
+    echo "3. Deploy security profiles: vic setup security apparmor"
+    echo "4. Configure firewall: ufw allow ssh && ufw enable"
+    echo "5. Check system status: vic run system security-status"
+    echo ""
     
-    output "=== System Ready ==="
-    output "✓ Modern secure bootloader (Limine)"
-    output "✓ Enterprise-grade security foundation"
-    output "✓ Developer-friendly configuration"
-    output "✓ Hardware-optimized drivers"
-    output "✓ Comprehensive network security"
-    output "✓ Snapshot-based system recovery"
-    output "===================================="
-    output ""
+    echo "=== System Ready ==="
+    echo "✓ Modern secure bootloader (Limine)"
+    echo "✓ Enterprise-grade security foundation"
+    echo "✓ Developer-friendly configuration"
+    echo "✓ Hardware-optimized drivers"
+    echo "✓ Comprehensive network security"
+    echo "✓ Snapshot-based system recovery"
+    echo "===================================="
+    echo ""
 }
 
 # =====================================
 # MAIN CHROOT CONFIGURATION PROCESS
 # =====================================
 
-output "=== Chroot System Configuration ==="
-output "Finalizing Arch Linux installation with modern security"
-output ""
+echo "=== Chroot System Configuration ==="
+echo "Finalizing Arch Linux installation with modern security"
+echo ""
 
 # Pre-configuration validation
 validate_chroot_environment || return 1
@@ -881,13 +878,13 @@ final_system_validation || return 1
 # Display summary
 display_installation_summary
 
-output "=== Chroot Configuration Complete ==="
-output "✓ Graphics drivers optimized for detected hardware"
-output "✓ System configuration validated and functional"
-output "✓ User account created with proper permissions"
-output "✓ Limine bootloader installed and configured"
-output "✓ Security framework prepared for deployment"
-output "✓ Network stack configured with privacy features"
-output "✓ Snapshot system ready for system recovery"
-output ""
-output "System ready for first boot!"
+echo "=== Chroot Configuration Complete ==="
+echo "✓ Graphics drivers optimized for detected hardware"
+echo "✓ System configuration validated and functional"
+echo "✓ User account created with proper permissions"
+echo "✓ Limine bootloader installed and configured"
+echo "✓ Security framework prepared for deployment"
+echo "✓ Network stack configured with privacy features"
+echo "✓ Snapshot system ready for system recovery"
+echo ""
+echo "System ready for first boot!"

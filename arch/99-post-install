@@ -5,10 +5,7 @@
 
 set -euo pipefail
 
-# Source output function and ensure required variables
-output() {
-    echo "$@"
-}
+# Source echo function and ensure required variables
 
 # Ensure required variables are defined
 username=${username:-\"\"}
@@ -16,12 +13,12 @@ HERE=${HERE:-\"\"}
 
 # Validate required variables
 if [[ -z \"$username\" ]]; then
-    output \"ERROR: Username variable not set. This script requires username to be defined.\"
+    echo \"ERROR: Username variable not set. This script requires username to be defined.\"
     exit 1
 fi
 
 if [[ -z \"$HERE\" ]]; then
-    output \"ERROR: HERE variable not set. This script requires HERE to be defined.\"
+    echo \"ERROR: HERE variable not set. This script requires HERE to be defined.\"
     exit 1
 fi
 
@@ -68,7 +65,7 @@ readonly REQUIRED_SERVICES=(
 # =====================================
 
 validate_critical_files() {
-    output "Step 1/6: Validating critical system files..."
+    echo "Step 1/6: Validating critical system files..."
     
     local missing_files=()
     local empty_files=()
@@ -82,30 +79,30 @@ validate_critical_files() {
     done
     
     if [[ ${#missing_files[@]} -gt 0 ]]; then
-        output "ERROR: Critical files missing:"
+        echo "ERROR: Critical files missing:"
         printf '  %s\n' "${missing_files[@]}"
         return 1
     fi
     
     if [[ ${#empty_files[@]} -gt 0 ]]; then
-        output "ERROR: Critical files are empty:"
+        echo "ERROR: Critical files are empty:"
         printf '  %s\n' "${empty_files[@]}"
         return 1
     fi
     
-    output "  ✓ All critical system files present and non-empty"
+    echo "  ✓ All critical system files present and non-empty"
     return 0
 }
 
 validate_security_configuration() {
-    output "Step 2/6: Validating security configuration..."
+    echo "Step 2/6: Validating security configuration..."
     
     local validation_errors=0
     
     # Check security files exist
     for file in "${SECURITY_FILES[@]}"; do
         if [[ ! -e "$file" ]]; then
-            output "ERROR: Security file missing: $file"
+            echo "ERROR: Security file missing: $file"
             ((validation_errors++))
         fi
     done
@@ -113,7 +110,7 @@ validate_security_configuration() {
     # Validate sysctl configuration
     if [[ -f "/mnt/etc/sysctl.d/99-developer-workstation.conf" ]]; then
         if ! grep -q "kernel.yama.ptrace_scope = 1" "/mnt/etc/sysctl.d/99-developer-workstation.conf"; then
-            output "ERROR: sysctl security configuration invalid"
+            echo "ERROR: sysctl security configuration invalid"
             ((validation_errors++))
         fi
     fi
@@ -121,35 +118,35 @@ validate_security_configuration() {
     # Validate SSH security
     if [[ -f "/mnt/etc/ssh/sshd_config.d/10-security.conf" ]]; then
         if ! grep -q "AuthenticationMethods publickey" "/mnt/etc/ssh/sshd_config.d/10-security.conf"; then
-            output "ERROR: SSH security configuration invalid"
+            echo "ERROR: SSH security configuration invalid"
             ((validation_errors++))
         fi
     fi
     
     # Validate AppArmor structure
     if [[ ! -d "/mnt/etc/apparmor.d/local" ]]; then
-        output "ERROR: AppArmor directory structure missing"
+        echo "ERROR: AppArmor directory structure missing"
         ((validation_errors++))
     fi
     
     if [[ $validation_errors -eq 0 ]]; then
-        output "  ✓ Security configuration validated"
+        echo "  ✓ Security configuration validated"
         return 0
     else
-        output "ERROR: $validation_errors security validation failures"
+        echo "ERROR: $validation_errors security validation failures"
         return 1
     fi
 }
 
 validate_network_stack() {
-    output "Step 3/6: Validating network stack integration..."
+    echo "Step 3/6: Validating network stack integration..."
     
     local network_errors=0
     
     # Check network configuration files
     for file in "${NETWORK_FILES[@]}"; do
         if [[ ! -f "$file" ]]; then
-            output "ERROR: Network file missing: $file"
+            echo "ERROR: Network file missing: $file"
             ((network_errors++))
         fi
     done
@@ -157,7 +154,7 @@ validate_network_stack() {
     # Validate unbound configuration
     if [[ -f "/mnt/etc/unbound/unbound.conf" ]]; then
         if ! grep -q "forward-tls-upstream: yes" "/mnt/etc/unbound/unbound.conf"; then
-            output "ERROR: Unbound DoT configuration missing"
+            echo "ERROR: Unbound DoT configuration missing"
             ((network_errors++))
         fi
     fi
@@ -165,7 +162,7 @@ validate_network_stack() {
     # Validate systemd-resolved integration
     if [[ -f "/mnt/etc/systemd/resolved.conf.d/unbound-integration.conf" ]]; then
         if ! grep -q "DNS=127.0.0.1:5353" "/mnt/etc/systemd/resolved.conf.d/unbound-integration.conf"; then
-            output "ERROR: systemd-resolved integration invalid"
+            echo "ERROR: systemd-resolved integration invalid"
             ((network_errors++))
         fi
     fi
@@ -173,7 +170,7 @@ validate_network_stack() {
     # Validate NetworkManager integration
     if [[ -f "/mnt/etc/NetworkManager/conf.d/security.conf" ]]; then
         if ! grep -q "dns=systemd-resolved" "/mnt/etc/NetworkManager/conf.d/security.conf"; then
-            output "ERROR: NetworkManager DNS integration invalid"
+            echo "ERROR: NetworkManager DNS integration invalid"
             ((network_errors++))
         fi
     fi
@@ -182,26 +179,26 @@ validate_network_stack() {
     local resolv_conf_target
     resolv_conf_target=$(readlink /mnt/etc/resolv.conf 2>/dev/null || echo "missing")
     if [[ "$resolv_conf_target" != "/run/systemd/resolve/stub-resolv.conf" ]]; then
-        output "ERROR: DNS resolution chain not configured correctly"
+        echo "ERROR: DNS resolution chain not configured correctly"
         ((network_errors++))
     fi
     
     if [[ $network_errors -eq 0 ]]; then
-        output "  ✓ Network stack integration validated"
-        output "    DNS chain: Applications → systemd-resolved → unbound → secure DNS"
+        echo "  ✓ Network stack integration validated"
+        echo "    DNS chain: Applications → systemd-resolved → unbound → secure DNS"
         return 0
     else
-        output "ERROR: $network_errors network validation failures"
+        echo "ERROR: $network_errors network validation failures"
         return 1
     fi
 }
 
 validate_bootloader_configuration() {
-    output "Step 4/6: Validating bootloader configuration..."
+    echo "Step 4/6: Validating bootloader configuration..."
     
     # Check Limine configuration exists
     if [[ ! -f "/mnt/boot/limine.cfg" ]]; then
-        output "ERROR: Limine configuration missing"
+        echo "ERROR: Limine configuration missing"
         return 1
     fi
     
@@ -216,7 +213,7 @@ validate_bootloader_configuration() {
     done
     
     if [[ ${#missing_entries[@]} -gt 0 ]]; then
-        output "ERROR: Missing boot entries: ${missing_entries[*]}"
+        echo "ERROR: Missing boot entries: ${missing_entries[*]}"
         return 1
     fi
     
@@ -230,31 +227,31 @@ validate_bootloader_configuration() {
     
     for file in "${kernel_files[@]}"; do
         if [[ ! -f "$file" ]]; then
-            output "ERROR: Kernel file missing: $file"
+            echo "ERROR: Kernel file missing: $file"
             return 1
         fi
     done
     
     # Check Limine bootloader installation
     if [[ ! -f "/mnt/boot/efi/EFI/BOOT/BOOTX64.EFI" ]]; then
-        output "ERROR: Limine UEFI bootloader not installed"
+        echo "ERROR: Limine UEFI bootloader not installed"
         return 1
     fi
     
-    output "  ✓ Bootloader configuration validated"
-    output "    Limine installed with UEFI + BIOS compatibility"
+    echo "  ✓ Bootloader configuration validated"
+    echo "    Limine installed with UEFI + BIOS compatibility"
     return 0
 }
 
 validate_service_integration() {
-    output "Step 5/6: Validating service integration..."
+    echo "Step 5/6: Validating service integration..."
     
     local service_errors=0
     
     # Check required services are enabled
     for service in "${REQUIRED_SERVICES[@]}"; do
         if ! systemctl is-enabled "$service" --root=/mnt &>/dev/null; then
-            output "ERROR: Required service not enabled: $service"
+            echo "ERROR: Required service not enabled: $service"
             ((service_errors++))
         fi
     done
@@ -264,67 +261,67 @@ validate_service_integration() {
     # DNS resolution chain
     if systemctl is-enabled systemd-resolved --root=/mnt &>/dev/null && \
        systemctl is-enabled unbound --root=/mnt &>/dev/null; then
-        output "  ✓ DNS resolution chain: systemd-resolved ↔ unbound"
+        echo "  ✓ DNS resolution chain: systemd-resolved ↔ unbound"
     else
-        output "ERROR: DNS resolution chain broken"
+        echo "ERROR: DNS resolution chain broken"
         ((service_errors++))
     fi
     
     # Security integration
     if systemctl is-enabled apparmor --root=/mnt &>/dev/null && \
        systemctl is-enabled auditd --root=/mnt &>/dev/null; then
-        output "  ✓ Security integration: AppArmor + audit logging"
+        echo "  ✓ Security integration: AppArmor + audit logging"
     else
-        output "WARNING: Security audit integration incomplete"
+        echo "WARNING: Security audit integration incomplete"
     fi
     
     # Network security
     if systemctl is-enabled NetworkManager --root=/mnt &>/dev/null && \
        systemctl is-enabled fail2ban --root=/mnt &>/dev/null; then
-        output "  ✓ Network security: NetworkManager + fail2ban"
+        echo "  ✓ Network security: NetworkManager + fail2ban"
     else
-        output "ERROR: Network security integration incomplete"
+        echo "ERROR: Network security integration incomplete"
         ((service_errors++))
     fi
     
     if [[ $service_errors -eq 0 ]]; then
-        output "  ✓ Service integration validated"
+        echo "  ✓ Service integration validated"
         return 0
     else
-        output "ERROR: $service_errors service integration failures"
+        echo "ERROR: $service_errors service integration failures"
         return 1
     fi
 }
 
 validate_user_configuration() {
-    output "Step 6/6: Validating user configuration..."
+    echo "Step 6/6: Validating user configuration..."
     
     # Check user account exists
     if ! grep -q "^$username:" /mnt/etc/passwd; then
-        output "ERROR: User account not found: ${username}"
+        echo "ERROR: User account not found: ${username}"
         return 1
     fi
     
     # Check user home directory
     if [[ ! -d "/mnt/home/${username}" ]]; then
-        output "ERROR: User home directory missing: /home/${username}"
+        echo "ERROR: User home directory missing: /home/${username}"
         return 1
     fi
     
     # Check user is in wheel group
     if ! grep -q "^wheel:.*${username}" /mnt/etc/group; then
-        output "ERROR: User not in wheel group: ${username}"
+        echo "ERROR: User not in wheel group: ${username}"
         return 1
     fi
     
     # Check sudo configuration
     if ! grep -q "^%wheel ALL=(ALL:ALL) ALL" /mnt/etc/sudoers; then
-        output "ERROR: Sudo configuration for wheel group missing"
+        echo "ERROR: Sudo configuration for wheel group missing"
         return 1
     fi
     
-    output "  ✓ User configuration validated"
-    output "    User: ${username} with sudo access"
+    echo "  ✓ User configuration validated"
+    echo "    User: ${username} with sudo access"
     return 0
 }
 
@@ -333,11 +330,11 @@ validate_user_configuration() {
 # =====================================
 
 test_system_integration() {
-    output ""
-    output "=== Integration Testing ==="
+    echo ""
+    echo "=== Integration Testing ==="
     
     # Test configuration file consistency
-    output "Testing configuration consistency..."
+    echo "Testing configuration consistency..."
     
     # Check for conflicting DNS configurations
     local dns_configs_count=0
@@ -345,9 +342,9 @@ test_system_integration() {
     [[ -f "/mnt/etc/unbound/unbound.conf" ]] && ((dns_configs_count++))
     
     if [[ $dns_configs_count -eq 2 ]]; then
-        output "  ✓ DNS configuration stack complete"
+        echo "  ✓ DNS configuration stack complete"
     else
-        output "  ⚠ DNS configuration incomplete ($dns_configs_count/2 components)"
+        echo "  ⚠ DNS configuration incomplete ($dns_configs_count/2 components)"
     fi
     
     # Test security configuration completeness
@@ -357,7 +354,7 @@ test_system_integration() {
     [[ -f "/mnt/etc/ssh/sshd_config.d/10-security.conf" ]] && ((security_configs_count++))
     [[ -f "/mnt/etc/fail2ban/jail.d/sshd.local" ]] && ((security_configs_count++))
     
-    output "  ✓ Security configuration: $security_configs_count/4 components configured"
+    echo "  ✓ Security configuration: $security_configs_count/4 components configured"
     
     # Check for configuration conflicts
     local conflicts=0
@@ -365,17 +362,17 @@ test_system_integration() {
     # Check for timesyncd vs chronyd conflict
     if systemctl is-enabled systemd-timesyncd --root=/mnt &>/dev/null && \
        systemctl is-enabled chronyd --root=/mnt &>/dev/null; then
-        output "  ⚠ Time sync conflict: both systemd-timesyncd and chronyd enabled"
+        echo "  ⚠ Time sync conflict: both systemd-timesyncd and chronyd enabled"
         ((conflicts++))
     fi
     
     if [[ $conflicts -eq 0 ]]; then
-        output "  ✓ No configuration conflicts detected"
+        echo "  ✓ No configuration conflicts detected"
     else
-        output "  ⚠ $conflicts configuration conflicts detected"
+        echo "  ⚠ $conflicts configuration conflicts detected"
     fi
     
-    output "Integration testing complete"
+    echo "Integration testing complete"
     return 0
 }
 
@@ -384,29 +381,29 @@ test_system_integration() {
 # =====================================
 
 prepare_victor_integration() {
-    output ""
-    output "=== Preparing Victor Tools Integration ==="
+    echo ""
+    echo "=== Preparing Victor Tools Integration ==="
     
     # Create target directories
     local victor_target="/mnt/home/$username/Workspace/victor"
     local victor_bin="/mnt/usr/local/bin"
     
-    output "Creating Victor directory structure..."
+    echo "Creating Victor directory structure..."
     mkdir -p "$victor_target"
     mkdir -p "$victor_bin"
     
     # Copy Victor tools to target system
-    output "Installing Victor tools..."
+    echo "Installing Victor tools..."
     
     # Copy main Victor structure (excluding repos and temporary files)
     if ! cp -r "$HERE"/{utils,vic,setup,install,run,arch} "$victor_target/" 2>/dev/null; then
-        output "ERROR: Failed to copy Victor tools"
+        echo "ERROR: Failed to copy Victor tools"
         return 1
     fi
     
     # Create symlink for system-wide access
     if ! ln -sf "$victor_target/vic" "$victor_bin/vic"; then
-        output "ERROR: Failed to create Victor symlink"
+        echo "ERROR: Failed to create Victor symlink"
         return 1
     fi
     
@@ -423,13 +420,13 @@ prepare_victor_integration() {
     
     # Verify Victor installation
     if [[ ! -f "$victor_bin/vic" ]] || [[ ! -x "$victor_target/vic" ]]; then
-        output "ERROR: Victor installation verification failed"
+        echo "ERROR: Victor installation verification failed"
         return 1
     fi
     
-    output "  ✓ Victor tools installed to $victor_target"
-    output "  ✓ System-wide access via: vic"
-    output "  ✓ User ownership configured"
+    echo "  ✓ Victor tools installed to $victor_target"
+    echo "  ✓ System-wide access via: vic"
+    echo "  ✓ User ownership configured"
     return 0
 }
 
@@ -438,10 +435,10 @@ prepare_victor_integration() {
 # =====================================
 
 finalize_security_hardening() {
-    output ""
-    output "=== Finalizing Security Hardening ==="
+    echo ""
+    echo "=== Finalizing Security Hardening ==="
     
-    output "Setting final security permissions..."
+    echo "Setting final security permissions..."
     
     # SSH key permissions
     find /mnt/etc/ssh -name "ssh_host_*_key" -exec chmod 600 {} \; 2>/dev/null || true
@@ -489,8 +486,8 @@ EOF
     
     chmod 644 /mnt/etc/security-deployment.conf
     
-    output "  ✓ Security permissions finalized"
-    output "  ✓ Security deployment tracking configured"
+    echo "  ✓ Security permissions finalized"
+    echo "  ✓ Security deployment tracking configured"
     return 0
 }
 
@@ -499,14 +496,14 @@ EOF
 # =====================================
 
 cleanup_installation_artifacts() {
-    output ""
-    output "=== Cleaning Up Installation Artifacts ==="
+    echo ""
+    echo "=== Cleaning Up Installation Artifacts ==="
     
-    output "Cleaning temporary files..."
+    echo "Cleaning temporary files..."
     
     # Clean package cache (keep recent packages)
     if ! arch-chroot /mnt pacman -Sc --noconfirm; then
-        output "WARNING: Package cache cleanup failed"
+        echo "WARNING: Package cache cleanup failed"
     fi
     
     # Remove temporary installation files
@@ -524,9 +521,9 @@ cleanup_installation_artifacts() {
         arch-chroot /mnt updatedb 2>/dev/null || true
     fi
     
-    output "  ✓ Temporary files cleaned"
-    output "  ✓ Package cache optimized"
-    output "  ✓ System databases updated"
+    echo "  ✓ Temporary files cleaned"
+    echo "  ✓ Package cache optimized"
+    echo "  ✓ System databases updated"
     return 0
 }
 
@@ -535,8 +532,8 @@ cleanup_installation_artifacts() {
 # =====================================
 
 generate_installation_report() {
-    output ""
-    output "=== Generating Installation Success Report ==="
+    echo ""
+    echo "=== Generating Installation Success Report ==="
     
     local report_file="/mnt/home/$username/installation-report.txt"
     
@@ -681,7 +678,7 @@ EOF
     arch-chroot /mnt chown "${username}:${username}" "/home/${username}/installation-report.txt"
     chmod 644 "$report_file"
     
-    output "  ✓ Installation report generated: ~/installation-report.txt"
+    echo "  ✓ Installation report generated: ~/installation-report.txt"
     return 0
 }
 
@@ -690,67 +687,67 @@ EOF
 # =====================================
 
 display_next_steps() {
-    output ""
-    output "=== NEXT STEPS AFTER REBOOT ==="
-    output ""
+    echo ""
+    echo "=== NEXT STEPS AFTER REBOOT ==="
+    echo ""
     
-    output "🔐 CRITICAL SECURITY STEPS (Complete First):"
-    output "  1. Deploy AppArmor profiles:"
-    output "     vic setup security apparmor"
-    output ""
-    output "  2. Configure firewall:"
-    output "     ufw allow ssh"
-    output "     ufw enable"
-    output ""
-    output "  3. Verify system security:"
-    output "     vic run system security-status"
-    output "     network-security-check"
-    output ""
+    echo "🔐 CRITICAL SECURITY STEPS (Complete First):"
+    echo "  1. Deploy AppArmor profiles:"
+    echo "     vic setup security apparmor"
+    echo ""
+    echo "  2. Configure firewall:"
+    echo "     ufw allow ssh"
+    echo "     ufw enable"
+    echo ""
+    echo "  3. Verify system security:"
+    echo "     vic run system security-status"
+    echo "     network-security-check"
+    echo ""
     
-    output "⚙️  SYSTEM CONFIGURATION:"
-    output "  4. Update system packages:"
-    output "     sudo pacman -Syu"
-    output ""
-    output "  5. Configure user environment:"
-    output "     vic setup user-env"
-    output ""
+    echo "⚙️  SYSTEM CONFIGURATION:"
+    echo "  4. Update system packages:"
+    echo "     sudo pacman -Syu"
+    echo ""
+    echo "  5. Configure user environment:"
+    echo "     vic setup user-env"
+    echo ""
     
-    output "🖥️  OPTIONAL CUSTOMIZATION:"
-    output "  6. Install desktop environment:"
-    output "     vic install desktop plasma    # or gnome"
-    output ""
-    output "  7. Install development tools:"
-    output "     vic setup dev langs"
-    output "     vic setup dev neovim"
-    output ""
-    output "  8. Install applications:"
-    output "     vic install flatpak all"
-    output "     vic install extras"
-    output ""
+    echo "🖥️  OPTIONAL CUSTOMIZATION:"
+    echo "  6. Install desktop environment:"
+    echo "     vic install desktop plasma    # or gnome"
+    echo ""
+    echo "  7. Install development tools:"
+    echo "     vic setup dev langs"
+    echo "     vic setup dev neovim"
+    echo ""
+    echo "  8. Install applications:"
+    echo "     vic install flatpak all"
+    echo "     vic install extras"
+    echo ""
     
-    output "📊 MONITORING COMMANDS:"
-    output "  • System status: vic run system security-status"
-    output "  • Network security: network-security-check"
-    output "  • DNS status: resolvectl query cloudflare.com"
-    output "  • Snapshots: snapper list"
-    output "  • Services: systemctl status apparmor unbound"
-    output ""
+    echo "📊 MONITORING COMMANDS:"
+    echo "  • System status: vic run system security-status"
+    echo "  • Network security: network-security-check"
+    echo "  • DNS status: resolvectl query cloudflare.com"
+    echo "  • Snapshots: snapper list"
+    echo "  • Services: systemctl status apparmor unbound"
+    echo ""
     
-    output "📚 HELPFUL RESOURCES:"
-    output "  • Victor tools: /home/${username}/Workspace/victor/"
-    output "  • Installation report: ~/installation-report.txt"
-    output "  • System logs: journalctl"
-    output "  • Victor help: vic (shows available commands)"
-    output ""
+    echo "📚 HELPFUL RESOURCES:"
+    echo "  • Victor tools: /home/${username}/Workspace/victor/"
+    echo "  • Installation report: ~/installation-report.txt"
+    echo "  • System logs: journalctl"
+    echo "  • Victor help: vic (shows available commands)"
+    echo ""
 }
 
 # =====================================
 # MAIN POST-INSTALLATION PROCESS
 # =====================================
 
-output "=== Post-Installation Validation and Preparation ==="
-output "Final validation and system preparation for first boot"
-output ""
+echo "=== Post-Installation Validation and Preparation ==="
+echo "Final validation and system preparation for first boot"
+echo ""
 
 # Comprehensive system validation
 validate_critical_files || return 1
@@ -774,23 +771,23 @@ generate_installation_report || return 1
 # Final guidance
 display_next_steps
 
-output ""
-output "=== Post-Installation Complete ==="
-output "✓ Comprehensive system validation passed"
-output "✓ Security framework prepared for deployment"
-output "✓ Network stack integration verified"
-output "✓ Victor tools installed and configured"
-output "✓ Installation cleanup completed"
-output "✓ Success report generated"
-output ""
-output "🎉 INSTALLATION SUCCESSFUL!"
-output ""
-output "Your Arch Linux system is ready for first boot with:"
-output "  • Enterprise-grade security foundation"
-output "  • Modern bootloader (Limine)"
-output "  • Secure network stack (DoT + privacy)"
-output "  • Developer-friendly configurations"
-output "  • Automated snapshot management"
-output "  • Comprehensive monitoring tools"
-output ""
-output "Reboot when ready and follow the next steps guidance!"
+echo ""
+echo "=== Post-Installation Complete ==="
+echo "✓ Comprehensive system validation passed"
+echo "✓ Security framework prepared for deployment"
+echo "✓ Network stack integration verified"
+echo "✓ Victor tools installed and configured"
+echo "✓ Installation cleanup completed"
+echo "✓ Success report generated"
+echo ""
+echo "🎉 INSTALLATION SUCCESSFUL!"
+echo ""
+echo "Your Arch Linux system is ready for first boot with:"
+echo "  • Enterprise-grade security foundation"
+echo "  • Modern bootloader (Limine)"
+echo "  • Secure network stack (DoT + privacy)"
+echo "  • Developer-friendly configurations"
+echo "  • Automated snapshot management"
+echo "  • Comprehensive monitoring tools"
+echo ""
+echo "Reboot when ready and follow the next steps guidance!"

@@ -5,10 +5,7 @@
 
 set -euo pipefail
 
-# Source output function
-output() {
-    echo "$@"
-}
+# Source echo function
 
 # =====================================
 # SECURITY CONFIGURATION CONSTANTS
@@ -25,7 +22,7 @@ readonly FAIL2BAN_CONFIG_DIR="/mnt/etc/fail2ban"
 # =====================================
 
 validate_target_directories() {
-    output "Validating target system directories..."
+    echo "Validating target system directories..."
     
     local required_dirs=(
         "/mnt/etc"
@@ -35,17 +32,17 @@ validate_target_directories() {
     
     for dir in "${required_dirs[@]}"; do
         if [[ ! -d "$dir" ]]; then
-            output "ERROR: Required directory missing: $dir"
+            echo "ERROR: Required directory missing: $dir"
             return 1
         fi
     done
     
-    output "Target directories validated"
+    echo "Target directories validated"
     return 0
 }
 
 check_security_packages() {
-    output "Checking security packages installation..."
+    echo "Checking security packages installation..."
     
     local required_packages=("apparmor" "audit" "ufw" "fail2ban")
     local missing_packages=()
@@ -57,17 +54,17 @@ check_security_packages() {
     done
     
     if [[ ${#missing_packages[@]} -gt 0 ]]; then
-        output "ERROR: Missing security packages: ${missing_packages[*]}"
-        output "These should have been installed in pacstrap phase"
+        echo "ERROR: Missing security packages: ${missing_packages[*]}"
+        echo "These should have been installed in pacstrap phase"
         return 1
     fi
     
-    output "All required security packages confirmed installed"
+    echo "All required security packages confirmed installed"
     return 0
 }
 
 validate_config_templates() {
-    output "Validating security configuration templates..."
+    echo "Validating security configuration templates..."
     
     local config_files=(
         "$HERE/arch/etc/sysctl.d/99-developer-workstation.conf"
@@ -95,12 +92,12 @@ validate_config_templates() {
     done
     
     if [[ ${#missing_files[@]} -gt 0 ]]; then
-        output "ERROR: Missing configuration templates:"
+        echo "ERROR: Missing configuration templates:"
         printf '  %s\n' "${missing_files[@]}"
         return 1
     fi
     
-    output "All security configuration templates found"
+    echo "All security configuration templates found"
     return 0
 }
 
@@ -109,7 +106,7 @@ validate_config_templates() {
 # =====================================
 
 install_sysctl_security() {
-    output "Step 1/6: Installing developer-friendly security configuration..."
+    echo "Step 1/6: Installing developer-friendly security configuration..."
     
     local sysctl_dir="/mnt/etc/sysctl.d"
     local sysctl_file="$sysctl_dir/$SYSCTL_CONFIG_NAME"
@@ -123,26 +120,26 @@ install_sysctl_security() {
     
     # Copy configuration from template
     if ! cp "$template_file" "$sysctl_file"; then
-        output "ERROR: Failed to copy sysctl configuration"
+        echo "ERROR: Failed to copy sysctl configuration"
         return 1
     fi
     
     # Verify configuration was copied correctly
     if [[ ! -s "$sysctl_file" ]]; then
-        output "ERROR: sysctl configuration file is empty"
+        echo "ERROR: sysctl configuration file is empty"
         return 1
     fi
     
     if ! grep -q "kernel.yama.ptrace_scope = 1" "$sysctl_file"; then
-        output "ERROR: sysctl configuration not copied correctly"
+        echo "ERROR: sysctl configuration not copied correctly"
         return 1
     fi
     
     # Set proper permissions
     chmod 644 "$sysctl_file"
     
-    output "  ✓ Developer-friendly security configuration installed"
-    output "  ✓ Kernel hardening enabled without breaking development tools"
+    echo "  ✓ Developer-friendly security configuration installed"
+    echo "  ✓ Kernel hardening enabled without breaking development tools"
     return 0
 }
 
@@ -151,14 +148,14 @@ install_sysctl_security() {
 # =====================================
 
 setup_apparmor_foundation() {
-    output "Step 2/6: Setting up AppArmor security framework..."
+    echo "Step 2/6: Setting up AppArmor security framework..."
     
     # Create AppArmor directory structure
     mkdir -p "$APPARMOR_CONFIG_DIR"/{local,abstractions/local,cache,profiles/extras}
     
     # Copy AppArmor parser configuration
     if ! cp "$HERE/arch/etc/apparmor/parser.conf" "/mnt/etc/apparmor/parser.conf"; then
-        output "ERROR: Failed to copy AppArmor parser configuration"
+        echo "ERROR: Failed to copy AppArmor parser configuration"
         return 1
     fi
     
@@ -166,7 +163,7 @@ setup_apparmor_foundation() {
     mkdir -p "$AUDIT_CONFIG_DIR/rules.d"
     
     if ! cp "$HERE/arch/etc/audit/rules.d/apparmor.rules" "$AUDIT_CONFIG_DIR/rules.d/apparmor.rules"; then
-        output "ERROR: Failed to copy AppArmor audit rules"
+        echo "ERROR: Failed to copy AppArmor audit rules"
         return 1
     fi
     
@@ -174,12 +171,12 @@ setup_apparmor_foundation() {
     local apparmor_readme_src="$HERE/arch/etc/apparmor.d/local/README"
     
     if [[ ! -f "$apparmor_readme_src" ]]; then
-        output "ERROR: AppArmor local README not found: $apparmor_readme_src"
+        echo "ERROR: AppArmor local README not found: $apparmor_readme_src"
         return 1
     fi
     
     if ! cp "$apparmor_readme_src" "$APPARMOR_CONFIG_DIR/local/README"; then
-        output "ERROR: Failed to copy AppArmor local README"
+        echo "ERROR: Failed to copy AppArmor local README"
         return 1
     fi
 
@@ -191,13 +188,13 @@ setup_apparmor_foundation() {
     
     # Verify AppArmor structure was created
     if [[ ! -d "$APPARMOR_CONFIG_DIR/local" ]]; then
-        output "ERROR: AppArmor directory structure not created"
+        echo "ERROR: AppArmor directory structure not created"
         return 1
     fi
     
-    output "  ✓ AppArmor directory structure created"
-    output "  ✓ Audit logging configured for security events"
-    output "  ✓ Profile deployment prepared for post-installation"
+    echo "  ✓ AppArmor directory structure created"
+    echo "  ✓ Audit logging configured for security events"
+    echo "  ✓ Profile deployment prepared for post-installation"
     return 0
 }
 
@@ -206,26 +203,26 @@ setup_apparmor_foundation() {
 # =====================================
 
 configure_ssh_security() {
-    output "Step 3/6: Configuring SSH security..."
+    echo "Step 3/6: Configuring SSH security..."
     
     # Ensure SSH config directories exist
     mkdir -p "$SSH_CONFIG_DIR/ssh_config.d" "$SSH_CONFIG_DIR/sshd_config.d"
     
     # Copy SSH client configuration
     if ! cp "$HERE/arch/etc/ssh/ssh_config.d/10-custom.conf" "$SSH_CONFIG_DIR/ssh_config.d/10-custom.conf"; then
-        output "ERROR: Failed to copy SSH client configuration"
+        echo "ERROR: Failed to copy SSH client configuration"
         return 1
     fi
     
     # Copy SSH server configuration
     if ! cp "$HERE/arch/etc/ssh/sshd_config.d/10-custom.conf" "$SSH_CONFIG_DIR/sshd_config.d/10-custom.conf"; then
-        output "ERROR: Failed to copy SSH server configuration"
+        echo "ERROR: Failed to copy SSH server configuration"
         return 1
     fi
     
     # Copy security banner
     if ! cp "$HERE/arch/etc/issue.net" "/mnt/etc/issue.net"; then
-        output "ERROR: Failed to copy security banner"
+        echo "ERROR: Failed to copy security banner"
         return 1
     fi
     
@@ -236,13 +233,13 @@ configure_ssh_security() {
     
     # Verify SSH configuration files were created
     if [[ ! -f "$SSH_CONFIG_DIR/sshd_config.d/10-custom.conf" ]]; then
-        output "ERROR: SSH server security configuration not created"
+        echo "ERROR: SSH server security configuration not created"
         return 1
     fi
     
-    output "  ✓ SSH client security configuration installed"
-    output "  ✓ SSH server security hardening enabled"
-    output "  ✓ Security banner configured"
+    echo "  ✓ SSH client security configuration installed"
+    echo "  ✓ SSH server security hardening enabled"
+    echo "  ✓ Security banner configured"
     return 0
 }
 
@@ -251,20 +248,20 @@ configure_ssh_security() {
 # =====================================
 
 configure_fail2ban() {
-    output "Step 4/6: Configuring intrusion prevention..."
+    echo "Step 4/6: Configuring intrusion prevention..."
     
     # Create fail2ban directory structure
     mkdir -p "$FAIL2BAN_CONFIG_DIR"/{jail.d,filter.d,action.d}
     
     # Copy fail2ban SSH jail configuration
     if ! cp "$HERE/arch/etc/fail2ban/jail.d/sshd.local" "$FAIL2BAN_CONFIG_DIR/jail.d/sshd.local"; then
-        output "ERROR: Failed to copy fail2ban jail configuration"
+        echo "ERROR: Failed to copy fail2ban jail configuration"
         return 1
     fi
     
     # Copy fail2ban main configuration
     if ! cp "$HERE/arch/etc/fail2ban/fail2ban.local" "$FAIL2BAN_CONFIG_DIR/fail2ban.local"; then
-        output "ERROR: Failed to copy fail2ban main configuration"
+        echo "ERROR: Failed to copy fail2ban main configuration"
         return 1
     fi
     
@@ -274,12 +271,12 @@ configure_fail2ban() {
     
     # Verify fail2ban configuration
     if [[ ! -f "$FAIL2BAN_CONFIG_DIR/jail.d/sshd.local" ]]; then
-        output "ERROR: Fail2ban configuration not created"
+        echo "ERROR: Fail2ban configuration not created"
         return 1
     fi
     
-    output "  ✓ Fail2ban intrusion prevention configured"
-    output "  ✓ SSH brute-force protection enabled"
+    echo "  ✓ Fail2ban intrusion prevention configured"
+    echo "  ✓ SSH brute-force protection enabled"
     return 0
 }
 
@@ -288,13 +285,13 @@ configure_fail2ban() {
 # =====================================
 
 setup_network_security() {
-    output "Step 5/6: Configuring network security..."
+    echo "Step 5/6: Configuring network security..."
     
     # Configure UFW firewall default rules
     mkdir -p "/mnt/etc/ufw"
     
     if ! cp "$HERE/arch/etc/ufw/user.rules" "/mnt/etc/ufw/user.rules"; then
-        output "ERROR: Failed to copy UFW configuration"
+        echo "ERROR: Failed to copy UFW configuration"
         return 1
     fi
     
@@ -302,7 +299,7 @@ setup_network_security() {
     mkdir -p "/mnt/etc/systemd/resolved.conf.d"
     
     if ! cp "$HERE/arch/etc/systemd/resolved.conf.d/backup-dns.conf" "/mnt/etc/systemd/resolved.conf.d/backup-dns.conf"; then
-        output "ERROR: Failed to copy DNS security configuration"
+        echo "ERROR: Failed to copy DNS security configuration"
         return 1
     fi
     
@@ -310,13 +307,13 @@ setup_network_security() {
     mkdir -p "/mnt/etc/NetworkManager/conf.d"
     
     if ! cp "$HERE/arch/etc/NetworkManager/conf.d/security.conf" "/mnt/etc/NetworkManager/conf.d/security.conf"; then
-        output "ERROR: Failed to copy NetworkManager security configuration"
+        echo "ERROR: Failed to copy NetworkManager security configuration"
         return 1
     fi
 
     # Copy time synchronization configuration  
     if ! cp "$HERE/arch/etc/systemd/timesyncd.conf" "/mnt/etc/systemd/timesyncd.conf"; then
-        output "ERROR: Failed to copy timesyncd configuration"
+        echo "ERROR: Failed to copy timesyncd configuration"
         return 1
     fi
     
@@ -325,9 +322,9 @@ setup_network_security() {
     chmod 644 "/mnt/etc/systemd/resolved.conf.d/backup-dns.conf"
     chmod 644 "/mnt/etc/NetworkManager/conf.d/security.conf"
     
-    output "  ✓ Firewall default-deny rules configured"
-    output "  ✓ Secure DNS resolution with DoT enabled"
-    output "  ✓ NetworkManager privacy settings applied"
+    echo "  ✓ Firewall default-deny rules configured"
+    echo "  ✓ Secure DNS resolution with DoT enabled"
+    echo "  ✓ NetworkManager privacy settings applied"
     return 0
 }
 
@@ -336,13 +333,13 @@ setup_network_security() {
 # =====================================
 
 configure_filesystem_security() {
-    output "Step 6/6: Configuring filesystem and service security..."
+    echo "Step 6/6: Configuring filesystem and service security..."
     
     # Configure sudo security
     mkdir -p "/mnt/etc/sudoers.d"
     
     if ! cp "$HERE/arch/etc/sudoers.d/security" "/mnt/etc/sudoers.d/security"; then
-        output "ERROR: Failed to copy sudo security configuration"
+        echo "ERROR: Failed to copy sudo security configuration"
         return 1
     fi
     
@@ -350,13 +347,13 @@ configure_filesystem_security() {
     mkdir -p "/mnt/etc/systemd/system/service.d"
     
     if ! cp "$HERE/arch/etc/systemd/system/service.d/hardening.conf" "/mnt/etc/systemd/system/service.d/hardening.conf"; then
-        output "ERROR: Failed to copy systemd service hardening configuration"
+        echo "ERROR: Failed to copy systemd service hardening configuration"
         return 1
     fi
     
     # Copy AIDE configuration
     if ! cp "$HERE/arch/etc/aide.conf" "/mnt/etc/aide.conf"; then
-        output "ERROR: Failed to copy AIDE configuration"
+        echo "ERROR: Failed to copy AIDE configuration"
         return 1
     fi
     
@@ -374,9 +371,9 @@ configure_filesystem_security() {
     chmod 755 "/mnt/var/crash"
     # Core dumps will be owned by the user who caused the crash
     
-    output "  ✓ Sudo security hardening configured"
-    output "  ✓ Systemd service hardening template created"
-    output "  ✓ File integrity monitoring prepared"
+    echo "  ✓ Sudo security hardening configured"
+    echo "  ✓ Systemd service hardening template created"
+    echo "  ✓ File integrity monitoring prepared"
     return 0
 }
 
@@ -385,132 +382,132 @@ configure_filesystem_security() {
 # =====================================
 
 validate_security_configuration() {
-    output "Validating security configuration..."
+    echo "Validating security configuration..."
     
     local validation_errors=0
     
     # Check sysctl configuration
     if [[ ! -f "/mnt/etc/sysctl.d/$SYSCTL_CONFIG_NAME" ]]; then
-        output "ERROR: sysctl security configuration missing"
+        echo "ERROR: sysctl security configuration missing"
         ((validation_errors++))
     else
-        output "  ✓ sysctl security configuration installed"
+        echo "  ✓ sysctl security configuration installed"
     fi
     
     # Check AppArmor structure
     if [[ ! -d "$APPARMOR_CONFIG_DIR/local" ]]; then
-        output "ERROR: AppArmor directory structure missing"
+        echo "ERROR: AppArmor directory structure missing"
         ((validation_errors++))
     else
-        output "  ✓ AppArmor framework prepared"
+        echo "  ✓ AppArmor framework prepared"
     fi
     
     # Check SSH security
     if [[ ! -f "$SSH_CONFIG_DIR/sshd_config.d/10-custom.conf" ]]; then
-        output "ERROR: SSH security configuration missing"
+        echo "ERROR: SSH security configuration missing"
         ((validation_errors++))
     else
-        output "  ✓ SSH security hardening configured"
+        echo "  ✓ SSH security hardening configured"
     fi
     
     # Check fail2ban configuration
     if [[ ! -f "$FAIL2BAN_CONFIG_DIR/jail.d/sshd.local" ]]; then
-        output "ERROR: Fail2ban configuration missing"
+        echo "ERROR: Fail2ban configuration missing"
         ((validation_errors++))
     else
-        output "  ✓ Fail2ban intrusion prevention configured"
+        echo "  ✓ Fail2ban intrusion prevention configured"
     fi
     
     # Check network security
     if [[ ! -f "/mnt/etc/systemd/resolved.conf.d/backup-dns.conf" ]]; then
-        output "ERROR: DNS security configuration missing"
+        echo "ERROR: DNS security configuration missing"
         ((validation_errors++))
     else
-        output "  ✓ Network security configured"
+        echo "  ✓ Network security configured"
     fi
     
     # Check filesystem security
     if [[ ! -f "/mnt/etc/sudoers.d/security" ]]; then
-        output "ERROR: Sudo security configuration missing"
+        echo "ERROR: Sudo security configuration missing"
         ((validation_errors++))
     else
-        output "  ✓ Filesystem security configured"
+        echo "  ✓ Filesystem security configured"
     fi
     
     if [[ $validation_errors -gt 0 ]]; then
-        output "ERROR: $validation_errors security configuration failures"
+        echo "ERROR: $validation_errors security configuration failures"
         return 1
     fi
     
-    output "All security configurations validated successfully"
+    echo "All security configurations validated successfully"
     return 0
 }
 
 display_security_summary() {
-    output ""
-    output "=== Security Configuration Summary ==="
-    output ""
+    echo ""
+    echo "=== Security Configuration Summary ==="
+    echo ""
     
-    output "=== Kernel Security ==="
-    output "  • Developer-friendly sysctl hardening"
-    output "  • Memory protection (ASLR, DEP)"
-    output "  • Filesystem protections"
-    output "  • Network security (no functionality breaks)"
-    output "  • Container/VM support maintained"
-    output ""
+    echo "=== Kernel Security ==="
+    echo "  • Developer-friendly sysctl hardening"
+    echo "  • Memory protection (ASLR, DEP)"
+    echo "  • Filesystem protections"
+    echo "  • Network security (no functionality breaks)"
+    echo "  • Container/VM support maintained"
+    echo ""
     
-    output "=== Application Security ==="
-    output "  • AppArmor framework prepared"
-    output "  • Profile structure created"
-    output "  • Audit logging configured"
-    output "  • Post-install deployment ready"
-    output ""
+    echo "=== Application Security ==="
+    echo "  • AppArmor framework prepared"
+    echo "  • Profile structure created"
+    echo "  • Audit logging configured"
+    echo "  • Post-install deployment ready"
+    echo ""
     
-    output "=== Network Security ==="
-    output "  • UFW firewall configured (default-deny)"
-    output "  • Secure DNS with DoT enabled"
-    output "  • MAC address randomization"
-    output "  • SSH hardening with modern crypto"
-    output "  • Fail2ban intrusion prevention"
-    output ""
+    echo "=== Network Security ==="
+    echo "  • UFW firewall configured (default-deny)"
+    echo "  • Secure DNS with DoT enabled"
+    echo "  • MAC address randomization"
+    echo "  • SSH hardening with modern crypto"
+    echo "  • Fail2ban intrusion prevention"
+    echo ""
     
-    output "=== Service Security ==="
-    output "  • Systemd service hardening template"
-    output "  • Sudo security restrictions"
-    output "  • File integrity monitoring prepared"
-    output "  • Security logging configured"
-    output ""
+    echo "=== Service Security ==="
+    echo "  • Systemd service hardening template"
+    echo "  • Sudo security restrictions"
+    echo "  • File integrity monitoring prepared"
+    echo "  • Security logging configured"
+    echo ""
     
-    output "=== Post-Installation Steps ==="
-    output "  • Deploy AppArmor profiles: vic setup security apparmor"
-    output "  • Check security status: vic run system security-status"
-    output "  • Monitor security events: journalctl -f | grep -i security"
-    output "  • Configure UFW rules: ufw allow ssh"
-    output ""
+    echo "=== Post-Installation Steps ==="
+    echo "  • Deploy AppArmor profiles: vic setup security apparmor"
+    echo "  • Check security status: vic run system security-status"
+    echo "  • Monitor security events: journalctl -f | grep -i security"
+    echo "  • Configure UFW rules: ufw allow ssh"
+    echo ""
     
-    output "=== Security Approach ==="
-    output "  ✓ Application-level confinement (better than kernel restrictions)"
-    output "  ✓ Developer workflow preserved (debugging, containers, VMs)"
-    output "  ✓ Enterprise-grade security without productivity loss"
-    output "  ✓ Practical security that actually gets used"
-    output ""
-    output "=== Developer-Friendly Features ==="
-    output "  ✓ Core dumps enabled in /var/crash for debugging"
-    output "  ✓ Sudo timeout extended to 60min (reduced interruptions)"
-    output "  ✓ Systemd hardening allows JIT compilers and containers"
-    output "  ✓ AppArmor profiles support all major development tools"
-    output "  ✓ Container/VM support maintained (Docker, Podman, libvirt)"
-    output "=================================="
-    output ""
+    echo "=== Security Approach ==="
+    echo "  ✓ Application-level confinement (better than kernel restrictions)"
+    echo "  ✓ Developer workflow preserved (debugging, containers, VMs)"
+    echo "  ✓ Enterprise-grade security without productivity loss"
+    echo "  ✓ Practical security that actually gets used"
+    echo ""
+    echo "=== Developer-Friendly Features ==="
+    echo "  ✓ Core dumps enabled in /var/crash for debugging"
+    echo "  ✓ Sudo timeout extended to 60min (reduced interruptions)"
+    echo "  ✓ Systemd hardening allows JIT compilers and containers"
+    echo "  ✓ AppArmor profiles support all major development tools"
+    echo "  ✓ Container/VM support maintained (Docker, Podman, libvirt)"
+    echo "=================================="
+    echo ""
 }
 
 # =====================================
 # MAIN SECURITY CONFIGURATION PROCESS
 # =====================================
 
-output "=== Enterprise Security Configuration ==="
-output "Implementing practical, developer-friendly security measures"
-output ""
+echo "=== Enterprise Security Configuration ==="
+echo "Implementing practical, developer-friendly security measures"
+echo ""
 
 # Pre-configuration validation
 validate_target_directories || return 1
@@ -531,12 +528,12 @@ validate_security_configuration || return 1
 # Display summary
 display_security_summary
 
-output "=== Security Configuration Complete ==="
-output "✓ Practical kernel hardening (no development workflow breaks)"
-output "✓ AppArmor application security framework prepared"
-output "✓ Network security with modern cryptography"
-output "✓ Intrusion prevention and monitoring configured"
-output "✓ Service and filesystem hardening enabled"
-output "✓ Enterprise-grade security without productivity loss"
-output ""
-output "Security foundation ready - profiles will be deployed post-installation"
+echo "=== Security Configuration Complete ==="
+echo "✓ Practical kernel hardening (no development workflow breaks)"
+echo "✓ AppArmor application security framework prepared"
+echo "✓ Network security with modern cryptography"
+echo "✓ Intrusion prevention and monitoring configured"
+echo "✓ Service and filesystem hardening enabled"
+echo "✓ Enterprise-grade security without productivity loss"
+echo ""
+echo "Security foundation ready - profiles will be deployed post-installation"

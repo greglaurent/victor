@@ -5,10 +5,7 @@
 
 set -euo pipefail
 
-# Source output function
-output() {
-    echo "$@"
-}
+# Source echo function
 
 # Ensure required variables are defined
 use_luks=${use_luks:-0}
@@ -18,7 +15,7 @@ installation_date=${installation_date:-"$(date '+%Y-%m-%d %H:%M:%S')"}
 
 # Validate required variables
 if [[ -z "$disk" ]]; then
-    output "ERROR: Disk variable not set. This script requires disk to be defined."
+    echo "ERROR: Disk variable not set. This script requires disk to be defined."
     exit 1
 fi
 
@@ -36,13 +33,13 @@ validate_disk() {
     
     # Check if disk exists
     if [[ ! -b "$disk" ]]; then
-        output "ERROR: Disk $disk does not exist or is not a block device."
+        echo "ERROR: Disk $disk does not exist or is not a block device."
         return 1
     fi
     
     # Check if disk is mounted
     if mount | grep -q "^$disk"; then
-        output "ERROR: Disk $disk appears to be mounted. Unmount it first."
+        echo "ERROR: Disk $disk appears to be mounted. Unmount it first."
         return 1
     fi
     
@@ -52,11 +49,11 @@ validate_disk() {
     local size_gb=$((size_bytes / 1024 / 1024 / 1024))
     
     if [[ $size_gb -lt 20 ]]; then
-        output "ERROR: Disk $disk is too small (${size_gb}GB). Minimum 20GB required."
+        echo "ERROR: Disk $disk is too small (${size_gb}GB). Minimum 20GB required."
         return 1
     fi
     
-    output "Disk validation passed: $disk (${size_gb}GB)"
+    echo "Disk validation passed: $disk (${size_gb}GB)"
 }
 
 validate_partition_creation() {
@@ -69,16 +66,16 @@ validate_partition_creation() {
     
     # Check if partitions exist
     if [[ ! -b "$esp" ]]; then
-        output "ERROR: ESP partition $esp was not created successfully."
+        echo "ERROR: ESP partition $esp was not created successfully."
         return 1
     fi
     
     if [[ ! -b "$rootfs" ]]; then
-        output "ERROR: Root partition $rootfs was not created successfully."
+        echo "ERROR: Root partition $rootfs was not created successfully."
         return 1
     fi
     
-    output "Partition creation validated successfully."
+    echo "Partition creation validated successfully."
 }
 
 validate_filesystem_creation() {
@@ -89,18 +86,18 @@ validate_filesystem_creation() {
     actual_fstype=$(blkid -o value -s TYPE "$device" 2>/dev/null || echo "unknown")
     
     if [[ "$actual_fstype" != "$fstype" ]]; then
-        output "ERROR: Filesystem creation failed. Expected $fstype, got $actual_fstype"
+        echo "ERROR: Filesystem creation failed. Expected $fstype, got $actual_fstype"
         return 1
     fi
     
-    output "Filesystem creation validated: $device ($fstype)"
+    echo "Filesystem creation validated: $device ($fstype)"
 }
 
 # =====================================
 # CLEANUP FUNCTIONS
 # =====================================
 cleanup_on_failure() {
-    output "Cleaning up after failure..."
+    echo "Cleaning up after failure..."
     
     # Unmount any mounted filesystems
     if mountpoint -q /mnt 2>/dev/null; then
@@ -119,16 +116,16 @@ trap cleanup_on_failure ERR
 # MAIN DISK FORMATTING PROCESS
 # =====================================
 
-output "Step 1/8: Installing required packages..."
+echo "Step 1/8: Installing required packages..."
 pacman -Sy --noconfirm --needed curl
 
-output "Step 2/8: Validating disk..."
+echo "Step 2/8: Validating disk..."
 validate_disk "$disk"
 
-output "Step 3/8: Wiping disk ${disk}..."
+echo "Step 3/8: Wiping disk ${disk}..."
 sgdisk --zap-all "${disk}"
 
-output "Step 4/8: Creating new partition scheme..."
+echo "Step 4/8: Creating new partition scheme..."
 sgdisk -g "${disk}"
 sgdisk -I -n 1:0:+2G -t 1:ef00 -c 1:'ESP' "${disk}"
 sgdisk -I -n 2:0:0 -c 2:'rootfs' "${disk}"
@@ -138,7 +135,7 @@ ESP='/dev/disk/by-partlabel/ESP'
 rootfs_partition='/dev/disk/by-partlabel/rootfs'
 
 # Inform kernel of changes
-output "Step 5/8: Updating partition table..."
+echo "Step 5/8: Updating partition table..."
 partprobe "${disk}"
 sleep 2
 udevadm settle
@@ -146,23 +143,23 @@ udevadm settle
 # Validate partition creation
 validate_partition_creation "$ESP" "$rootfs_partition"
 
-output "Step 6/8: Creating filesystems..."
+echo "Step 6/8: Creating filesystems..."
 
 # Format ESP as FAT32
-output "  Creating ESP filesystem..."
+echo "  Creating ESP filesystem..."
 mkfs.fat -F 32 -s 2 "${ESP}"
 validate_filesystem_creation "${ESP}" "vfat"
 
 # Handle LUKS encryption if enabled
 if [[ $use_luks -eq 1 ]]; then
-    output "  Creating LUKS container..."
+    echo "  Creating LUKS container..."
     if [[ -z "$luks_passphrase" ]]; then
-        output "ERROR: LUKS passphrase not set but encryption is enabled"
+        echo "ERROR: LUKS passphrase not set but encryption is enabled"
         exit 1
     fi
     echo -n "$luks_passphrase" | cryptsetup luksFormat --pbkdf pbkdf2 "${rootfs_partition}" -d -
     
-    output "  Opening LUKS container..."
+    echo "  Opening LUKS container..."
     echo -n "$luks_passphrase" | cryptsetup open "${rootfs_partition}" cryptroot -d -
     BTRFS='/dev/mapper/cryptroot'
 else
@@ -173,11 +170,11 @@ fi
 export BTRFS
 
 # Create BTRFS filesystem
-output "  Creating BTRFS filesystem..."
+echo "  Creating BTRFS filesystem..."
 mkfs.btrfs -f "${BTRFS}"
 validate_filesystem_creation "${BTRFS}" "btrfs"
 
-output "Step 7/8: Creating BTRFS subvolumes..."
+echo "Step 7/8: Creating BTRFS subvolumes..."
 
 # Mount BTRFS root for subvolume creation
 mount "${BTRFS}" /mnt
@@ -212,7 +209,7 @@ echo "<?xml version=\"1.0\"?>
 
 chmod 600 /mnt/@snapshots/1/info.xml
 
-output "Step 8/8: Mounting subvolumes with optimized options..."
+echo "Step 8/8: Mounting subvolumes with optimized options..."
 
 # Unmount and remount with proper structure
 umount /mnt
@@ -233,32 +230,32 @@ mount -o "${BTRFS_OPTS},subvol=@snapshots" "${BTRFS}" /mnt/.snapshots
 mount -o nodev,nosuid,noexec "${ESP}" /mnt/boot/efi
 
 # Verify all mounts
-output "Verifying mount structure..."
+echo "Verifying mount structure..."
 if ! mountpoint -q /mnt; then
-    output "ERROR: Root filesystem not mounted properly."
+    echo "ERROR: Root filesystem not mounted properly."
     return 1
 fi
 
 for mount_point in /mnt/home /mnt/var/log /mnt/swap /mnt/.snapshots /mnt/boot/efi; do
     if ! mountpoint -q "$mount_point"; then
-        output "ERROR: Mount point $mount_point not mounted properly."
+        echo "ERROR: Mount point $mount_point not mounted properly."
         return 1
     fi
 done
 
 # Display mount summary
-output ""
-output "=== BTRFS Mount Structure ==="
-output "Root (@):          $(findmnt -n -o OPTIONS /mnt)"
-output "Home (@home):      $(findmnt -n -o OPTIONS /mnt/home)"
-output "Logs (@var_log):   $(findmnt -n -o OPTIONS /mnt/var/log)"
-output "Swap (@swap):      $(findmnt -n -o OPTIONS /mnt/swap)"
-output "Snapshots:         $(findmnt -n -o OPTIONS /mnt/.snapshots)"
-output "ESP:               $(findmnt -n -o OPTIONS /mnt/boot/efi)"
-output ""
+echo ""
+echo "=== BTRFS Mount Structure ==="
+echo "Root (@):          $(findmnt -n -o OPTIONS /mnt)"
+echo "Home (@home):      $(findmnt -n -o OPTIONS /mnt/home)"
+echo "Logs (@var_log):   $(findmnt -n -o OPTIONS /mnt/var/log)"
+echo "Swap (@swap):      $(findmnt -n -o OPTIONS /mnt/swap)"
+echo "Snapshots:         $(findmnt -n -o OPTIONS /mnt/.snapshots)"
+echo "ESP:               $(findmnt -n -o OPTIONS /mnt/boot/efi)"
+echo ""
 
-output "Disk formatting completed successfully!"
-output "BTRFS device: ${BTRFS}"
-output "Encryption: $([[ $use_luks -eq 1 ]] && echo "enabled" || echo "disabled")"
-output "Subvolumes: 5 essential subvolumes created"
-output "Mount options: Optimized for SSD/NVMe performance and lifespan"
+echo "Disk formatting completed successfully!"
+echo "BTRFS device: ${BTRFS}"
+echo "Encryption: $([[ $use_luks -eq 1 ]] && echo "enabled" || echo "disabled")"
+echo "Subvolumes: 5 essential subvolumes created"
+echo "Mount options: Optimized for SSD/NVMe performance and lifespan"

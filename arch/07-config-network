@@ -5,10 +5,7 @@
 
 set -euo pipefail
 
-# Source output function
-output() {
-    echo "$@"
-}
+# Source echo function
 
 # =====================================
 # NETWORK CONFIGURATION CONSTANTS
@@ -32,7 +29,7 @@ readonly SECURE_DNS_SERVERS=(
 # =====================================
 
 validate_network_packages() {
-    output "Validating network packages..."
+    echo "Validating network packages..."
     
     local required_packages=("networkmanager" "unbound" "bind")
     local missing_packages=()
@@ -44,16 +41,16 @@ validate_network_packages() {
     done
     
     if [[ ${#missing_packages[@]} -gt 0 ]]; then
-        output "ERROR: Missing network packages: ${missing_packages[*]}"
+        echo "ERROR: Missing network packages: ${missing_packages[*]}"
         return 1
     fi
     
-    output "All network packages confirmed installed"
+    echo "All network packages confirmed installed"
     return 0
 }
 
 validate_target_directories() {
-    output "Validating network configuration directories..."
+    echo "Validating network configuration directories..."
     
     local required_dirs=(
         "/mnt/etc/NetworkManager"
@@ -62,7 +59,7 @@ validate_target_directories() {
     
     for dir in "${required_dirs[@]}"; do
         if [[ ! -d "$dir" ]]; then
-            output "ERROR: Required directory missing: $dir"
+            echo "ERROR: Required directory missing: $dir"
             return 1
         fi
     done
@@ -72,7 +69,7 @@ validate_target_directories() {
     mkdir -p "$UNBOUND_CONFIG_DIR/unbound.conf.d"
     mkdir -p "$SYSTEMD_RESOLVED_CONFIG_DIR"
     
-    output "Network configuration directories ready"
+    echo "Network configuration directories ready"
     return 0
 }
 
@@ -81,7 +78,7 @@ validate_target_directories() {
 # =====================================
 
 configure_unbound_resolver() {
-    output "Step 1/4: Configuring Unbound DNS resolver..."
+    echo "Step 1/4: Configuring Unbound DNS resolver..."
     
     local unbound_conf="$UNBOUND_CONFIG_DIR/unbound.conf"
     local unbound_template="$HERE/arch/etc/unbound/unbound.conf.template"
@@ -89,18 +86,18 @@ configure_unbound_resolver() {
     
     # Verify template files exist
     if [[ ! -f "$unbound_template" ]]; then
-        output "ERROR: Unbound template not found: $unbound_template"
+        echo "ERROR: Unbound template not found: $unbound_template"
         return 1
     fi
     
     if [[ ! -f "$local_conf_src" ]]; then
-        output "ERROR: Unbound local configuration not found: $local_conf_src"
+        echo "ERROR: Unbound local configuration not found: $local_conf_src"
         return 1
     fi
     
     # Create unbound configuration from template
     if ! sed "s/{{UNBOUND_PORT}}/${UNBOUND_PORT}/g" "$unbound_template" > "$unbound_conf"; then
-        output "ERROR: Failed to create unbound configuration from template"
+        echo "ERROR: Failed to create unbound configuration from template"
         return 1
     fi
     
@@ -114,7 +111,7 @@ configure_unbound_resolver() {
     
     # Copy local configuration file
     if ! cp "$local_conf_src" "$UNBOUND_CONFIG_DIR/unbound.conf.d/local.conf"; then
-        output "ERROR: Failed to copy unbound local configuration"
+        echo "ERROR: Failed to copy unbound local configuration"
         return 1
     fi
 
@@ -125,19 +122,19 @@ configure_unbound_resolver() {
     
     # Verify configuration was created
     if [[ ! -s "$unbound_conf" ]]; then
-        output "ERROR: Unbound configuration is empty"
+        echo "ERROR: Unbound configuration is empty"
         return 1
     fi
     
     if ! grep -q "forward-tls-upstream: yes" "$unbound_conf"; then
-        output "ERROR: Unbound configuration missing DoT setup"
+        echo "ERROR: Unbound configuration missing DoT setup"
         return 1
     fi
     
-    output "  ✓ Unbound configured on port $UNBOUND_PORT"
-    output "  ✓ DNS-over-TLS forwarding to secure resolvers"
-    output "  ✓ DNSSEC validation enabled"
-    output "  ✓ Privacy and security optimizations applied"
+    echo "  ✓ Unbound configured on port $UNBOUND_PORT"
+    echo "  ✓ DNS-over-TLS forwarding to secure resolvers"
+    echo "  ✓ DNSSEC validation enabled"
+    echo "  ✓ Privacy and security optimizations applied"
     return 0
 }
 
@@ -146,7 +143,7 @@ configure_unbound_resolver() {
 # =====================================
 
 configure_systemd_resolved() {
-    output "Step 2/4: Configuring systemd-resolved integration..."
+    echo "Step 2/4: Configuring systemd-resolved integration..."
     
     local resolved_conf="$SYSTEMD_RESOLVED_CONFIG_DIR/unbound-integration.conf"
     local resolved_template="$HERE/arch/etc/systemd/resolved.conf.d/unbound-integration.conf.template"
@@ -154,41 +151,41 @@ configure_systemd_resolved() {
     
     # Verify template files exist
     if [[ ! -f "$resolved_template" ]]; then
-        output "ERROR: systemd-resolved template not found: $resolved_template"
+        echo "ERROR: systemd-resolved template not found: $resolved_template"
         return 1
     fi
     
     if [[ ! -f "$backup_conf_src" ]]; then
-        output "ERROR: backup DNS configuration not found: $backup_conf_src"
+        echo "ERROR: backup DNS configuration not found: $backup_conf_src"
         return 1
     fi
     
     # Create systemd-resolved configuration from template
     if ! sed "s/{{UNBOUND_PORT}}/${UNBOUND_PORT}/g" "$resolved_template" > "$resolved_conf"; then
-        output "ERROR: Failed to create systemd-resolved configuration from template"
+        echo "ERROR: Failed to create systemd-resolved configuration from template"
         return 1
     fi
     
     # Copy backup DNS configuration
     if ! cp "$backup_conf_src" "/mnt/etc/systemd/resolved.conf.d/backup-dns.conf"; then
-        output "ERROR: Failed to copy backup DNS configuration"
+        echo "ERROR: Failed to copy backup DNS configuration"
         return 1
     fi
 
     # Verify configuration was created
     if [[ ! -s "$resolved_conf" ]]; then
-        output "ERROR: systemd-resolved configuration is empty"
+        echo "ERROR: systemd-resolved configuration is empty"
         return 1
     fi
     
     if ! grep -q "DNS=127.0.0.1:${UNBOUND_PORT}" "$resolved_conf"; then
-        output "ERROR: systemd-resolved not configured to use unbound"
+        echo "ERROR: systemd-resolved not configured to use unbound"
         return 1
     fi
     
-    output "  ✓ systemd-resolved configured to use unbound upstream"
-    output "  ✓ Fallback DNS servers configured"
-    output "  ✓ Integration settings optimized"
+    echo "  ✓ systemd-resolved configured to use unbound upstream"
+    echo "  ✓ Fallback DNS servers configured"
+    echo "  ✓ Integration settings optimized"
     return 0
 }
 
@@ -197,7 +194,7 @@ configure_systemd_resolved() {
 # =====================================
 
 configure_networkmanager() {
-    output "Step 3/4: Configuring NetworkManager security and privacy..."
+    echo "Step 3/4: Configuring NetworkManager security and privacy..."
     
     local nm_security_src="$HERE/arch/etc/NetworkManager/conf.d/security.conf"
     local nm_conn_sec_src="$HERE/arch/etc/NetworkManager/conf.d/connection-security.conf"
@@ -210,24 +207,24 @@ configure_networkmanager() {
     [[ ! -f "$nm_wifi_sec_src" ]] && missing_files+=("$nm_wifi_sec_src")
     
     if [[ ${#missing_files[@]} -gt 0 ]]; then
-        output "ERROR: Missing NetworkManager configuration files:"
+        echo "ERROR: Missing NetworkManager configuration files:"
         printf '  %s\n' "${missing_files[@]}"
         return 1
     fi
     
     # Copy NetworkManager configuration files
     if ! cp "$nm_security_src" "$NETWORKMANAGER_CONFIG_DIR/security.conf"; then
-        output "ERROR: Failed to copy NetworkManager security configuration"
+        echo "ERROR: Failed to copy NetworkManager security configuration"
         return 1
     fi
     
     if ! cp "$nm_conn_sec_src" "$NETWORKMANAGER_CONFIG_DIR/connection-security.conf"; then
-        output "ERROR: Failed to copy NetworkManager connection security configuration"
+        echo "ERROR: Failed to copy NetworkManager connection security configuration"
         return 1
     fi
     
     if ! cp "$nm_wifi_sec_src" "$NETWORKMANAGER_CONFIG_DIR/wifi-security.conf"; then
-        output "ERROR: Failed to copy NetworkManager WiFi security configuration"
+        echo "ERROR: Failed to copy NetworkManager WiFi security configuration"
         return 1
     fi
 
@@ -236,19 +233,19 @@ configure_networkmanager() {
     
     # Verify NetworkManager configuration
     if [[ ! -f "$NETWORKMANAGER_CONFIG_DIR/security.conf" ]]; then
-        output "ERROR: NetworkManager security configuration not created"
+        echo "ERROR: NetworkManager security configuration not created"
         return 1
     fi
     
     if ! grep -q "dns=systemd-resolved" "$NETWORKMANAGER_CONFIG_DIR/security.conf"; then
-        output "ERROR: NetworkManager not configured for systemd-resolved"
+        echo "ERROR: NetworkManager not configured for systemd-resolved"
         return 1
     fi
     
-    output "  ✓ NetworkManager configured for systemd-resolved integration"
-    output "  ✓ MAC address randomization enabled"
-    output "  ✓ Privacy and security settings applied"
-    output "  ✓ WiFi security hardening configured"
+    echo "  ✓ NetworkManager configured for systemd-resolved integration"
+    echo "  ✓ MAC address randomization enabled"
+    echo "  ✓ Privacy and security settings applied"
+    echo "  ✓ WiFi security hardening configured"
     return 0
 }
 
@@ -257,7 +254,7 @@ configure_networkmanager() {
 # =====================================
 
 integrate_network_security() {
-    output "Step 4/4: Integrating with system security configuration..."
+    echo "Step 4/4: Integrating with system security configuration..."
     
     local monitor_script_src="$HERE/arch/usr/local/bin/network-security-check"
     local monitor_service_src="$HERE/arch/etc/systemd/system/network-security-monitor.service"
@@ -270,14 +267,14 @@ integrate_network_security() {
     [[ ! -f "$monitor_timer_src" ]] && missing_files+=("$monitor_timer_src")
     
     if [[ ${#missing_files[@]} -gt 0 ]]; then
-        output "ERROR: Missing network monitoring files:"
+        echo "ERROR: Missing network monitoring files:"
         printf '  %s\n' "${missing_files[@]}"
         return 1
     fi
     
     # Copy network security monitoring script
     if ! cp "$monitor_script_src" "/mnt/usr/local/bin/network-security-check"; then
-        output "ERROR: Failed to copy network security monitoring script"
+        echo "ERROR: Failed to copy network security monitoring script"
         return 1
     fi
     
@@ -286,24 +283,24 @@ integrate_network_security() {
     
     # Copy systemd service files
     if ! cp "$monitor_service_src" "/mnt/etc/systemd/system/network-security-monitor.service"; then
-        output "ERROR: Failed to copy network security monitor service"
+        echo "ERROR: Failed to copy network security monitor service"
         return 1
     fi
     
     if ! cp "$monitor_timer_src" "/mnt/etc/systemd/system/network-security-monitor.timer"; then
-        output "ERROR: Failed to copy network security monitor timer"
+        echo "ERROR: Failed to copy network security monitor timer"
         return 1
     fi
 
     # Verify integration files were created
     if [[ ! -x "/mnt/usr/local/bin/network-security-check" ]]; then
-        output "ERROR: Network security check script not created"
+        echo "ERROR: Network security check script not created"
         return 1
     fi
     
-    output "  ✓ Network security monitoring script created"
-    output "  ✓ Systemd monitoring service configured"
-    output "  ✓ Security integration complete"
+    echo "  ✓ Network security monitoring script created"
+    echo "  ✓ Systemd monitoring service configured"
+    echo "  ✓ Security integration complete"
     return 0
 }
 
@@ -312,119 +309,119 @@ integrate_network_security() {
 # =====================================
 
 validate_network_configuration() {
-    output "Validating complete network configuration..."
+    echo "Validating complete network configuration..."
     
     local validation_errors=0
     
     # Check unbound configuration
     if [[ ! -f "$UNBOUND_CONFIG_DIR/unbound.conf" ]]; then
-        output "ERROR: Unbound configuration missing"
+        echo "ERROR: Unbound configuration missing"
         ((validation_errors++))
     elif ! grep -q "forward-tls-upstream: yes" "$UNBOUND_CONFIG_DIR/unbound.conf"; then
-        output "ERROR: Unbound DoT configuration invalid"
+        echo "ERROR: Unbound DoT configuration invalid"
         ((validation_errors++))
     else
-        output "  ✓ Unbound configuration validated"
+        echo "  ✓ Unbound configuration validated"
     fi
     
     # Check systemd-resolved configuration
     if [[ ! -f "$SYSTEMD_RESOLVED_CONFIG_DIR/unbound-integration.conf" ]]; then
-        output "ERROR: systemd-resolved integration missing"
+        echo "ERROR: systemd-resolved integration missing"
         ((validation_errors++))
     elif ! grep -q "DNS=127.0.0.1:$UNBOUND_PORT" "$SYSTEMD_RESOLVED_CONFIG_DIR/unbound-integration.conf"; then
-        output "ERROR: systemd-resolved unbound integration invalid"
+        echo "ERROR: systemd-resolved unbound integration invalid"
         ((validation_errors++))
     else
-        output "  ✓ systemd-resolved integration validated"
+        echo "  ✓ systemd-resolved integration validated"
     fi
     
     # Check NetworkManager configuration
     if [[ ! -f "$NETWORKMANAGER_CONFIG_DIR/security.conf" ]]; then
-        output "ERROR: NetworkManager security configuration missing"
+        echo "ERROR: NetworkManager security configuration missing"
         ((validation_errors++))
     elif ! grep -q "dns=systemd-resolved" "$NETWORKMANAGER_CONFIG_DIR/security.conf"; then
-        output "ERROR: NetworkManager systemd-resolved integration invalid"
+        echo "ERROR: NetworkManager systemd-resolved integration invalid"
         ((validation_errors++))
     else
-        output "  ✓ NetworkManager configuration validated"
+        echo "  ✓ NetworkManager configuration validated"
     fi
     
     # Check monitoring integration
     if [[ ! -x "/mnt/usr/local/bin/network-security-check" ]]; then
-        output "ERROR: Network security monitoring missing"
+        echo "ERROR: Network security monitoring missing"
         ((validation_errors++))
     else
-        output "  ✓ Network security monitoring validated"
+        echo "  ✓ Network security monitoring validated"
     fi
     
     if [[ $validation_errors -gt 0 ]]; then
-        output "ERROR: $validation_errors network configuration failures"
+        echo "ERROR: $validation_errors network configuration failures"
         return 1
     fi
     
-    output "All network configurations validated successfully"
+    echo "All network configurations validated successfully"
     return 0
 }
 
 display_network_summary() {
-    output ""
-    output "=== Network Configuration Summary ==="
-    output ""
+    echo ""
+    echo "=== Network Configuration Summary ==="
+    echo ""
     
-    output "=== DNS Resolution Chain ==="
-    output "  Applications → systemd-resolved (127.0.0.53:53)"
-    output "               ↓"
-    output "               → Unbound (127.0.0.1:$UNBOUND_PORT)"
-    output "                 ↓"
-    output "                 → Secure DNS Servers (DoT)"
-    output ""
+    echo "=== DNS Resolution Chain ==="
+    echo "  Applications → systemd-resolved (127.0.0.53:53)"
+    echo "               ↓"
+    echo "               → Unbound (127.0.0.1:$UNBOUND_PORT)"
+    echo "                 ↓"
+    echo "                 → Secure DNS Servers (DoT)"
+    echo ""
     
-    output "=== Security Features ==="
-    output "  • DNS-over-TLS encryption"
-    output "  • DNSSEC validation"
-    output "  • Query minimization for privacy"
-    output "  • MAC address randomization"
-    output "  • Hostname privacy protection"
-    output "  • WiFi security hardening"
-    output ""
+    echo "=== Security Features ==="
+    echo "  • DNS-over-TLS encryption"
+    echo "  • DNSSEC validation"
+    echo "  • Query minimization for privacy"
+    echo "  • MAC address randomization"
+    echo "  • Hostname privacy protection"
+    echo "  • WiFi security hardening"
+    echo ""
     
-    output "=== Performance Features ==="
-    output "  • Optimized caching (unbound)"
-    output "  • Prefetching for faster resolution"
-    output "  • Serve expired for availability"
-    output "  • Local development zone support"
-    output ""
+    echo "=== Performance Features ==="
+    echo "  • Optimized caching (unbound)"
+    echo "  • Prefetching for faster resolution"
+    echo "  • Serve expired for availability"
+    echo "  • Local development zone support"
+    echo ""
     
-    output "=== Integration ==="
-    output "  • No conflicts between components"
-    output "  • Seamless fallback if unbound fails"
-    output "  • NetworkManager privacy integration"
-    output "  • Security monitoring included"
-    output ""
+    echo "=== Integration ==="
+    echo "  • No conflicts between components"
+    echo "  • Seamless fallback if unbound fails"
+    echo "  • NetworkManager privacy integration"
+    echo "  • Security monitoring included"
+    echo ""
     
-    output "=== Configuration Files ==="
-    output "  • Unbound: /etc/unbound/unbound.conf"
-    output "  • systemd-resolved: /etc/systemd/resolved.conf.d/"
-    output "  • NetworkManager: /etc/NetworkManager/conf.d/"
-    output "  • Monitoring: /usr/local/bin/network-security-check"
-    output ""
+    echo "=== Configuration Files ==="
+    echo "  • Unbound: /etc/unbound/unbound.conf"
+    echo "  • systemd-resolved: /etc/systemd/resolved.conf.d/"
+    echo "  • NetworkManager: /etc/NetworkManager/conf.d/"
+    echo "  • Monitoring: /usr/local/bin/network-security-check"
+    echo ""
     
-    output "=== Post-Installation Commands ==="
-    output "  • Check status: network-security-check"
-    output "  • Unbound control: unbound-control status"
-    output "  • DNS test: resolvectl query cloudflare.com"
-    output "  • Monitor: journalctl -u unbound -f"
-    output "=================================="
-    output ""
+    echo "=== Post-Installation Commands ==="
+    echo "  • Check status: network-security-check"
+    echo "  • Unbound control: unbound-control status"
+    echo "  • DNS test: resolvectl query cloudflare.com"
+    echo "  • Monitor: journalctl -u unbound -f"
+    echo "=================================="
+    echo ""
 }
 
 # =====================================
 # MAIN NETWORK CONFIGURATION PROCESS
 # =====================================
 
-output "=== Secure Network Configuration ==="
-output "Implementing unbound + systemd-resolved + NetworkManager integration"
-output ""
+echo "=== Secure Network Configuration ==="
+echo "Implementing unbound + systemd-resolved + NetworkManager integration"
+echo ""
 
 # Pre-configuration validation
 validate_network_packages || return 1
@@ -442,12 +439,12 @@ validate_network_configuration || return 1
 # Display summary
 display_network_summary
 
-output "=== Network Configuration Complete ==="
-output "✓ Unbound DNS resolver with DoT and DNSSEC"
-output "✓ systemd-resolved integration (no conflicts)"
-output "✓ NetworkManager privacy and security"
-output "✓ Performance optimizations for development"
-output "✓ Security monitoring and fallback configured"
-output "✓ All components working together seamlessly"
-output ""
-output "Network stack ready with enterprise-grade security and performance"
+echo "=== Network Configuration Complete ==="
+echo "✓ Unbound DNS resolver with DoT and DNSSEC"
+echo "✓ systemd-resolved integration (no conflicts)"
+echo "✓ NetworkManager privacy and security"
+echo "✓ Performance optimizations for development"
+echo "✓ Security monitoring and fallback configured"
+echo "✓ All components working together seamlessly"
+echo ""
+echo "Network stack ready with enterprise-grade security and performance"

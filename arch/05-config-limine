@@ -5,10 +5,7 @@
 
 set -euo pipefail
 
-# Source output function and ensure required variables
-output() {
-    echo "$@"
-}
+# Source echo function and ensure required variables
 
 # Ensure required variables are defined
 use_luks=${use_luks:-0}
@@ -16,7 +13,7 @@ disk=${disk:-\"\"}
 
 # Validate required variables
 if [[ -z \"$disk\" ]]; then
-    output \"ERROR: Disk variable not set. This script requires disk to be defined.\"
+    echo \"ERROR: Disk variable not set. This script requires disk to be defined.\"
     exit 1
 fi
 
@@ -61,18 +58,18 @@ validate_esp_mount() {
     local esp_path="/mnt/boot/efi"
     
     if ! mountpoint -q "$esp_path"; then
-        output "ERROR: ESP not mounted at $esp_path"
+        echo "ERROR: ESP not mounted at $esp_path"
         return 1
     fi
     
     local esp_fstype
     esp_fstype=$(findmnt -n -o FSTYPE "$esp_path")
     if [[ "$esp_fstype" != "vfat" ]]; then
-        output "ERROR: ESP is not FAT32 filesystem (found: $esp_fstype)"
+        echo "ERROR: ESP is not FAT32 filesystem (found: $esp_fstype)"
         return 1
     fi
     
-    output "ESP validation passed: $esp_path (vfat)"
+    echo "ESP validation passed: $esp_path (vfat)"
     return 0
 }
 
@@ -85,14 +82,14 @@ validate_kernel_files() {
         "$boot_dir/initramfs-linux-lts.img"
     )
     
-    output "Validating kernel files..."
+    echo "Validating kernel files..."
     
     for file in "${required_files[@]}"; do
         if [[ ! -f "$file" ]]; then
-            output "ERROR: Required kernel file missing: $file"
+            echo "ERROR: Required kernel file missing: $file"
             return 1
         fi
-        output "  ✓ Found: $(basename "$file")"
+        echo "  ✓ Found: $(basename "$file")"
     done
     
     return 0
@@ -100,12 +97,12 @@ validate_kernel_files() {
 
 check_limine_package() {
     if ! arch-chroot /mnt pacman -Q limine &>/dev/null; then
-        output "ERROR: Limine package not installed"
-        output "This should have been installed in pacstrap phase"
+        echo "ERROR: Limine package not installed"
+        echo "This should have been installed in pacstrap phase"
         return 1
     fi
     
-    output "Limine package confirmed installed"
+    echo "Limine package confirmed installed"
     return 0
 }
 
@@ -114,7 +111,7 @@ check_limine_package() {
 # =====================================
 
 configure_mkinitcpio() {
-    output "Step 1/4: Configuring mkinitcpio for Limine..."
+    echo "Step 1/4: Configuring mkinitcpio for Limine..."
     
     local mkinitcpio_conf="/mnt/etc/mkinitcpio.conf"
     local template_file="$HERE/arch/etc/mkinitcpio.conf"
@@ -126,41 +123,41 @@ configure_mkinitcpio() {
     
     # Verify template file exists
     if [[ ! -f "$template_file" ]]; then
-        output "ERROR: mkinitcpio template not found: $template_file"
+        echo "ERROR: mkinitcpio template not found: $template_file"
         return 1
     fi
     
     # Copy template to target location
     if ! cp "$template_file" "$mkinitcpio_conf"; then
-        output "ERROR: Failed to copy mkinitcpio template"
+        echo "ERROR: Failed to copy mkinitcpio template"
         return 1
     fi
 
     # Add LUKS hook if encryption is enabled
     if [[ $use_luks -eq 1 ]]; then
-        output "  Adding LUKS support to mkinitcpio..."
+        echo "  Adding LUKS support to mkinitcpio..."
         # Insert encrypt hook after block hook in the HOOKS array
         sed -i 's/\(block\)/\1 encrypt/' "$mkinitcpio_conf"
     fi
     
     # Verify configuration was written correctly
     if [[ ! -s "$mkinitcpio_conf" ]]; then
-        output "ERROR: mkinitcpio configuration is empty"
+        echo "ERROR: mkinitcpio configuration is empty"
         return 1
     fi
     
     if ! grep -q "COMPRESSION=\"zstd\"" "$mkinitcpio_conf"; then
-        output "ERROR: mkinitcpio configuration not written correctly"
+        echo "ERROR: mkinitcpio configuration not written correctly"
         return 1
     fi
     
     # Verify essential modules are present
     if ! grep -q "usbhid xhci_hcd" "$mkinitcpio_conf"; then
-        output "ERROR: Essential USB modules missing from mkinitcpio"
+        echo "ERROR: Essential USB modules missing from mkinitcpio"
         return 1
     fi
     
-    output "  ✓ mkinitcpio configured for Limine with BTRFS support"
+    echo "  ✓ mkinitcpio configured for Limine with BTRFS support"
     return 0
 }
 
@@ -197,7 +194,7 @@ generate_kernel_parameters() {
 }
 
 create_limine_config() {
-    output "Step 2/4: Creating Limine configuration..."
+    echo "Step 2/4: Creating Limine configuration..."
     
     local limine_cfg="/mnt/boot/limine.cfg"
     local template_file="$HERE/arch/boot/limine.cfg.template"
@@ -206,7 +203,7 @@ create_limine_config() {
     
     # Verify template exists
     if [[ ! -f "$template_file" ]]; then
-        output "ERROR: Limine template file not found: $template_file"
+        echo "ERROR: Limine template file not found: $template_file"
         return 1
     fi
     
@@ -237,19 +234,19 @@ create_limine_config() {
     fi
     
     if [[ ! -s "$limine_cfg" ]]; then
-        output "ERROR: Failed to create Limine configuration from template"
+        echo "ERROR: Failed to create Limine configuration from template"
         return 1
     fi
     
     # Verify configuration was created
     if [[ ! -s "$limine_cfg" ]]; then
-        output "ERROR: Limine configuration is empty"
+        echo "ERROR: Limine configuration is empty"
         return 1
     fi
     
     # Validate configuration syntax
     if ! grep -q "DEFAULT_ENTRY=1" "$limine_cfg"; then
-        output "ERROR: Limine configuration malformed"
+        echo "ERROR: Limine configuration malformed"
         return 1
     fi
     
@@ -259,10 +256,10 @@ create_limine_config() {
     expected_entries=$([[ $use_luks -eq 1 ]] && echo "5" || echo "4")
     
     if [[ $entry_count -ne $expected_entries ]]; then
-        output "WARNING: Unexpected number of boot entries ($entry_count, expected $expected_entries)"
+        echo "WARNING: Unexpected number of boot entries ($entry_count, expected $expected_entries)"
     fi
     
-    output "  ✓ Limine configuration created with $entry_count boot entries"
+    echo "  ✓ Limine configuration created with $entry_count boot entries"
     return 0
 }
 
@@ -271,7 +268,7 @@ create_limine_config() {
 # =====================================
 
 install_limine_uefi() {
-    output "Step 3/4: Installing Limine for UEFI..."
+    echo "Step 3/4: Installing Limine for UEFI..."
     
     local esp_dir="/mnt/boot/efi"
     local limine_efi_dir="$esp_dir/EFI/BOOT"
@@ -281,40 +278,40 @@ install_limine_uefi() {
     
     # Copy Limine EFI binary
     if ! cp /mnt/usr/share/limine/BOOTX64.EFI "$limine_efi_dir/"; then
-        output "ERROR: Failed to copy Limine EFI binary"
+        echo "ERROR: Failed to copy Limine EFI binary"
         return 1
     fi
     
     # Verify EFI binary was copied
     if [[ ! -f "$limine_efi_dir/BOOTX64.EFI" ]]; then
-        output "ERROR: Limine EFI binary not found after copy"
+        echo "ERROR: Limine EFI binary not found after copy"
         return 1
     fi
     
-    output "  ✓ Limine UEFI binary installed to ESP"
+    echo "  ✓ Limine UEFI binary installed to ESP"
     return 0
 }
 
 install_limine_bios() {
-    output "Step 4/4: Installing Limine for BIOS compatibility..."
+    echo "Step 4/4: Installing Limine for BIOS compatibility..."
     
     # Install Limine to disk MBR for BIOS boot compatibility
     if ! arch-chroot /mnt limine bios-install "$disk"; then
-        output "ERROR: Failed to install Limine to disk MBR"
+        echo "ERROR: Failed to install Limine to disk MBR"
         return 1
     fi
     
-    output "  ✓ Limine BIOS compatibility installed to ${disk}"
+    echo "  ✓ Limine BIOS compatibility installed to ${disk}"
     return 0
 }
 
 regenerate_initramfs() {
-    output "Regenerating initramfs with new configuration..."
+    echo "Regenerating initramfs with new configuration..."
     
     # Generate initramfs for both kernels
     if ! arch-chroot /mnt mkinitcpio -P; then
-        output "ERROR: Failed to regenerate initramfs"
-        output "Check the mkinitcpio output above for details"
+        echo "ERROR: Failed to regenerate initramfs"
+        echo "Check the mkinitcpio echo above for details"
         return 1
     fi
     
@@ -326,12 +323,12 @@ regenerate_initramfs() {
     
     for file in "${initramfs_files[@]}"; do
         if [[ ! -s "$file" ]]; then
-            output "ERROR: Initramfs file missing or empty: $file"
+            echo "ERROR: Initramfs file missing or empty: $file"
             return 1
         fi
     done
     
-    output "  ✓ Initramfs regenerated successfully"
+    echo "  ✓ Initramfs regenerated successfully"
     return 0
 }
 
@@ -340,124 +337,124 @@ regenerate_initramfs() {
 # =====================================
 
 verify_limine_installation() {
-    output "Verifying Limine installation..."
+    echo "Verifying Limine installation..."
     
     local checks_passed=0
     local total_checks=6
     
     # Check 1: Limine configuration exists
     if [[ -s "/mnt/boot/limine.cfg" ]]; then
-        output "  ✓ Limine configuration exists"
+        echo "  ✓ Limine configuration exists"
         ((checks_passed++))
     else
-        output "  ✗ Limine configuration missing or empty"
+        echo "  ✗ Limine configuration missing or empty"
     fi
     
     # Check 2: UEFI binary exists
     if [[ -f "/mnt/boot/efi/EFI/BOOT/BOOTX64.EFI" ]]; then
-        output "  ✓ UEFI binary installed"
+        echo "  ✓ UEFI binary installed"
         ((checks_passed++))
     else
-        output "  ✗ UEFI binary missing"
+        echo "  ✗ UEFI binary missing"
     fi
     
     # Check 3: Kernel files exist
     if validate_kernel_files &>/dev/null; then
-        output "  ✓ Kernel files present"
+        echo "  ✓ Kernel files present"
         ((checks_passed++))
     else
-        output "  ✗ Kernel files missing"
+        echo "  ✗ Kernel files missing"
     fi
     
     # Check 4: mkinitcpio configuration
     if grep -q "COMPRESSION=\"zstd\"" "/mnt/etc/mkinitcpio.conf"; then
-        output "  ✓ mkinitcpio configured"
+        echo "  ✓ mkinitcpio configured"
         ((checks_passed++))
     else
-        output "  ✗ mkinitcpio not configured correctly"
+        echo "  ✗ mkinitcpio not configured correctly"
     fi
     
     # Check 5: Boot entries count
     local entry_count
     entry_count=$(grep -c "^:" "/mnt/boot/limine.cfg" 2>/dev/null || echo "0")
     if [[ $entry_count -ge 4 ]]; then
-        output "  ✓ Boot entries created ($entry_count entries)"
+        echo "  ✓ Boot entries created ($entry_count entries)"
         ((checks_passed++))
     else
-        output "  ✗ Insufficient boot entries ($entry_count)"
+        echo "  ✗ Insufficient boot entries ($entry_count)"
     fi
     
     # Check 6: Initramfs files
     if [[ -s "/mnt/boot/initramfs-linux.img" && -s "/mnt/boot/initramfs-linux-lts.img" ]]; then
-        output "  ✓ Initramfs files generated"
+        echo "  ✓ Initramfs files generated"
         ((checks_passed++))
     else
-        output "  ✗ Initramfs files missing or empty"
+        echo "  ✗ Initramfs files missing or empty"
     fi
     
     if [[ $checks_passed -eq $total_checks ]]; then
-        output "All verification checks passed ($checks_passed/$total_checks)"
+        echo "All verification checks passed ($checks_passed/$total_checks)"
         return 0
     else
-        output "Verification failed: $checks_passed/$total_checks checks passed"
+        echo "Verification failed: $checks_passed/$total_checks checks passed"
         return 1
     fi
 }
 
 display_limine_summary() {
-    output ""
-    output "=== Limine Bootloader Configuration Summary ==="
-    output "Bootloader: Limine (replaced GRUB)"
-    output "UEFI Support: Yes (/boot/efi/EFI/BOOT/BOOTX64.EFI)"
-    output "BIOS Support: Yes (installed to ${disk})"
-    output "Encryption: $([[ $use_luks -eq 1 ]] && echo "enabled (LUKS)" || echo "disabled")"
-    output "Timeout: 5 seconds"
-    output "Default: Arch Linux (main kernel)"
-    output ""
+    echo ""
+    echo "=== Limine Bootloader Configuration Summary ==="
+    echo "Bootloader: Limine (replaced GRUB)"
+    echo "UEFI Support: Yes (/boot/efi/EFI/BOOT/BOOTX64.EFI)"
+    echo "BIOS Support: Yes (installed to ${disk})"
+    echo "Encryption: $([[ $use_luks -eq 1 ]] && echo "enabled (LUKS)" || echo "disabled")"
+    echo "Timeout: 5 seconds"
+    echo "Default: Arch Linux (main kernel)"
+    echo ""
     
-    output "=== Boot Menu Entries ==="
+    echo "=== Boot Menu Entries ==="
     local entry_num=1
     while IFS= read -r line; do
         if [[ $line =~ ^: ]]; then
             local entry_name="${line#:}"
-            output "  $entry_num. $entry_name"
+            echo "  $entry_num. $entry_name"
             ((entry_num++))
         fi
     done < /mnt/boot/limine.cfg
-    output ""
+    echo ""
     
-    output "=== Security Features Enabled ==="
-    output "  • AppArmor LSM with audit logging"
-    output "  • IOMMU protection for virtualization"
-    output "  • Kernel hardening parameters"
-    output "  • Memory protection features"
-    output "  • System call auditing"
-    output ""
+    echo "=== Security Features Enabled ==="
+    echo "  • AppArmor LSM with audit logging"
+    echo "  • IOMMU protection for virtualization"
+    echo "  • Kernel hardening parameters"
+    echo "  • Memory protection features"
+    echo "  • System call auditing"
+    echo ""
     
-    output "=== Kernel Parameters ==="
+    echo "=== Kernel Parameters ==="
     local params
     params=$(generate_kernel_parameters)
     # Format parameters nicely (break long lines)
     echo "$params" | fold -w 60 -s | sed 's/^/  /'
-    output ""
+    echo ""
     
-    output "=== Recovery Options ==="
-    output "  • Recovery mode (single user)"
-    output "  • LTS kernel fallback"
+    echo "=== Recovery Options ==="
+    echo "  • Recovery mode (single user)"
+    echo "  • LTS kernel fallback"
     if [[ $use_luks -eq 1 ]]; then
-        output "  • Emergency mode (LUKS bypass)"
+        echo "  • Emergency mode (LUKS bypass)"
     fi
-    output "=================================="
-    output ""
+    echo "=================================="
+    echo ""
 }
 
 # =====================================
 # MAIN LIMINE CONFIGURATION PROCESS
 # =====================================
 
-output "=== Limine Bootloader Configuration ==="
-output "Replacing GRUB with modern Limine bootloader"
-output ""
+echo "=== Limine Bootloader Configuration ==="
+echo "Replacing GRUB with modern Limine bootloader"
+echo ""
 
 # Pre-installation validation
 check_limine_package || return 1
@@ -477,15 +474,15 @@ verify_limine_installation || return 1
 # Display summary
 display_limine_summary
 
-output "=== Limine Configuration Complete ==="
-output "✓ Modern bootloader replacing GRUB"
-output "✓ UEFI and BIOS compatibility"
-output "✓ Dual-kernel support (main + LTS)"
-output "✓ Security hardening enabled"
-output "✓ Recovery options available"
-output "✓ BTRFS native support"
+echo "=== Limine Configuration Complete ==="
+echo "✓ Modern bootloader replacing GRUB"
+echo "✓ UEFI and BIOS compatibility"
+echo "✓ Dual-kernel support (main + LTS)"
+echo "✓ Security hardening enabled"
+echo "✓ Recovery options available"
+echo "✓ BTRFS native support"
 if [[ $use_luks -eq 1 ]]; then
-    output "✓ LUKS encryption support"
+    echo "✓ LUKS encryption support"
 fi
-output ""
-output "System ready for first boot with Limine bootloader"
+echo ""
+echo "System ready for first boot with Limine bootloader"

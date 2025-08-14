@@ -5,10 +5,7 @@
 
 set -euo pipefail
 
-# Source output function and ensure required variables
-output() {
-    echo "$@"
-}
+# Source echo function and ensure required variables
 
 # Ensure required variables are defined
 hostname=${hostname:-\"\"}
@@ -18,7 +15,7 @@ timezone=${timezone:-\"America/Los_Angeles\"}
 
 # Validate required variables
 if [[ -z \"$hostname\" ]]; then
-    output \"ERROR: Hostname variable not set. This script requires hostname to be defined.\"
+    echo \"ERROR: Hostname variable not set. This script requires hostname to be defined.\"
     exit 1
 fi
 
@@ -29,55 +26,55 @@ fi
 validate_locale() {
     local locale="${1:?}"
     
-    output "Validating locale: $locale"
+    echo "Validating locale: $locale"
     
     # Check locale format (should be like en_US, de_DE, etc.)
     if [[ ! $locale =~ ^[a-z]{2}_[A-Z]{2}$ ]]; then
-        output "ERROR: Invalid locale format: $locale"
-        output "Expected format: xx_XX (e.g., en_US, de_DE)"
+        echo "ERROR: Invalid locale format: $locale"
+        echo "Expected format: xx_XX (e.g., en_US, de_DE)"
         return 1
     fi
     
     # Check if locale is supported by checking available locales
     if ! grep -q "^#*${locale}.UTF-8" /etc/locale.gen 2>/dev/null; then
-        output "WARNING: Locale $locale may not be available in system"
-        output "Proceeding anyway - will be validated during locale-gen"
+        echo "WARNING: Locale $locale may not be available in system"
+        echo "Proceeding anyway - will be validated during locale-gen"
     fi
     
-    output "  ✓ Locale format validated: $locale"
+    echo "  ✓ Locale format validated: $locale"
     return 0
 }
 
 validate_timezone() {
     local tz="${1:?}"
     
-    output "Validating timezone: $tz"
+    echo "Validating timezone: $tz"
     
     # Check if timezone file exists
     if [[ ! -f "/usr/share/zoneinfo/$tz" ]]; then
-        output "ERROR: Invalid timezone: $tz"
-        output "Timezone file not found: /usr/share/zoneinfo/$tz"
+        echo "ERROR: Invalid timezone: $tz"
+        echo "Timezone file not found: /usr/share/zoneinfo/$tz"
         return 1
     fi
     
     # Validate timezone format (should have at least one slash)
     if [[ ! $tz =~ / ]]; then
-        output "WARNING: Unusual timezone format: $tz"
-        output "Expected format: Continent/City (e.g., America/New_York)"
+        echo "WARNING: Unusual timezone format: $tz"
+        echo "Expected format: Continent/City (e.g., America/New_York)"
     fi
     
-    output "  ✓ Timezone validated: $tz"
+    echo "  ✓ Timezone validated: $tz"
     return 0
 }
 
 validate_keyboard() {
     local kb="${1:?}"
     
-    output "Validating keyboard layout: $kb"
+    echo "Validating keyboard layout: $kb"
     
     # Check keyboard layout format (alphanumeric and hyphens only)
     if [[ ! $kb =~ ^[a-zA-Z0-9_-]+$ ]]; then
-        output "ERROR: Invalid keyboard layout format: $kb"
+        echo "ERROR: Invalid keyboard layout format: $kb"
         return 1
     fi
     
@@ -98,24 +95,24 @@ validate_keyboard() {
     done
     
     if [[ "$is_common" == "false" ]]; then
-        output "WARNING: Uncommon keyboard layout: $kb"
-        output "This may not be available on all systems"
+        echo "WARNING: Uncommon keyboard layout: $kb"
+        echo "This may not be available on all systems"
     fi
     
-    output "  ✓ Keyboard layout validated: $kb"
+    echo "  ✓ Keyboard layout validated: $kb"
     return 0
 }
 
 validate_hostname() {
     local hostname="${1:?}"
     
-    output "Validating hostname: $hostname"
+    echo "Validating hostname: $hostname"
     
     # Check hostname format (RFC 1123 compliant)
     if [[ ! $hostname =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]]; then
-        output "ERROR: Invalid hostname format: $hostname"
-        output "Hostname must be 1-63 characters, alphanumeric and hyphens only"
-        output "Cannot start or end with hyphen"
+        echo "ERROR: Invalid hostname format: $hostname"
+        echo "Hostname must be 1-63 characters, alphanumeric and hyphens only"
+        echo "Cannot start or end with hyphen"
         return 1
     fi
     
@@ -123,13 +120,13 @@ validate_hostname() {
     local reserved_hostnames=("localhost" "router" "gateway" "dns" "mail" "www" "ftp")
     for reserved in "${reserved_hostnames[@]}"; do
         if [[ "$hostname" == "$reserved" ]]; then
-            output "WARNING: Using reserved hostname: $hostname"
-            output "This may cause network conflicts"
+            echo "WARNING: Using reserved hostname: $hostname"
+            echo "This may cause network conflicts"
             break
         fi
     done
     
-    output "  ✓ Hostname validated: $hostname"
+    echo "  ✓ Hostname validated: $hostname"
     return 0
 }
 
@@ -144,12 +141,12 @@ backup_existing_config() {
         local backup_file
         backup_file="${file}.backup.$(date +%s)"
         cp "$file" "$backup_file"
-        output "  Backed up existing $file to $backup_file"
+        echo "  Backed up existing $file to $backup_file"
     fi
 }
 
 create_hostname_config() {
-    output "Step 1/5: Setting hostname..."
+    echo "Step 1/5: Setting hostname..."
     
     local hostname_file="/mnt/etc/hostname"
     
@@ -158,7 +155,7 @@ create_hostname_config() {
     
     # Create hostname file
     if ! echo "$hostname" > "$hostname_file"; then
-        output "ERROR: Failed to create hostname file"
+        echo "ERROR: Failed to create hostname file"
         return 1
     fi
     
@@ -166,21 +163,21 @@ create_hostname_config() {
     local written_hostname
     written_hostname=$(tr -d '\n' < "$hostname_file" 2>/dev/null)
     if [[ "$written_hostname" != "${hostname}" ]]; then
-        output "ERROR: Hostname not written correctly"
-        output "Expected: ${hostname}"
-        output "Found: $written_hostname"
+        echo "ERROR: Hostname not written correctly"
+        echo "Expected: ${hostname}"
+        echo "Found: $written_hostname"
         return 1
     fi
     
     # Set proper permissions
     chmod 644 "$hostname_file"
     
-    output "  ✓ Hostname configured: ${hostname}"
+    echo "  ✓ Hostname configured: ${hostname}"
     return 0
 }
 
 create_hosts_file() {
-    output "Step 2/5: Creating hosts file..."
+    echo "Step 2/5: Creating hosts file..."
     
     local hosts_file="/mnt/etc/hosts"
     local template_file="$HERE/arch/etc/hosts.template"
@@ -190,19 +187,19 @@ create_hosts_file() {
     
     # Verify template exists
     if [[ ! -f "$template_file" ]]; then
-        output "ERROR: hosts template file not found: $template_file"
+        echo "ERROR: hosts template file not found: $template_file"
         return 1
     fi
     
     # Create hosts file from template
     if ! sed "s/{{HOSTNAME}}/$hostname/g" "$template_file" > "$hosts_file"; then
-        output "ERROR: Failed to create hosts file from template"
+        echo "ERROR: Failed to create hosts file from template"
         return 1
     fi
 
     # Verify hosts file was created correctly
     if [[ ! -f "$hosts_file" ]]; then
-        output "ERROR: Hosts file was not created"
+        echo "ERROR: Hosts file was not created"
         return 1
     fi
     
@@ -210,7 +207,7 @@ create_hosts_file() {
     local required_entries=("127.0.0.1" "localhost" "${hostname}")
     for entry in "${required_entries[@]}"; do
         if ! grep -q "$entry" "$hosts_file"; then
-            output "ERROR: Required entry '$entry' not found in hosts file"
+            echo "ERROR: Required entry '$entry' not found in hosts file"
             return 1
         fi
     done
@@ -218,12 +215,12 @@ create_hosts_file() {
     # Set proper permissions
     chmod 644 "$hosts_file"
     
-    output "  ✓ Hosts file created with hostname: ${hostname}"
+    echo "  ✓ Hosts file created with hostname: ${hostname}"
     return 0
 }
 
 create_locale_config() {
-    output "Step 3/5: Configuring locale..."
+    echo "Step 3/5: Configuring locale..."
     
     local locale_gen_file="/mnt/etc/locale.gen"
     local locale_conf_file="/mnt/etc/locale.conf"
@@ -235,38 +232,38 @@ create_locale_config() {
     
     # Create locale.gen
     if ! echo "$locale_line" > "$locale_gen_file"; then
-        output "ERROR: Failed to create locale.gen"
+        echo "ERROR: Failed to create locale.gen"
         return 1
     fi
     
     # Verify locale.gen content
     if ! grep -q "$locale_line" "$locale_gen_file"; then
-        output "ERROR: Locale configuration not written correctly to locale.gen"
+        echo "ERROR: Locale configuration not written correctly to locale.gen"
         return 1
     fi
     
     # Create locale.conf
     local locale_conf_content="LANG=${locale}.UTF-8"
     if ! echo "$locale_conf_content" > "$locale_conf_file"; then
-        output "ERROR: Failed to create locale.conf"
+        echo "ERROR: Failed to create locale.conf"
         return 1
     fi
     
     # Verify locale.conf content
     if ! grep -q "LANG=${locale}.UTF-8" "$locale_conf_file"; then
-        output "ERROR: Locale configuration not written correctly to locale.conf"
+        echo "ERROR: Locale configuration not written correctly to locale.conf"
         return 1
     fi
     
     # Set proper permissions
     chmod 644 "$locale_gen_file" "$locale_conf_file"
     
-    output "  ✓ Locale configured: ${locale}.UTF-8"
+    echo "  ✓ Locale configured: ${locale}.UTF-8"
     return 0
 }
 
 create_keyboard_config() {
-    output "Step 4/5: Setting keyboard layout..."
+    echo "Step 4/5: Setting keyboard layout..."
     
     local vconsole_file="/mnt/etc/vconsole.conf"
     local keymap_line="KEYMAP=$kblayout"
@@ -276,32 +273,32 @@ create_keyboard_config() {
     
     # Create vconsole.conf
     if ! echo "$keymap_line" > "$vconsole_file"; then
-        output "ERROR: Failed to create vconsole.conf"
+        echo "ERROR: Failed to create vconsole.conf"
         return 1
     fi
     
     # Verify content was written correctly
     if ! grep -q "KEYMAP=${kblayout}" "$vconsole_file"; then
-        output "ERROR: Keyboard configuration not written correctly"
+        echo "ERROR: Keyboard configuration not written correctly"
         return 1
     fi
     
     # Set proper permissions
     chmod 644 "$vconsole_file"
     
-    output "  ✓ Keyboard layout configured: ${kblayout}"
+    echo "  ✓ Keyboard layout configured: ${kblayout}"
     return 0
 }
 
 configure_timezone() {
-    output "Step 5/5: Configuring timezone..."
+    echo "Step 5/5: Configuring timezone..."
     
     local timezone_path="/usr/share/zoneinfo/$timezone"
     local localtime_link="/mnt/etc/localtime"
     
     # Verify timezone file exists (should have been validated earlier)
     if [[ ! -f "$timezone_path" ]]; then
-        output "ERROR: Timezone file not found: $timezone_path"
+        echo "ERROR: Timezone file not found: $timezone_path"
         return 1
     fi
     
@@ -312,31 +309,31 @@ configure_timezone() {
     
     # Create timezone symlink
     if ! ln -sf "$timezone_path" "$localtime_link"; then
-        output "ERROR: Failed to create timezone symlink"
+        echo "ERROR: Failed to create timezone symlink"
         return 1
     fi
     
     # Verify symlink was created correctly
     if [[ ! -L "$localtime_link" ]]; then
-        output "ERROR: Timezone symlink not created"
+        echo "ERROR: Timezone symlink not created"
         return 1
     fi
     
     local link_target
     link_target=$(readlink "$localtime_link")
     if [[ "$link_target" != "$timezone_path" ]]; then
-        output "ERROR: Timezone symlink points to wrong target"
-        output "Expected: $timezone_path"
-        output "Found: $link_target"
+        echo "ERROR: Timezone symlink points to wrong target"
+        echo "Expected: $timezone_path"
+        echo "Found: $link_target"
         return 1
     fi
     
-    output "  ✓ Timezone configured: ${timezone}"
+    echo "  ✓ Timezone configured: ${timezone}"
     return 0
 }
 
 verify_all_configuration() {
-    output "Verifying all locale configuration..."
+    echo "Verifying all locale configuration..."
     
     local config_files=(
         "/mnt/etc/hostname:${hostname}"
@@ -353,62 +350,62 @@ verify_all_configuration() {
         local expected_content="${config#*:}"
         
         if [[ ! -f "$file" ]]; then
-            output "ERROR: Configuration file missing: $file"
+            echo "ERROR: Configuration file missing: $file"
             ((verification_errors++))
         elif [[ ! -s "$file" ]]; then
-            output "ERROR: Configuration file empty: $file"
+            echo "ERROR: Configuration file empty: $file"
             ((verification_errors++))
         elif ! grep -q "$expected_content" "$file"; then
-            output "ERROR: Expected content not found in $file"
-            output "  Looking for: $expected_content"
+            echo "ERROR: Expected content not found in $file"
+            echo "  Looking for: $expected_content"
             ((verification_errors++))
         else
-            output "  ✓ $file verified"
+            echo "  ✓ $file verified"
         fi
     done
     
     # Verify timezone symlink
     if [[ ! -L "/mnt/etc/localtime" ]]; then
-        output "ERROR: Timezone symlink missing"
+        echo "ERROR: Timezone symlink missing"
         ((verification_errors++))
     else
-        output "  ✓ /mnt/etc/localtime verified"
+        echo "  ✓ /mnt/etc/localtime verified"
     fi
     
     if [[ $verification_errors -gt 0 ]]; then
-        output "ERROR: $verification_errors configuration verification failures"
+        echo "ERROR: $verification_errors configuration verification failures"
         return 1
     fi
     
-    output "All configuration files verified successfully"
+    echo "All configuration files verified successfully"
     return 0
 }
 
 display_configuration_summary() {
-    output ""
-    output "=== Locale Configuration Summary ==="
-    output "Hostname: ${hostname}"
-    output "Locale: ${locale}.UTF-8"
-    output "Keyboard: ${kblayout}"
-    output "Timezone: ${timezone}"
-    output ""
+    echo ""
+    echo "=== Locale Configuration Summary ==="
+    echo "Hostname: ${hostname}"
+    echo "Locale: ${locale}.UTF-8"
+    echo "Keyboard: ${kblayout}"
+    echo "Timezone: ${timezone}"
+    echo ""
     
-    output "=== Configuration Files Created ==="
-    output "Hostname: /etc/hostname"
-    output "Hosts: /etc/hosts"
-    output "Locale generation: /etc/locale.gen"
-    output "Locale config: /etc/locale.conf"
-    output "Keyboard: /etc/vconsole.conf"
-    output "Timezone: /etc/localtime -> /usr/share/zoneinfo/${timezone}"
-    output "===================================="
-    output ""
+    echo "=== Configuration Files Created ==="
+    echo "Hostname: /etc/hostname"
+    echo "Hosts: /etc/hosts"
+    echo "Locale generation: /etc/locale.gen"
+    echo "Locale config: /etc/locale.conf"
+    echo "Keyboard: /etc/vconsole.conf"
+    echo "Timezone: /etc/localtime -> /usr/share/zoneinfo/${timezone}"
+    echo "===================================="
+    echo ""
 }
 
 # =====================================
 # MAIN CONFIGURATION PROCESS
 # =====================================
 
-output "=== Locale and System Configuration ==="
+echo "=== Locale and System Configuration ==="
 
 # Validate all input parameters
 validate_hostname "$hostname" || return 1
@@ -416,8 +413,8 @@ validate_locale "$locale" || return 1
 validate_keyboard "$kblayout" || return 1
 validate_timezone "$timezone" || return 1
 
-output "All input parameters validated successfully"
-output ""
+echo "All input parameters validated successfully"
+echo ""
 
 # Create configuration files
 create_hostname_config || return 1
@@ -432,11 +429,11 @@ verify_all_configuration || return 1
 # Display summary
 display_configuration_summary
 
-output "=== Locale Configuration Complete ==="
-output "✓ Hostname configured: ${hostname}"
-output "✓ Locale configured: ${locale}.UTF-8"
-output "✓ Keyboard layout: ${kblayout}"
-output "✓ Timezone: ${timezone}"
-output "✓ All configuration files verified"
-output ""
-output "System locale configuration ready for chroot phase"
+echo "=== Locale Configuration Complete ==="
+echo "✓ Hostname configured: ${hostname}"
+echo "✓ Locale configured: ${locale}.UTF-8"
+echo "✓ Keyboard layout: ${kblayout}"
+echo "✓ Timezone: ${timezone}"
+echo "✓ All configuration files verified"
+echo ""
+echo "System locale configuration ready for chroot phase"

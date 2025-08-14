@@ -5,17 +5,14 @@
 
 set -euo pipefail
 
-# Source output function
-output() {
-    echo "$@"
-}
+# Source echo function
 
 # =====================================
 # VALIDATION FUNCTIONS
 # =====================================
 
 validate_current_mounts() {
-    output "Validating current mount structure..."
+    echo "Validating current mount structure..."
     
     # Expected mount points based on our BTRFS setup
     local expected_mounts=(
@@ -31,31 +28,31 @@ validate_current_mounts() {
     
     for mount_point in "${expected_mounts[@]}"; do
         if ! mountpoint -q "$mount_point"; then
-            output "ERROR: $mount_point is not mounted"
+            echo "ERROR: $mount_point is not mounted"
             ((mount_errors++))
         else
-            output "  ✓ $mount_point is properly mounted"
+            echo "  ✓ $mount_point is properly mounted"
         fi
     done
     
     if [[ $mount_errors -gt 0 ]]; then
-        output "ERROR: $mount_errors mount points are missing"
-        output "Cannot generate fstab with incomplete mount structure"
+        echo "ERROR: $mount_errors mount points are missing"
+        echo "Cannot generate fstab with incomplete mount structure"
         return 1
     fi
     
-    output "Mount structure validation passed"
+    echo "Mount structure validation passed"
     return 0
 }
 
 verify_filesystem_types() {
-    output "Verifying filesystem types..."
+    echo "Verifying filesystem types..."
     
     # Check BTRFS root
     local root_fstype
     root_fstype=$(findmnt -n -o FSTYPE /mnt)
     if [[ "$root_fstype" != "btrfs" ]]; then
-        output "ERROR: Root filesystem is not BTRFS (found: $root_fstype)"
+        echo "ERROR: Root filesystem is not BTRFS (found: $root_fstype)"
         return 1
     fi
     
@@ -63,11 +60,11 @@ verify_filesystem_types() {
     local esp_fstype
     esp_fstype=$(findmnt -n -o FSTYPE /mnt/boot/efi)
     if [[ "$esp_fstype" != "vfat" ]]; then
-        output "ERROR: ESP is not FAT32 (found: $esp_fstype)"
+        echo "ERROR: ESP is not FAT32 (found: $esp_fstype)"
         return 1
     fi
     
-    output "Filesystem types verified correctly"
+    echo "Filesystem types verified correctly"
     return 0
 }
 
@@ -76,17 +73,17 @@ verify_filesystem_types() {
 # =====================================
 
 generate_fstab() {
-    output "Generating fstab with UUIDs..."
+    echo "Generating fstab with UUIDs..."
     
     # Generate fstab using UUIDs for device identification
     if ! genfstab -U /mnt > /tmp/fstab.new 2>/dev/null; then
-        output "ERROR: Failed to generate fstab"
+        echo "ERROR: Failed to generate fstab"
         return 1
     fi
     
     # Validate fstab was created and is not empty
     if [[ ! -s /tmp/fstab.new ]]; then
-        output "ERROR: Generated fstab is empty"
+        echo "ERROR: Generated fstab is empty"
         return 1
     fi
     
@@ -94,17 +91,17 @@ generate_fstab() {
     local fstab_lines
     fstab_lines=$(grep -c "^[^#]" /tmp/fstab.new || echo "0")
     if [[ $fstab_lines -lt 6 ]]; then
-        output "ERROR: Generated fstab has too few entries ($fstab_lines)"
-        output "Expected at least 6 filesystem entries"
+        echo "ERROR: Generated fstab has too few entries ($fstab_lines)"
+        echo "Expected at least 6 filesystem entries"
         return 1
     fi
     
-    output "fstab generated successfully with $fstab_lines filesystem entries"
+    echo "fstab generated successfully with $fstab_lines filesystem entries"
     return 0
 }
 
 clean_fstab_subvolume_references() {
-    output "Cleaning conflicting subvolume references..."
+    echo "Cleaning conflicting subvolume references..."
     
     # Explanation of the sed operation:
     # When we set a default subvolume for snapper (@snapshots/1/snapshot),
@@ -129,31 +126,31 @@ clean_fstab_subvolume_references() {
     
     # Verify the cleaning operation worked
     if grep -q "\.snapshots/1/snapshot" /tmp/fstab.new; then
-        output "WARNING: Some snapshot subvolume references still exist in fstab"
-        output "This may cause boot issues with snapper snapshots"
+        echo "WARNING: Some snapshot subvolume references still exist in fstab"
+        echo "This may cause boot issues with snapper snapshots"
         
         # Show the problematic lines
-        output "Problematic lines:"
+        echo "Problematic lines:"
         grep "\.snapshots/1/snapshot" /tmp/fstab.new || true
     else
-        output "Successfully removed all snapshot subvolume references"
+        echo "Successfully removed all snapshot subvolume references"
     fi
     
     # Check if any modifications were actually made
     if diff -q /tmp/fstab.backup /tmp/fstab.new &>/dev/null; then
-        output "No subvolume references needed cleaning"
+        echo "No subvolume references needed cleaning"
     else
-        output "fstab cleaned of conflicting subvolume references"
+        echo "fstab cleaned of conflicting subvolume references"
     fi
 }
 
 validate_fstab() {
-    output "Validating fstab syntax and feasibility..."
+    echo "Validating fstab syntax and feasibility..."
     
     # Check for basic syntax issues using findmnt
     if ! findmnt --verify --tab-file /tmp/fstab.new 2>/dev/null; then
-        output "ERROR: fstab has syntax errors or invalid entries"
-        output "Running detailed verification..."
+        echo "ERROR: fstab has syntax errors or invalid entries"
+        echo "Running detailed verification..."
         findmnt --verify --tab-file /tmp/fstab.new || true
         return 1
     fi
@@ -162,7 +159,7 @@ validate_fstab() {
     local duplicate_mounts
     duplicate_mounts=$(awk '$2 != "" {print $2}' /tmp/fstab.new | sort | uniq -d)
     if [[ -n $duplicate_mounts ]]; then
-        output "ERROR: Duplicate mount points found in fstab:"
+        echo "ERROR: Duplicate mount points found in fstab:"
         echo "$duplicate_mounts"
         return 1
     fi
@@ -178,24 +175,24 @@ validate_fstab() {
     done
     
     if [[ ${#missing_mounts[@]} -gt 0 ]]; then
-        output "ERROR: Missing expected mount points in fstab:"
+        echo "ERROR: Missing expected mount points in fstab:"
         printf '  %s\n' "${missing_mounts[@]}"
         return 1
     fi
     
-    output "fstab validation passed - syntax and content verified"
+    echo "fstab validation passed - syntax and content verified"
     return 0
 }
 
 install_fstab() {
-    output "Installing validated fstab..."
+    echo "Installing validated fstab..."
     
     # Create target directory if it doesn't exist
     mkdir -p /mnt/etc
     
     # Install the validated fstab
     if ! cp /tmp/fstab.new /mnt/etc/fstab; then
-        output "ERROR: Failed to install fstab to /mnt/etc/fstab"
+        echo "ERROR: Failed to install fstab to /mnt/etc/fstab"
         return 1
     fi
     
@@ -205,13 +202,13 @@ install_fstab() {
     # Create backup in the target system
     cp /mnt/etc/fstab /mnt/etc/fstab.backup
     
-    output "fstab installed successfully with backup created"
+    echo "fstab installed successfully with backup created"
     return 0
 }
 
 display_fstab_summary() {
-    output ""
-    output "=== Generated fstab Summary ==="
+    echo ""
+    echo "=== Generated fstab Summary ==="
     
     # Count entries by filesystem type
     local btrfs_entries
@@ -222,19 +219,19 @@ display_fstab_summary() {
     vfat_entries=$(grep -c "vfat" /mnt/etc/fstab || echo "0")
     total_entries=$(grep -c "^[^#]" /mnt/etc/fstab || echo "0")
     
-    output "Total filesystem entries: $total_entries"
-    output "  BTRFS subvolumes: $btrfs_entries"
-    output "  FAT32 (ESP): $vfat_entries"
-    output ""
+    echo "Total filesystem entries: $total_entries"
+    echo "  BTRFS subvolumes: $btrfs_entries"
+    echo "  FAT32 (ESP): $vfat_entries"
+    echo ""
     
-    output "=== fstab Contents ==="
+    echo "=== fstab Contents ==="
     # Display with line numbers for easier reference
     nl -ba /mnt/etc/fstab
-    output "========================"
-    output ""
+    echo "========================"
+    echo ""
     
     # Show mount options summary
-    output "=== Mount Options Summary ==="
+    echo "=== Mount Options Summary ==="
     while IFS= read -r line; do
         if [[ $line =~ ^[^#] ]]; then
             local mount_point fs_type options
@@ -242,18 +239,18 @@ display_fstab_summary() {
             fs_type=$(echo "$line" | awk '{print $3}')
             options=$(echo "$line" | awk '{print $4}')
             
-            output "  $mount_point ($fs_type): $options"
+            echo "  $mount_point ($fs_type): $options"
         fi
     done < /mnt/etc/fstab
-    output "=============================="
-    output ""
+    echo "=============================="
+    echo ""
 }
 
 # =====================================
 # MAIN FSTAB GENERATION PROCESS
 # =====================================
 
-output "=== fstab Generation ==="
+echo "=== fstab Generation ==="
 
 # Step 1: Validate current system state
 validate_current_mounts || return 1
@@ -277,11 +274,11 @@ display_fstab_summary
 # Cleanup temporary files
 rm -f /tmp/fstab.new /tmp/fstab.backup
 
-output "=== fstab Generation Complete ==="
-output "✓ Mount structure validated"
-output "✓ fstab generated with UUIDs"
-output "✓ Subvolume conflicts resolved"
-output "✓ Syntax and content validated"
-output "✓ fstab installed with backup"
-output ""
-output "The system is ready for boot with the generated fstab"
+echo "=== fstab Generation Complete ==="
+echo "✓ Mount structure validated"
+echo "✓ fstab generated with UUIDs"
+echo "✓ Subvolume conflicts resolved"
+echo "✓ Syntax and content validated"
+echo "✓ fstab installed with backup"
+echo ""
+echo "The system is ready for boot with the generated fstab"

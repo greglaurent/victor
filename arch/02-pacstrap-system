@@ -5,10 +5,7 @@
 
 set -euo pipefail
 
-# Source output function
-output() {
-    echo "$@"
-}
+# No output function - use echo directly
 
 # =====================================
 # PACKAGE CATEGORIES
@@ -82,7 +79,7 @@ readonly MONITORING_PACKAGES=(
 # =====================================
 detect_microcode() {
     local cpu_vendor
-    cpu_vendor=$(grep -m1 "vendor_id" /proc/cpuinfo | cut -d: -f2 | tr -d ' ' || echo "unknown")
+    cpu_vendor=$(grep -m1 "vendor_id" /proc/cpuinfo | cut -d: -f2 | tr -d ' ' 2>/dev/null || echo "unknown")
     
     case "$cpu_vendor" in
         "AuthenticAMD")
@@ -92,7 +89,7 @@ detect_microcode() {
             echo "intel-ucode"
             ;;
         *)
-            echo ""
+            # Return nothing for unknown CPU
             ;;
     esac
 }
@@ -105,12 +102,12 @@ validate_pacstrap_success() {
     
     for package in "${critical_packages[@]}"; do
         if ! arch-chroot /mnt pacman -Q "$package" &>/dev/null; then
-            output "ERROR: Critical package '$package' not found after pacstrap"
+            echo "ERROR: Critical package '$package' not found after pacstrap"
             return 1
         fi
     done
     
-    output "Package installation validation passed"
+    echo "Package installation validation passed"
     return 0
 }
 
@@ -119,10 +116,10 @@ check_available_space() {
     available_mb=$(df /mnt --output=avail -BM | tail -n1 | tr -d 'M')
     
     if [[ $available_mb -lt 2048 ]]; then
-        output "WARNING: Low disk space remaining (${available_mb}MB)"
-        output "Consider reducing package selection or expanding disk"
+        echo "WARNING: Low disk space remaining (${available_mb}MB)"
+        echo "Consider reducing package selection or expanding disk"
     else
-        output "Available space: ${available_mb}MB"
+        echo "Available space: ${available_mb}MB"
     fi
 }
 
@@ -134,50 +131,50 @@ install_package_group() {
     shift
     local packages=("$@")
     
-    output "Installing $group_name packages..."
-    output "  Packages: ${packages[*]}"
+    echo "Installing $group_name packages..."
+    echo "  Packages: ${packages[*]}"
     
     if ! pacstrap /mnt "${packages[@]}"; then
-        output "ERROR: Failed to install $group_name packages"
-        output "Failed packages: ${packages[*]}"
-        output "Common causes:"
-        output "  - Internet connection issues"
-        output "  - Repository sync problems"  
-        output "  - Package conflicts"
-        output "  - Insufficient disk space"
+        echo "ERROR: Failed to install $group_name packages"
+        echo "Failed packages: ${packages[*]}"
+        echo "Common causes:"
+        echo "  - Internet connection issues"
+        echo "  - Repository sync problems"  
+        echo "  - Package conflicts"
+        echo "  - Insufficient disk space"
         return 1
     fi
     
-    output "  ✓ $group_name packages installed successfully"
+    echo "  ✓ $group_name packages installed successfully"
 }
 
 # =====================================
 # MAIN INSTALLATION PROCESS
 # =====================================
 
-output "=== Base System Installation ==="
-output "Starting pacstrap installation process..."
+echo "=== Base System Installation ==="
+echo "Starting pacstrap installation process..."
 
 # Update package database
-output "Updating package database..."
+echo "Updating package database..."
 if ! pacman -Syy; then
-    output "ERROR: Failed to update package database"
-    output "This usually means:"
-    output "  1. No internet connection"
-    output "  2. Repository mirrors are unreachable" 
-    output "  3. Pacman keyring issues"
+    echo "ERROR: Failed to update package database"
+    echo "This usually means:"
+    echo "  1. No internet connection"
+    echo "  2. Repository mirrors are unreachable" 
+    echo "  3. Pacman keyring issues"
     return 1
 fi
 
 # Test repository access
-output "Testing repository access..."
+echo "Testing repository access..."
 if ! pacman -Ss base >/dev/null 2>&1; then
-    output "ERROR: Cannot access package repositories"
-    output "Repository database may not be properly synced"
+    echo "ERROR: Cannot access package repositories"
+    echo "Repository database may not be properly synced"
     return 1
 fi
 
-output "Package database updated successfully"
+echo "Package database updated successfully"
 
 # Detect microcode package
 microcode_package=$(detect_microcode)
@@ -216,14 +213,14 @@ if ! pacstrap /mnt "${all_packages[@]}"; then
     echo "Packages attempted: ${all_packages[*]}"
     exit 1
 fi
-output "✓ All packages installed successfully"
+echo "✓ All packages installed successfully"
 
 # Validate installation
-output ""
-output "=== Installation Validation ==="
+echo ""
+echo "=== Installation Validation ==="
 if ! validate_pacstrap_success; then
-    output "ERROR: Package installation validation failed"
-    output "Critical system packages are missing"
+    echo "ERROR: Package installation validation failed"
+    echo "Critical system packages are missing"
     return 1
 fi
 
@@ -231,17 +228,17 @@ fi
 check_available_space
 
 # Installation summary
-output ""
-output "=== Pacstrap Installation Complete ==="
-output "✓ All package groups installed successfully"
-output "✓ Critical packages validated"
-output "✓ Bootloader: Limine (modern alternative to GRUB)"
-output "✓ Security: AppArmor framework ready"
-output "✓ Monitoring: System health tools installed"
-output "✓ Admin tools: Complete troubleshooting toolkit"
-output ""
+echo ""
+echo "=== Pacstrap Installation Complete ==="
+echo "✓ All package groups installed successfully"
+echo "✓ Critical packages validated"
+echo "✓ Bootloader: Limine (modern alternative to GRUB)"
+echo "✓ Security: AppArmor framework ready"
+echo "✓ Monitoring: System health tools installed"
+echo "✓ Admin tools: Complete troubleshooting toolkit"
+echo ""
 
 # Export microcode info for other scripts
 export MICROCODE_PACKAGE="$microcode_package"
 
-output "Ready for next installation phase..."
+echo "Ready for next installation phase..."

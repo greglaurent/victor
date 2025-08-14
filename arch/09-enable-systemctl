@@ -5,10 +5,7 @@
 
 set -euo pipefail
 
-# Source output function
-output() {
-    echo "$@"
-}
+# Source echo function
 
 # =====================================
 # SERVICE CATEGORIES
@@ -63,26 +60,26 @@ readonly DISABLED_SERVICES=(
 # =====================================
 
 validate_systemctl_environment() {
-    output "Validating systemctl environment..."
+    echo "Validating systemctl environment..."
     
     # Ensure systemctl is available
     if ! systemctl --version &>/dev/null; then
-        output "ERROR: systemctl not available"
+        echo "ERROR: systemctl not available"
         return 1
     fi
     
     # Ensure we can operate on the target system
     if [[ ! -d /mnt/etc/systemd/system ]]; then
-        output "ERROR: Target systemd directory not found"
+        echo "ERROR: Target systemd directory not found"
         return 1
     fi
     
-    output "systemctl environment validated"
+    echo "systemctl environment validated"
     return 0
 }
 
 validate_service_units() {
-    output "Validating service units availability..."
+    echo "Validating service units availability..."
     
     local all_services=()
     all_services+=("${CRITICAL_SERVICES[@]}")
@@ -103,15 +100,15 @@ validate_service_units() {
     done
     
     if [[ ${#missing_services[@]} -gt 0 ]]; then
-        output "WARNING: Some service units not found:"
+        echo "WARNING: Some service units not found:"
         for service in "${missing_services[@]}"; do
-            output "  - $service"
+            echo "  - $service"
         done
-        output "These services will be skipped"
+        echo "These services will be skipped"
     fi
     
-    output "Available services: ${#available_services[@]}"
-    output "Missing services: ${#missing_services[@]}"
+    echo "Available services: ${#available_services[@]}"
+    echo "Missing services: ${#missing_services[@]}"
     return 0
 }
 
@@ -123,48 +120,48 @@ enable_service_with_validation() {
     local service="$1"
     local category="$2"
     
-    output "  Enabling $service ($category)..."
+    echo "  Enabling $service ($category)..."
     
     # Check if service unit exists
     if ! systemctl cat "$service" --root=/mnt &>/dev/null; then
-        output "    ⚠ Service unit not found: $service (skipping)"
+        echo "    ⚠ Service unit not found: $service (skipping)"
         return 0
     fi
     
     # Enable the service
     if ! systemctl enable "$service" --root=/mnt 2>/dev/null; then
-        output "    ✗ Failed to enable $service"
+        echo "    ✗ Failed to enable $service"
         return 1
     fi
     
     # Verify service was enabled
     if ! systemctl is-enabled "$service" --root=/mnt &>/dev/null; then
-        output "    ✗ Service $service not enabled after command"
+        echo "    ✗ Service $service not enabled after command"
         return 1
     fi
     
-    output "    ✓ $service enabled successfully"
+    echo "    ✓ $service enabled successfully"
     return 0
 }
 
 disable_service_with_validation() {
     local service="$1"
     
-    output "  Disabling $service..."
+    echo "  Disabling $service..."
     
     # Check if service exists before trying to disable
     if ! systemctl cat "$service" --root=/mnt &>/dev/null; then
-        output "    ⚠ Service unit not found: $service (skipping)"
+        echo "    ⚠ Service unit not found: $service (skipping)"
         return 0
     fi
     
     # Disable the service
     if ! systemctl disable "$service" --root=/mnt 2>/dev/null; then
-        output "    ⚠ Failed to disable $service (may not be enabled)"
+        echo "    ⚠ Failed to disable $service (may not be enabled)"
         return 0
     fi
     
-    output "    ✓ $service disabled successfully"
+    echo "    ✓ $service disabled successfully"
     return 0
 }
 
@@ -173,8 +170,8 @@ enable_service_category() {
     shift
     local services=("$@")
     
-    output ""
-    output "Enabling $category services..."
+    echo ""
+    echo "Enabling $category services..."
     
     local enabled_count=0
     local failed_count=0
@@ -187,10 +184,10 @@ enable_service_category() {
         fi
     done
     
-    output "  ✓ $category: $enabled_count enabled, $failed_count failed"
+    echo "  ✓ $category: $enabled_count enabled, $failed_count failed"
     
     if [[ $failed_count -gt 0 && "$category" == "Critical" ]]; then
-        output "ERROR: Critical service failures detected"
+        echo "ERROR: Critical service failures detected"
         return 1
     fi
     
@@ -202,8 +199,8 @@ enable_service_category() {
 # =====================================
 
 configure_dns_resolution() {
-    output ""
-    output "Configuring DNS resolution chain..."
+    echo ""
+    echo "Configuring DNS resolution chain..."
     
     # Remove existing resolv.conf
     if [[ -e /mnt/etc/resolv.conf ]]; then
@@ -212,7 +209,7 @@ configure_dns_resolution() {
     
     # Create systemd-resolved symlink
     if ! ln -sf /run/systemd/resolve/stub-resolv.conf /mnt/etc/resolv.conf; then
-        output "ERROR: Failed to create DNS resolution symlink"
+        echo "ERROR: Failed to create DNS resolution symlink"
         return 1
     fi
     
@@ -220,14 +217,14 @@ configure_dns_resolution() {
     local link_target
     link_target=$(readlink /mnt/etc/resolv.conf)
     if [[ "$link_target" != "/run/systemd/resolve/stub-resolv.conf" ]]; then
-        output "ERROR: DNS resolution symlink incorrect"
-        output "Expected: /run/systemd/resolve/stub-resolv.conf"
-        output "Found: $link_target"
+        echo "ERROR: DNS resolution symlink incorrect"
+        echo "Expected: /run/systemd/resolve/stub-resolv.conf"
+        echo "Found: $link_target"
         return 1
     fi
     
-    output "  ✓ DNS resolution chain configured:"
-    output "    Applications → systemd-resolved → unbound → secure DNS"
+    echo "  ✓ DNS resolution chain configured:"
+    echo "    Applications → systemd-resolved → unbound → secure DNS"
     return 0
 }
 
@@ -236,28 +233,28 @@ configure_dns_resolution() {
 # =====================================
 
 configure_zram() {
-    output ""
-    output "Configuring zram memory compression..."
+    echo ""
+    echo "Configuring zram memory compression..."
     
     local zram_config="/mnt/etc/systemd/zram-generator.conf"
     
     # Verify zram configuration exists
     if [[ ! -f "$zram_config" ]]; then
-        output "ERROR: zram configuration file missing: $zram_config"
+        echo "ERROR: zram configuration file missing: $zram_config"
         return 1
     fi
     
     # Verify zram configuration content
     if ! grep -q "zram-size" "$zram_config"; then
-        output "ERROR: zram configuration appears invalid"
+        echo "ERROR: zram configuration appears invalid"
         return 1
     fi
     
     # zram-generator automatically enables itself when config file exists
     # No explicit service enablement needed
     
-    output "  ✓ zram configured for automatic memory compression"
-    output "    Config: $zram_config"
+    echo "  ✓ zram configured for automatic memory compression"
+    echo "    Config: $zram_config"
     return 0
 }
 
@@ -266,15 +263,15 @@ configure_zram() {
 # =====================================
 
 validate_service_dependencies() {
-    output ""
-    output "Validating critical service dependencies..."
+    echo ""
+    echo "Validating critical service dependencies..."
     
     # Check systemd-resolved → unbound chain
     if systemctl is-enabled systemd-resolved --root=/mnt &>/dev/null; then
         if systemctl is-enabled unbound --root=/mnt &>/dev/null; then
-            output "  ✓ DNS resolution chain: systemd-resolved → unbound"
+            echo "  ✓ DNS resolution chain: systemd-resolved → unbound"
         else
-            output "  ⚠ systemd-resolved enabled but unbound missing"
+            echo "  ⚠ systemd-resolved enabled but unbound missing"
         fi
     fi
     
@@ -282,9 +279,9 @@ validate_service_dependencies() {
     if systemctl is-enabled NetworkManager --root=/mnt &>/dev/null; then
         if [[ -f /mnt/etc/NetworkManager/conf.d/security.conf ]]; then
             if grep -q "dns=systemd-resolved" /mnt/etc/NetworkManager/conf.d/security.conf; then
-                output "  ✓ NetworkManager → systemd-resolved integration"
+                echo "  ✓ NetworkManager → systemd-resolved integration"
             else
-                output "  ⚠ NetworkManager not configured for systemd-resolved"
+                echo "  ⚠ NetworkManager not configured for systemd-resolved"
             fi
         fi
     fi
@@ -292,22 +289,22 @@ validate_service_dependencies() {
     # Check AppArmor → audit integration
     if systemctl is-enabled apparmor --root=/mnt &>/dev/null; then
         if systemctl is-enabled auditd --root=/mnt &>/dev/null; then
-            output "  ✓ AppArmor → audit logging integration"
+            echo "  ✓ AppArmor → audit logging integration"
         else
-            output "  ⚠ AppArmor enabled but audit logging missing"
+            echo "  ⚠ AppArmor enabled but audit logging missing"
         fi
     fi
     
     # Check snapshot services integration
     if systemctl is-enabled snapper-timeline.timer --root=/mnt &>/dev/null; then
         if systemctl is-enabled snapper-cleanup.timer --root=/mnt &>/dev/null; then
-            output "  ✓ Snapper snapshot services configured"
+            echo "  ✓ Snapper snapshot services configured"
         else
-            output "  ⚠ Snapshot timeline enabled but cleanup missing"
+            echo "  ⚠ Snapshot timeline enabled but cleanup missing"
         fi
     fi
     
-    output "Service dependency validation complete"
+    echo "Service dependency validation complete"
     return 0
 }
 
@@ -316,8 +313,8 @@ validate_service_dependencies() {
 # =====================================
 
 verify_enabled_services() {
-    output ""
-    output "Verifying enabled services..."
+    echo ""
+    echo "Verifying enabled services..."
     
     local all_services=()
     all_services+=("${CRITICAL_SERVICES[@]}")
@@ -337,18 +334,18 @@ verify_enabled_services() {
         fi
     done
     
-    output "  Enabled services: ${#enabled_services[@]}"
-    output "  Not enabled: ${#disabled_services[@]}"
+    echo "  Enabled services: ${#enabled_services[@]}"
+    echo "  Not enabled: ${#disabled_services[@]}"
     
     if [[ ${#disabled_services[@]} -gt 0 ]]; then
-        output ""
-        output "Services not enabled:"
+        echo ""
+        echo "Services not enabled:"
         for service in "${disabled_services[@]}"; do
             local reason="unknown"
             if ! systemctl cat "$service" --root=/mnt &>/dev/null; then
                 reason="unit not found"
             fi
-            output "    - $service ($reason)"
+            echo "    - $service ($reason)"
         done
     fi
     
@@ -360,93 +357,93 @@ verify_enabled_services() {
 # =====================================
 
 display_services_summary() {
-    output ""
-    output "=== Systemd Services Configuration Summary ==="
-    output ""
+    echo ""
+    echo "=== Systemd Services Configuration Summary ==="
+    echo ""
     
-    output "=== Critical System Services ==="
+    echo "=== Critical System Services ==="
     for service in "${CRITICAL_SERVICES[@]}"; do
         local status="✗"
         if systemctl is-enabled "$service" --root=/mnt &>/dev/null; then
             status="✓"
         fi
-        output "  $status $service"
+        echo "  $status $service"
     done
     
-    output ""
-    output "=== Security Services ==="
+    echo ""
+    echo "=== Security Services ==="
     for service in "${SECURITY_SERVICES[@]}"; do
         local status="✗"
         if systemctl is-enabled "$service" --root=/mnt &>/dev/null; then
             status="✓"
         fi
-        output "  $status $service"
+        echo "  $status $service"
     done
     
-    output ""
-    output "=== Network Services ==="
+    echo ""
+    echo "=== Network Services ==="
     for service in "${NETWORK_SERVICES[@]}"; do
         local status="✗"
         if systemctl is-enabled "$service" --root=/mnt &>/dev/null; then
             status="✓"
         fi
-        output "  $status $service"
+        echo "  $status $service"
     done
     
-    output ""
-    output "=== Hardware & Peripheral Services ==="
+    echo ""
+    echo "=== Hardware & Peripheral Services ==="
     for service in "${HARDWARE_SERVICES[@]}"; do
         local status="✗"
         if systemctl is-enabled "$service" --root=/mnt &>/dev/null; then
             status="✓"
         fi
-        output "  $status $service"
+        echo "  $status $service"
     done
     
-    output ""
-    output "=== Snapshot & Backup Services ==="
+    echo ""
+    echo "=== Snapshot & Backup Services ==="
     for service in "${SNAPSHOT_SERVICES[@]}"; do
         local status="✗"
         if systemctl is-enabled "$service" --root=/mnt &>/dev/null; then
             status="✓"
         fi
-        output "  $status $service"
+        echo "  $status $service"
     done
     
-    output ""
-    output "=== Service Integration ==="
-    output "  • DNS: Applications → systemd-resolved → unbound → secure DNS"
-    output "  • Security: AppArmor + audit logging + fail2ban"
-    output "  • Network: Unbound DoT + NetworkManager privacy"
-    output "  • Snapshots: Timeline + cleanup automation"
-    output "  • Memory: zram compression enabled"
-    output ""
+    echo ""
+    echo "=== Service Integration ==="
+    echo "  • DNS: Applications → systemd-resolved → unbound → secure DNS"
+    echo "  • Security: AppArmor + audit logging + fail2ban"
+    echo "  • Network: Unbound DoT + NetworkManager privacy"
+    echo "  • Snapshots: Timeline + cleanup automation"
+    echo "  • Memory: zram compression enabled"
+    echo ""
     
-    output "=== Post-Boot Commands ==="
-    output "  • Check services: systemctl status unbound apparmor"
-    output "  • DNS test: resolvectl query cloudflare.com"
-    output "  • Security check: network-security-check"
-    output "  • Snapshot list: snapper list"
-    output "  • Firewall setup: ufw allow ssh && ufw enable"
-    output "===================================================="
-    output ""
+    echo "=== Post-Boot Commands ==="
+    echo "  • Check services: systemctl status unbound apparmor"
+    echo "  • DNS test: resolvectl query cloudflare.com"
+    echo "  • Security check: network-security-check"
+    echo "  • Snapshot list: snapper list"
+    echo "  • Firewall setup: ufw allow ssh && ufw enable"
+    echo "===================================================="
+    echo ""
 }
 
 # =====================================
 # MAIN SERVICE CONFIGURATION PROCESS
 # =====================================
 
-output "=== Systemd Services Configuration ==="
-output "Enabling services for secure, modern Arch Linux system"
-output ""
+echo "=== Systemd Services Configuration ==="
+echo "Enabling services for secure, modern Arch Linux system"
+echo ""
 
 # Pre-configuration validation
 validate_systemctl_environment || return 1
 validate_service_units
 
 # Disable conflicting services first
-output ""
-output "Disabling conflicting services..."
+echo ""
+echo "Disabling conflicting services..."
 for service in "${DISABLED_SERVICES[@]}"; do
     disable_service_with_validation "$service"
 done
@@ -469,13 +466,13 @@ verify_enabled_services
 # Display comprehensive summary
 display_services_summary
 
-output "=== Systemd Services Configuration Complete ==="
-output "✓ Critical services enabled and validated"
-output "✓ Security framework services configured"
-output "✓ Network services with privacy and security"
-output "✓ Hardware support services enabled"
-output "✓ Snapshot and backup automation configured"
-output "✓ DNS resolution chain properly integrated"
-output "✓ Memory compression (zram) configured"
-output ""
-output "System services ready for secure, modern operation"
+echo "=== Systemd Services Configuration Complete ==="
+echo "✓ Critical services enabled and validated"
+echo "✓ Security framework services configured"
+echo "✓ Network services with privacy and security"
+echo "✓ Hardware support services enabled"
+echo "✓ Snapshot and backup automation configured"
+echo "✓ DNS resolution chain properly integrated"
+echo "✓ Memory compression (zram) configured"
+echo ""
+echo "System services ready for secure, modern operation"
