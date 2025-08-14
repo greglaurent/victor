@@ -271,7 +271,8 @@ disk_prompt() {
       # Confirmation for destructive operation
       echo "WARNING: This will DESTROY all data on ${disk}!"
       confirmation=""
-      read -r -p "Type 'YES' to continue: " confirmation </dev/tty
+      echo -n "Type 'YES' to continue: " >/dev/tty
+      read -r confirmation </dev/tty
       if [[ $confirmation != "YES" ]]; then
         echo "Installation cancelled."
         exit 1
@@ -638,7 +639,8 @@ fi
 echo ""
 
 reboot_confirm=""
-read -r -p "Reboot now? (y/N): " reboot_confirm </dev/tty
+echo -n "Reboot now? (y/N): " >/dev/tty
+read -r reboot_confirm </dev/tty
 if [[ $reboot_confirm == [yY] ]]; then
   reboot
 fi

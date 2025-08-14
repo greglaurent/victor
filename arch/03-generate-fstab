@@ -73,58 +73,21 @@ verify_filesystem_types() {
 # =====================================
 
 generate_fstab() {
-    echo "Generating fstab from template..."
+    echo "Generating a new fstab."
     
-    # Check if template exists
-    if [[ ! -f "fstab.template" ]]; then
-        echo "ERROR: fstab template not found"
+    # Generate fstab using genfstab directly to /mnt/etc/fstab
+    if ! genfstab -U /mnt >> /mnt/etc/fstab; then
+        echo "ERROR: Failed to generate fstab"
         return 1
     fi
     
-    # Get UUIDs
-    local esp_uuid root_device
-    esp_uuid=$(lsblk -no UUID /dev/disk/by-partlabel/ESP)
+    # Clean up snapshot subvolume references that cause boot issues
+    sed -i 's#,subvolid=258,subvol=/@/.snapshots/1/snapshot,subvol=@/.snapshots/1/snapshot##g' /mnt/etc/fstab
     
-    # Determine root device based on encryption
-    if [[ ${use_luks:-0} -eq 1 ]]; then
-        root_device="/dev/mapper/cryptroot"
-    else
-        local root_uuid
-        # Try different possible partition labels
-        if [[ -e /dev/disk/by-partlabel/ROOT ]]; then
-            root_uuid=$(lsblk -no UUID /dev/disk/by-partlabel/ROOT)
-        elif [[ -e /dev/disk/by-partlabel/root ]]; then
-            root_uuid=$(lsblk -no UUID /dev/disk/by-partlabel/root)
-        else
-            # Fallback: find the BTRFS partition
-            root_uuid=$(lsblk -no UUID -t btrfs | head -1)
-        fi
-        root_device="UUID=${root_uuid}"
-    fi
+    # Copy to temp file for validation
+    cp /mnt/etc/fstab /tmp/fstab.new
     
-    # Validate UUIDs were found
-    if [[ -z "$esp_uuid" ]]; then
-        echo "ERROR: ESP UUID not found"
-        return 1
-    fi
-    
-    if [[ ${use_luks:-0} -eq 0 && -z "${root_uuid:-}" ]]; then
-        echo "ERROR: Root UUID not found"
-        return 1
-    fi
-    
-    # Generate fstab from template
-    sed -e "s|__ROOT_DEVICE__|${root_device}|g" \
-        -e "s|__ESP_UUID__|${esp_uuid}|g" \
-        "fstab.template" > /tmp/fstab.new
-    
-    # Validate fstab was created
-    if [[ ! -s /tmp/fstab.new ]]; then
-        echo "ERROR: Generated fstab is empty"
-        return 1
-    fi
-    
-    echo "fstab generated successfully from template"
+    echo "fstab generated successfully"
     return 0
 }
 
@@ -263,15 +226,6 @@ verify_filesystem_types || exit 1
 
 # Step 2: Generate fstab
 generate_fstab || exit 1
-
-# Step 3: Validate generated fstab
-validate_fstab || exit 1
-
-# Step 4: Install fstab
-install_fstab || exit 1
-
-# Step 5: Display summary
-display_fstab_summary
 
 # Cleanup temporary files
 rm -f /tmp/fstab.new /tmp/fstab.backup
