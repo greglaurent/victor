@@ -5,6 +5,26 @@
 
 set -euo pipefail
 
+# Source output function and ensure required variables
+output() {
+    printf '\\e[1;34m%-6s\\e[m\\n' \"${@}\"
+}
+
+# Ensure required variables are defined
+username=${username:-\"\"}
+HERE=${HERE:-\"\"}
+
+# Validate required variables
+if [[ -z \"$username\" ]]; then
+    output \"ERROR: Username variable not set. This script requires username to be defined.\"
+    exit 1
+fi
+
+if [[ -z \"$HERE\" ]]; then
+    output \"ERROR: HERE variable not set. This script requires HERE to be defined.\"
+    exit 1
+fi
+
 # =====================================
 # INSTALLATION VALIDATION CONSTANTS
 # =====================================
@@ -280,7 +300,7 @@ validate_user_configuration() {
     output "Step 6/6: Validating user configuration..."
     
     # Check user account exists
-    if ! grep -q "^${username:?}:" /mnt/etc/passwd; then
+    if ! grep -q "^$username:" /mnt/etc/passwd; then
         output "ERROR: User account not found: ${username}"
         return 1
     fi
@@ -368,7 +388,7 @@ prepare_victor_integration() {
     output "=== Preparing Victor Tools Integration ==="
     
     # Create target directories
-    local victor_target="/mnt/home/${username:?}/Workspace/victor"
+    local victor_target="/mnt/home/$username/Workspace/victor"
     local victor_bin="/mnt/usr/local/bin"
     
     output "Creating Victor directory structure..."
@@ -379,7 +399,7 @@ prepare_victor_integration() {
     output "Installing Victor tools..."
     
     # Copy main Victor structure (excluding repos and temporary files)
-    if ! cp -r "${HERE:?}"/{utils,vic,setup,install,run,arch} "$victor_target/" 2>/dev/null; then
+    if ! cp -r "$HERE"/{utils,vic,setup,install,run,arch} "$victor_target/" 2>/dev/null; then
         output "ERROR: Failed to copy Victor tools"
         return 1
     fi
@@ -518,7 +538,7 @@ generate_installation_report() {
     output ""
     output "=== Generating Installation Success Report ==="
     
-    local report_file="/mnt/home/${username:?}/installation-report.txt"
+    local report_file="/mnt/home/$username/installation-report.txt"
     
     cat > "$report_file" << EOF
 ================================================================================

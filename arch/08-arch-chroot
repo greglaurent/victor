@@ -5,6 +5,30 @@
 
 set -euo pipefail
 
+# Source output function and ensure required variables
+output() {
+    printf '\\e[1;34m%-6s\\e[m\\n' \"${@}\"
+}
+
+# Ensure required variables are defined  
+timezone=${timezone:-\"America/Los_Angeles\"}
+locale=${locale:-\"en_US\"}
+username=${username:-\"\"}
+fullname=${fullname:-\"\"}
+user_password=${user_password:-\"\"}
+install_mode=${install_mode:-\"desktop\"}
+
+# Validate required variables
+if [[ -z \"$username\" ]]; then
+    output \"ERROR: Username variable not set. This script requires username to be defined.\"
+    exit 1
+fi
+
+if [[ -z \"$user_password\" ]]; then
+    output \"ERROR: User password variable not set. This script requires user_password to be defined.\"
+    exit 1
+fi
+
 # =====================================
 # CHROOT ENVIRONMENT VALIDATION
 # =====================================
@@ -248,7 +272,7 @@ configure_graphics_drivers() {
 configure_timezone() {
     output "Step 2/8: Configuring timezone..."
     
-    local timezone_path="/usr/share/zoneinfo/${timezone:?}"
+    local timezone_path="/usr/share/zoneinfo/$timezone"
     
     # Verify timezone exists
     if [[ ! -f "$timezone_path" ]]; then
@@ -291,7 +315,7 @@ generate_locales() {
         return 1
     fi
     
-    if ! grep -q "${locale:?}.UTF-8" /etc/locale.gen; then
+    if ! grep -q "$locale.UTF-8" /etc/locale.gen; then
         output "ERROR: Locale ${locale}.UTF-8 not configured in locale.gen"
         return 1
     fi
@@ -375,7 +399,7 @@ create_user_account() {
     output "Step 6/8: Creating user account..."
     
     # Validate username format
-    if ! [[ "${username:?}" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
+    if ! [[ "$username" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
         output "ERROR: Invalid username format: ${username}"
         output "Username must start with letter/underscore, contain only lowercase letters, numbers, underscore, hyphen"
         return 1
@@ -390,7 +414,7 @@ create_user_account() {
     # Create user with appropriate groups
     local user_groups="wheel,adm,ftp,games,http,log,rfkill,sys,systemd-journal,uucp"
     
-    if ! useradd -c "${fullname:?}" -m -G "$user_groups" "${username}"; then
+    if ! useradd -c "$fullname" -m -G "$user_groups" "$username"; then
         output "ERROR: Failed to create user account"
         return 1
     fi
@@ -417,7 +441,7 @@ set_user_password() {
     output "Setting user password..."
     
     # Set user password
-    if ! echo -e "${user_password:?}\n${user_password}" | passwd "${username:?}"; then
+    if ! echo -e "$user_password\n$user_password" | passwd "$username"; then
         output "ERROR: Failed to set user password"
         return 1
     fi
@@ -515,7 +539,7 @@ install_additional_packages() {
 # =====================================
 
 configure_desktop_integration() {
-    if [[ "${install_mode:?}" == "desktop" ]]; then
+    if [[ "$install_mode" == "desktop" ]]; then
         output "Configuring desktop integration..."
         
         # Update dconf database
@@ -526,7 +550,7 @@ configure_desktop_integration() {
         
         # Create user directories
         if command -v xdg-user-dirs-update &>/dev/null; then
-            sudo -u "${username:?}" xdg-user-dirs-update
+            sudo -u "$username" xdg-user-dirs-update
             output "  ✓ User directories configured"
         fi
     fi
@@ -664,7 +688,7 @@ validate_user_configuration() {
     output "Validating user configuration..."
     
     # Check user exists and has proper groups
-    if ! id "${username:?}" &>/dev/null; then
+    if ! id "$username" &>/dev/null; then
         output "ERROR: User ${username} does not exist"
         return 1
     fi

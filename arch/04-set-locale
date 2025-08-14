@@ -5,6 +5,23 @@
 
 set -euo pipefail
 
+# Source output function and ensure required variables
+output() {
+    printf '\\e[1;34m%-6s\\e[m\\n' \"${@}\"
+}
+
+# Ensure required variables are defined
+hostname=${hostname:-\"\"}
+locale=${locale:-\"en_US\"}
+kblayout=${kblayout:-\"us\"}
+timezone=${timezone:-\"America/Los_Angeles\"}
+
+# Validate required variables
+if [[ -z \"$hostname\" ]]; then
+    output \"ERROR: Hostname variable not set. This script requires hostname to be defined.\"
+    exit 1
+fi
+
 # =====================================
 # VALIDATION FUNCTIONS
 # =====================================
@@ -140,7 +157,7 @@ create_hostname_config() {
     backup_existing_config "$hostname_file"
     
     # Create hostname file
-    if ! echo "${hostname:?}" > "$hostname_file"; then
+    if ! echo "$hostname" > "$hostname_file"; then
         output "ERROR: Failed to create hostname file"
         return 1
     fi
@@ -178,7 +195,7 @@ create_hosts_file() {
     fi
     
     # Create hosts file from template
-    if ! sed "s/{{HOSTNAME}}/${hostname:?}/g" "$template_file" > "$hosts_file"; then
+    if ! sed "s/{{HOSTNAME}}/$hostname/g" "$template_file" > "$hosts_file"; then
         output "ERROR: Failed to create hosts file from template"
         return 1
     fi
@@ -210,7 +227,7 @@ create_locale_config() {
     
     local locale_gen_file="/mnt/etc/locale.gen"
     local locale_conf_file="/mnt/etc/locale.conf"
-    local locale_line="${locale:?}.UTF-8 UTF-8"
+    local locale_line="$locale.UTF-8 UTF-8"
     
     # Backup existing files
     backup_existing_config "$locale_gen_file"
@@ -252,7 +269,7 @@ create_keyboard_config() {
     output "Step 4/5: Setting keyboard layout..."
     
     local vconsole_file="/mnt/etc/vconsole.conf"
-    local keymap_line="KEYMAP=${kblayout:?}"
+    local keymap_line="KEYMAP=$kblayout"
     
     # Backup existing file
     backup_existing_config "$vconsole_file"
@@ -279,7 +296,7 @@ create_keyboard_config() {
 configure_timezone() {
     output "Step 5/5: Configuring timezone..."
     
-    local timezone_path="/usr/share/zoneinfo/${timezone:?}"
+    local timezone_path="/usr/share/zoneinfo/$timezone"
     local localtime_link="/mnt/etc/localtime"
     
     # Verify timezone file exists (should have been validated earlier)
@@ -394,10 +411,10 @@ display_configuration_summary() {
 output "=== Locale and System Configuration ==="
 
 # Validate all input parameters
-validate_hostname "${hostname:?}" || return 1
-validate_locale "${locale:?}" || return 1
-validate_keyboard "${kblayout:?}" || return 1
-validate_timezone "${timezone:?}" || return 1
+validate_hostname "$hostname" || return 1
+validate_locale "$locale" || return 1
+validate_keyboard "$kblayout" || return 1
+validate_timezone "$timezone" || return 1
 
 output "All input parameters validated successfully"
 output ""

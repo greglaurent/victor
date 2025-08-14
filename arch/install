@@ -517,6 +517,21 @@ if [[ $confirm != [yY] ]]; then
   exit 0
 fi
 
+# Export all variables that child scripts need
+export use_luks
+export luks_passphrase
+export disk
+export hostname
+export locale
+export kblayout
+export timezone
+export username
+export fullname
+export user_password
+export install_mode
+export installation_date
+export HERE
+
 # Execute installation scripts with proper error handling
 output "Starting installation process..."
 

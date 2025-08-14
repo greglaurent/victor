@@ -5,6 +5,21 @@
 
 set -euo pipefail
 
+# Source output function and ensure required variables
+output() {
+    printf '\\e[1;34m%-6s\\e[m\\n' \"${@}\"
+}
+
+# Ensure required variables are defined
+use_luks=${use_luks:-0}
+disk=${disk:-\"\"}
+
+# Validate required variables
+if [[ -z \"$disk\" ]]; then
+    output \"ERROR: Disk variable not set. This script requires disk to be defined.\"
+    exit 1
+fi
+
 # =====================================
 # LIMINE CONFIGURATION CONSTANTS
 # =====================================
@@ -122,7 +137,7 @@ configure_mkinitcpio() {
     fi
 
     # Add LUKS hook if encryption is enabled
-    if [[ ${use_luks:?} -eq 1 ]]; then
+    if [[ $use_luks -eq 1 ]]; then
         output "  Adding LUKS support to mkinitcpio..."
         # Insert encrypt hook after block hook in the HOOKS array
         sed -i 's/\(block\)/\1 encrypt/' "$mkinitcpio_conf"
@@ -163,7 +178,7 @@ generate_kernel_parameters() {
     kernel_params+=("${SECURITY_PARAMS[@]}")
     
     # Handle root filesystem specification
-    if [[ ${use_luks:?} -eq 1 ]]; then
+    if [[ $use_luks -eq 1 ]]; then
         # For LUKS: point to encrypted device
         kernel_params+=("root=/dev/mapper/cryptroot")
         kernel_params+=("${LUKS_PARAMS[@]}")
@@ -201,14 +216,14 @@ create_limine_config() {
     kernel_params="${kernel_params% }"
     
     # Set recovery root based on encryption
-    if [[ ${use_luks:?} -eq 1 ]]; then
+    if [[ $use_luks -eq 1 ]]; then
         recovery_root="root=/dev/mapper/cryptroot"
     else
         recovery_root="root=/dev/disk/by-partlabel/rootfs"
     fi
     
     # Process template
-    if [[ ${use_luks:?} -eq 1 ]]; then
+    if [[ $use_luks -eq 1 ]]; then
         # Keep LUKS section
         sed -e "s|{{KERNEL_PARAMS}}|${kernel_params}|g" \
             -e "s|{{RECOVERY_ROOT}}|${recovery_root}|g" \
@@ -241,7 +256,7 @@ create_limine_config() {
     local entry_count
     entry_count=$(grep -c "^:" "$limine_cfg")
     local expected_entries
-    expected_entries=$([[ ${use_luks:?} -eq 1 ]] && echo "5" || echo "4")
+    expected_entries=$([[ $use_luks -eq 1 ]] && echo "5" || echo "4")
     
     if [[ $entry_count -ne $expected_entries ]]; then
         output "WARNING: Unexpected number of boot entries ($entry_count, expected $expected_entries)"
@@ -284,7 +299,7 @@ install_limine_bios() {
     output "Step 4/4: Installing Limine for BIOS compatibility..."
     
     # Install Limine to disk MBR for BIOS boot compatibility
-    if ! arch-chroot /mnt limine bios-install "${disk:?}"; then
+    if ! arch-chroot /mnt limine bios-install "$disk"; then
         output "ERROR: Failed to install Limine to disk MBR"
         return 1
     fi
@@ -429,7 +444,7 @@ display_limine_summary() {
     output "=== Recovery Options ==="
     output "  • Recovery mode (single user)"
     output "  • LTS kernel fallback"
-    if [[ ${use_luks:?} -eq 1 ]]; then
+    if [[ $use_luks -eq 1 ]]; then
         output "  • Emergency mode (LUKS bypass)"
     fi
     output "=================================="
@@ -469,7 +484,7 @@ output "✓ Dual-kernel support (main + LTS)"
 output "✓ Security hardening enabled"
 output "✓ Recovery options available"
 output "✓ BTRFS native support"
-if [[ ${use_luks:?} -eq 1 ]]; then
+if [[ $use_luks -eq 1 ]]; then
     output "✓ LUKS encryption support"
 fi
 output ""

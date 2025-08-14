@@ -5,6 +5,23 @@
 
 set -euo pipefail
 
+# Source output function
+output() {
+    printf '\e[1;34m%-6s\e[m\n' "${@}"
+}
+
+# Ensure required variables are defined
+use_luks=${use_luks:-0}
+luks_passphrase=${luks_passphrase:-""}
+disk=${disk:-""}
+installation_date=${installation_date:-"$(date '+%Y-%m-%d %H:%M:%S')"}
+
+# Validate required variables
+if [[ -z "$disk" ]]; then
+    output "ERROR: Disk variable not set. This script requires disk to be defined."
+    exit 1
+fi
+
 # =====================================
 # BTRFS MOUNT OPTIONS (SSD/NVMe Optimized)
 # =====================================
@@ -91,7 +108,7 @@ cleanup_on_failure() {
     fi
     
     # Close LUKS container if it exists
-    if [[ ${use_luks:?} -eq 1 ]] && [[ -e /dev/mapper/cryptroot ]]; then
+    if [[ $use_luks -eq 1 ]] && [[ -e /dev/mapper/cryptroot ]]; then
         cryptsetup close cryptroot || true
     fi
 }
@@ -106,7 +123,7 @@ output "Step 1/8: Installing required packages..."
 pacman -Sy --noconfirm --needed curl
 
 output "Step 2/8: Validating disk..."
-validate_disk "${disk:?}"
+validate_disk "$disk"
 
 output "Step 3/8: Wiping disk ${disk}..."
 sgdisk --zap-all "${disk}"
@@ -137,12 +154,16 @@ mkfs.fat -F 32 -s 2 "${ESP}"
 validate_filesystem_creation "${ESP}" "vfat"
 
 # Handle LUKS encryption if enabled
-if [[ ${use_luks:?} -eq 1 ]]; then
+if [[ $use_luks -eq 1 ]]; then
     output "  Creating LUKS container..."
-    echo -n "${luks_passphrase:?}" | cryptsetup luksFormat --pbkdf pbkdf2 "${rootfs_partition}" -d -
+    if [[ -z "$luks_passphrase" ]]; then
+        output "ERROR: LUKS passphrase not set but encryption is enabled"
+        exit 1
+    fi
+    echo -n "$luks_passphrase" | cryptsetup luksFormat --pbkdf pbkdf2 "${rootfs_partition}" -d -
     
     output "  Opening LUKS container..."
-    echo -n "${luks_passphrase}" | cryptsetup open "${rootfs_partition}" cryptroot -d -
+    echo -n "$luks_passphrase" | cryptsetup open "${rootfs_partition}" cryptroot -d -
     BTRFS='/dev/mapper/cryptroot'
 else
     BTRFS="${rootfs_partition}"
@@ -184,7 +205,7 @@ echo "<?xml version=\"1.0\"?>
 <snapshot>
   <type>single</type>
   <num>1</num>
-  <date>${installation_date:?}</date>
+  <date>$installation_date</date>
   <description>First Root Filesystem</description>
   <cleanup>number</cleanup>
 </snapshot>" > /mnt/@snapshots/1/info.xml
