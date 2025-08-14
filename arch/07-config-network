@@ -6,36 +6,8 @@
 set -euo pipefail
 
 # =====================================
-# SCRIPT INITIALIZATION  
-# =====================================
-
-# Detect script location and set HERE variable
-if [[ -n "${HERE:-}" ]]; then
-  # HERE is already set (called from install script)
-  :
-else
-  # Detect current directory context
-  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  if [[ -f "$SCRIPT_DIR/../vic" ]]; then
-    # We're in arch/ subdirectory of Victor
-    HERE="$(cd "$SCRIPT_DIR/.." && pwd)"
-    export HERE
-  else
-    # Standalone installation
-    export HERE="$SCRIPT_DIR"
-  fi
-fi
-
-# Define output function if not already available
-if ! declare -f output >/dev/null; then
-  output() {
-    printf '\e[1;34m%-6s\e[m\n' "${@}"
-  }
-fi
-
-# =====================================
 # NETWORK CONFIGURATION CONSTANTS
-# =====================================
+# ======================================
 
 readonly UNBOUND_PORT="5353"
 readonly NETWORKMANAGER_CONFIG_DIR="/mnt/etc/NetworkManager/conf.d"
@@ -107,8 +79,8 @@ configure_unbound_resolver() {
     output "Step 1/4: Configuring Unbound DNS resolver..."
     
     local unbound_conf="$UNBOUND_CONFIG_DIR/unbound.conf"
-    local unbound_template="$HERE/etc/unbound/unbound.conf.template"
-    local local_conf_src="$HERE/etc/unbound/unbound.conf.d/local.conf"
+    local unbound_template="$HERE/arch/etc/unbound/unbound.conf.template"
+    local local_conf_src="$HERE/arch/etc/unbound/unbound.conf.d/local.conf"
     
     # Verify template files exist
     if [[ ! -f "$unbound_template" ]]; then
@@ -172,8 +144,8 @@ configure_systemd_resolved() {
     output "Step 2/4: Configuring systemd-resolved integration..."
     
     local resolved_conf="$SYSTEMD_RESOLVED_CONFIG_DIR/unbound-integration.conf"
-    local resolved_template="$HERE/etc/systemd/resolved.conf.d/unbound-integration.conf.template"
-    local backup_conf_src="$HERE/etc/systemd/resolved.conf.d/backup-dns.conf"
+    local resolved_template="$HERE/arch/etc/systemd/resolved.conf.d/unbound-integration.conf.template"
+    local backup_conf_src="$HERE/arch/etc/systemd/resolved.conf.d/backup-dns.conf"
     
     # Verify template files exist
     if [[ ! -f "$resolved_template" ]]; then
@@ -222,9 +194,9 @@ configure_systemd_resolved() {
 configure_networkmanager() {
     output "Step 3/4: Configuring NetworkManager security and privacy..."
     
-    local nm_security_src="$HERE/etc/NetworkManager/conf.d/security.conf"
-    local nm_conn_sec_src="$HERE/etc/NetworkManager/conf.d/connection-security.conf"
-    local nm_wifi_sec_src="$HERE/etc/NetworkManager/conf.d/wifi-security.conf"
+    local nm_security_src="$HERE/arch/etc/NetworkManager/conf.d/security.conf"
+    local nm_conn_sec_src="$HERE/arch/etc/NetworkManager/conf.d/connection-security.conf"
+    local nm_wifi_sec_src="$HERE/arch/etc/NetworkManager/conf.d/wifi-security.conf"
     
     # Verify source files exist
     local missing_files=()
@@ -282,9 +254,9 @@ configure_networkmanager() {
 integrate_network_security() {
     output "Step 4/4: Integrating with system security configuration..."
     
-    local monitor_script_src="$HERE/usr/local/bin/network-security-check"
-    local monitor_service_src="$HERE/etc/systemd/system/network-security-monitor.service"
-    local monitor_timer_src="$HERE/etc/systemd/system/network-security-monitor.timer"
+    local monitor_script_src="$HERE/arch/usr/local/bin/network-security-check"
+    local monitor_service_src="$HERE/arch/etc/systemd/system/network-security-monitor.service"
+    local monitor_timer_src="$HERE/arch/etc/systemd/system/network-security-monitor.timer"
     
     # Verify source files exist
     local missing_files=()

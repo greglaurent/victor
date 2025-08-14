@@ -68,13 +68,13 @@ validate_config_templates() {
         "$HERE/arch/etc/sysctl.d/99-developer-workstation.conf"
         "$HERE/arch/etc/apparmor/parser.conf"
         "$HERE/arch/etc/audit/rules.d/apparmor.rules"
-        "$HERE/arch/etc/ssh/ssh_config.d/10-security.conf"
-        "$HERE/arch/etc/ssh/sshd_config.d/10-security.conf"
+        "$HERE/arch/etc/ssh/ssh_config.d/10-custom.conf"
+        "$HERE/arch/etc/ssh/sshd_config.d/10-custom.conf"
         "$HERE/arch/etc/issue.net"
         "$HERE/arch/etc/fail2ban/jail.d/sshd.local"
         "$HERE/arch/etc/fail2ban/fail2ban.local"
         "$HERE/arch/etc/ufw/user.rules"
-        "$HERE/arch/etc/systemd/resolved.conf.d/security.conf"
+        "$HERE/arch/etc/systemd/resolved.conf.d/backup-dns.conf"
         "$HERE/arch/etc/NetworkManager/conf.d/security.conf"
         "$HERE/arch/etc/sudoers.d/security"
         "$HERE/arch/etc/systemd/system/service.d/hardening.conf"
@@ -207,13 +207,13 @@ configure_ssh_security() {
     mkdir -p "$SSH_CONFIG_DIR/ssh_config.d" "$SSH_CONFIG_DIR/sshd_config.d"
     
     # Copy SSH client configuration
-    if ! cp "$HERE/arch/etc/ssh/ssh_config.d/10-security.conf" "$SSH_CONFIG_DIR/ssh_config.d/10-security.conf"; then
+    if ! cp "$HERE/arch/etc/ssh/ssh_config.d/10-custom.conf" "$SSH_CONFIG_DIR/ssh_config.d/10-custom.conf"; then
         output "ERROR: Failed to copy SSH client configuration"
         return 1
     fi
     
     # Copy SSH server configuration
-    if ! cp "$HERE/arch/etc/ssh/sshd_config.d/10-security.conf" "$SSH_CONFIG_DIR/sshd_config.d/10-security.conf"; then
+    if ! cp "$HERE/arch/etc/ssh/sshd_config.d/10-custom.conf" "$SSH_CONFIG_DIR/sshd_config.d/10-custom.conf"; then
         output "ERROR: Failed to copy SSH server configuration"
         return 1
     fi
@@ -225,12 +225,12 @@ configure_ssh_security() {
     fi
     
     # Set proper permissions
-    chmod 644 "$SSH_CONFIG_DIR/ssh_config.d/10-security.conf"
-    chmod 644 "$SSH_CONFIG_DIR/sshd_config.d/10-security.conf"
+    chmod 644 "$SSH_CONFIG_DIR/ssh_config.d/10-custom.conf"
+    chmod 644 "$SSH_CONFIG_DIR/sshd_config.d/10-custom.conf"
     chmod 644 "/mnt/etc/issue.net"
     
     # Verify SSH configuration files were created
-    if [[ ! -f "$SSH_CONFIG_DIR/sshd_config.d/10-security.conf" ]]; then
+    if [[ ! -f "$SSH_CONFIG_DIR/sshd_config.d/10-custom.conf" ]]; then
         output "ERROR: SSH server security configuration not created"
         return 1
     fi
@@ -296,7 +296,7 @@ setup_network_security() {
     # Configure secure DNS resolution
     mkdir -p "/mnt/etc/systemd/resolved.conf.d"
     
-    if ! cp "$HERE/arch/etc/systemd/resolved.conf.d/security.conf" "/mnt/etc/systemd/resolved.conf.d/security.conf"; then
+    if ! cp "$HERE/arch/etc/systemd/resolved.conf.d/backup-dns.conf" "/mnt/etc/systemd/resolved.conf.d/backup-dns.conf"; then
         output "ERROR: Failed to copy DNS security configuration"
         return 1
     fi
@@ -317,7 +317,7 @@ setup_network_security() {
     
     # Set proper permissions
     chmod 644 "/mnt/etc/ufw/user.rules"
-    chmod 644 "/mnt/etc/systemd/resolved.conf.d/security.conf"
+    chmod 644 "/mnt/etc/systemd/resolved.conf.d/backup-dns.conf"
     chmod 644 "/mnt/etc/NetworkManager/conf.d/security.conf"
     
     output "  ✓ Firewall default-deny rules configured"
@@ -396,7 +396,7 @@ validate_security_configuration() {
     fi
     
     # Check SSH security
-    if [[ ! -f "$SSH_CONFIG_DIR/sshd_config.d/10-security.conf" ]]; then
+    if [[ ! -f "$SSH_CONFIG_DIR/sshd_config.d/10-custom.conf" ]]; then
         output "ERROR: SSH security configuration missing"
         ((validation_errors++))
     else
@@ -412,7 +412,7 @@ validate_security_configuration() {
     fi
     
     # Check network security
-    if [[ ! -f "/mnt/etc/systemd/resolved.conf.d/security.conf" ]]; then
+    if [[ ! -f "/mnt/etc/systemd/resolved.conf.d/backup-dns.conf" ]]; then
         output "ERROR: DNS security configuration missing"
         ((validation_errors++))
     else
