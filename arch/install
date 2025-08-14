@@ -69,7 +69,15 @@ validate_installation_environment() {
   fi
 
   # Verify internet connectivity
-  if ! ping -c 1 archlinux.org &>/dev/null; then
+  local connectivity_test_passed=false
+  for test_site in archlinux.org google.com cloudflare.com; do
+    if curl -s --connect-timeout 3 --max-time 5 -I "https://$test_site" >/dev/null 2>&1; then
+      connectivity_test_passed=true
+      break
+    fi
+  done
+  
+  if [[ "$connectivity_test_passed" == "false" ]]; then
     output "ERROR: No internet connection detected"
     output "Please configure networking before running the installation"
     exit 1
@@ -428,7 +436,15 @@ if [[ ! -d /run/archiso ]]; then
 fi
 
 # Verify internet connectivity
-if ! ping -c 1 archlinux.org &>/dev/null; then
+connectivity_test_passed=false
+for test_site in archlinux.org google.com cloudflare.com; do
+  if curl -s --connect-timeout 3 --max-time 5 -I "https://$test_site" >/dev/null 2>&1; then
+    connectivity_test_passed=true
+    break
+  fi
+done
+
+if [[ "$connectivity_test_passed" == "false" ]]; then
   output "No internet connection detected. Please configure networking first."
   exit 1
 fi
