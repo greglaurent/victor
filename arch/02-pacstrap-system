@@ -152,12 +152,6 @@ install_package_group() {
 output "=== Base System Installation ==="
 output "Starting pacstrap installation process..."
 
-# Check internet connectivity
-if ! ping -c 1 archlinux.org &>/dev/null; then
-    output "ERROR: No internet connection for package downloads"
-    exit 1
-fi
-
 # Update package database
 output "Updating package database..."
 pacman -Sy
